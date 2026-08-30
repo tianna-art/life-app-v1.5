@@ -208,6 +208,9 @@ button{cursor:pointer}
   padding:2px 4px;max-width:128px;color:#E8E4D8;text-shadow:0 1px 9px rgba(7,9,22,.98),0 0 3px rgba(7,9,22,.9)}
 .nlabel .mk{display:block;font-size:.44rem;letter-spacing:.2em;color:#79839E;margin-bottom:3px}
 .nlabel .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nlabel.tight{max-width:88px}
+.nlabel.tight .lb{-webkit-line-clamp:1}
+.nlabel.tight .mk{display:none}
 .nlabel.dim{opacity:.22}
 .nlabel:focus-visible{outline:2px solid #D8B56A;outline-offset:2px;border-radius:6px}
 .nhit{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);border-radius:50%;background:none}
@@ -218,6 +221,12 @@ button{cursor:pointer}
   border-radius:999px;background:rgba(12,16,36,.85);font-family:var(--serif);font-size:.66rem;
   letter-spacing:.06em;color:#CBD1E0;padding:7px 13px}
 .mapreset:focus-visible{outline:2px solid #D8B56A;outline-offset:2px}
+.maplvl{position:absolute;left:50%;top:8px;transform:translate(-50%,-6px);
+  padding:5px 16px;border-radius:999px;background:rgba(12,16,32,.82);border:1px solid rgba(216,181,106,.4);
+  color:#F3E6C8;font-size:12px;letter-spacing:.16em;pointer-events:none;opacity:0;
+  transition:opacity .22s ease, transform .22s ease;z-index:6;white-space:nowrap}
+.maplvl.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.maplvl{transition:none}}
 .maphint{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 6px);
   text-align:center;font-size:.56rem;color:#7B84A0;letter-spacing:.06em;pointer-events:none;padding:0 14px;z-index:5}
 .mapempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 44px;
@@ -227,7 +236,7 @@ button{cursor:pointer}
 .ndetail{position:absolute;left:10px;right:10px;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 8px);
   z-index:9;background:#FBF7EA;border-radius:14px;padding:16px 16px 14px;
   box-shadow:0 14px 44px rgba(0,0,0,.55);transform:translateY(16px);opacity:0;pointer-events:none;
-  transition:opacity .22s ease,transform .22s ease;max-height:54vh;overflow-y:auto;overscroll-behavior:contain}
+  transition:opacity .22s ease,transform .22s ease;max-height:42vh;overflow-y:auto;overscroll-behavior:contain}
 .ndetail.on{transform:none;opacity:1;pointer-events:auto}
 .ndetail .x{position:absolute;right:6px;top:4px;padding:10px 12px;color:#A8926A;font-size:1.1rem;line-height:1}
 .ndetail .x:focus-visible{outline:2px solid #C88A5C;outline-offset:-2px}
@@ -391,6 +400,7 @@ button{cursor:pointer}
           <p class="mapsum" id="mapSum"></p>
           <button class="mapreset" id="mapReset">全体を見る</button>
           <p class="maphint" id="mapHint"></p>
+          <div class="maplvl" id="mapLvl" aria-live="polite"></div>
         </div>
       </div>
       <div class="ndetail" id="nodeDetail" role="dialog" aria-modal="false" aria-label="星の詳細">
@@ -887,7 +897,7 @@ function openFutureSheet(seed){
 var MAPC = {
   MAX_LABELED: 9,                 /* 初期表示のラベル付きノード上限 */
   EDGES_PER_NODE: 2,              /* 初期表示で各ノードが持つ線の本数 */
-  DIM: 0.18,                      /* 関係のないものの明るさ */
+  DIM: 0.10,                      /* 関係のないものの明るさ */
   PROMOTE: {seed:1, pattern:2, identity:3},
   IDENTITY_W: {choice:.22, repeat:.18, emotion:.15, domain:.15, effort:.12, duration:.10, stated:.08},
   DISPLAY_W:  {identity:.45, viewFit:.20, current:.15, bridge:.10, evidence:.10},
@@ -896,7 +906,7 @@ var MAPC = {
   ALL_W:      {turning:.20, emotion:.18, current:.17, echo:.15, wish:.12, cross:.10, important:.08},
   RING: {value:98, pattern:182, outer:262, evidence:[312, 436]},
   ALLRING: {value:74, base:168, step:58},
-  ZOOM: {min:.45, max:2.6, year:.70, month:1.20}
+  ZOOM: {min:.45, max:3.2, year:.75, month:1.25, week:1.95}, STEP_IN: 1.65, STEP_OUT: 0.62
 };
 var MAPCOL = {
   self:'#F3E6C8', value:'#D8B56A', interest:'#E58A8A', strength:'#9587DE',
@@ -1245,22 +1255,42 @@ var Insight = (function(){
       n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(n.id)>0;
     });
 
-    /* 章（月・年）*/
-    Object.keys(S.months).forEach(function(ym){
-      var t=(S.months[ym]||{}).title; if(!t) return;
-      var evs = order.filter(function(id){ var o=entries[id].occurredAt; return o && o.slice(0,7)===ym; });
-      if(!evs.length) return;
-      var n = add(mk('chapter','m:'+ym, t, ym.slice(0,4)+'年'+(+ym.slice(5,7))+'月の章', evs));
-      n.ym=ym; n.level='month'; n.identity=.45; n.confidence=.9; n.tier='pattern';
-      n.firstSeenAt=ym; n.lastSeenAt=ym;
+    /* 章：年 → 月 → 週。記録のある期間はすべて作り、内訳の推移を持たせる。 */
+    function trendOf(evs){
+      var t={moved:0, effort:0, pain:0, n:evs.length, energy:0};
+      evs.forEach(function(id){
+        var e=entries[id]; if(!e) return;
+        if(t[e.eventType]!==undefined) t[e.eventType]++;
+        t.energy += (e.energyDelta||0);
+      });
+      t.energy = evs.length ? t.energy/evs.length : 0;
+      return t;
+    }
+    function weekOf(iso){ return Math.min(5, Math.floor((+iso.slice(8,10)-1)/7)+1); }
+    var periods={};
+    order.forEach(function(id){
+      var e=entries[id]; if(!e.occurredAt || e.isFuture) return;
+      var y=e.occurredAt.slice(0,4), ym=e.occurredAt.slice(0,7);
+      var wk=ym+'-W'+weekOf(e.occurredAt);
+      (periods['y:'+y]  = periods['y:'+y]  || []).push(id);
+      (periods['m:'+ym] = periods['m:'+ym] || []).push(id);
+      (periods['w:'+wk] = periods['w:'+wk] || []).push(id);
     });
-    Object.keys(S.years).forEach(function(y){
-      var t=(S.years[y]||{}).title; if(!t) return;
-      var evs = order.filter(function(id){ var o=entries[id].occurredAt; return o && o.slice(0,4)===y; });
-      if(!evs.length) return;
-      var n = add(mk('chapter','y:'+y, t, y+'年の章', evs));
-      n.year=y; n.level='year'; n.identity=.6; n.confidence=.9; n.tier='identity';
-      n.firstSeenAt=y+'-01'; n.lastSeenAt=y+'-12';
+    Object.keys(periods).sort().forEach(function(pid){
+      var evs=periods[pid], head=pid.charAt(0), key=pid.slice(2), label, level, first, last;
+      if(head==='y'){ level='year';  label=(S.years[key]||{}).title || (key+'年'); first=key+'-01'; last=key+'-12'; }
+      else if(head==='m'){ level='month'; label=(S.months[key]||{}).title || ((+key.slice(5,7))+'月'); first=last=key; }
+      else { level='week'; label=(+key.slice(5,7))+'月 第'+key.slice(-1)+'週'; first=last=key.slice(0,7); }
+      var t=trendOf(evs);
+      var mix='心が動いた'+t.moved+'・力を使った'+t.effort+'・引っかかった'+t.pain;
+      var n=add(mk('chapter', pid, label,
+        (level==='year'? key+'年' : level==='month'? key+'の章' : key.slice(0,7)+' の週')+
+        'に残った'+t.n+'件。'+mix+'。', evs));
+      n.level=level; n.key=key; n.trend=t; n.ym = level==='month'? key : (level==='week'? key.slice(0,7) : null);
+      n.year = level==='year'? key : key.slice(0,4);
+      n.identity = level==='year'? .6 : level==='month'? .45 : .3;
+      n.confidence=.9; n.tier = level==='week' ? 'pattern' : 'identity';
+      n.firstSeenAt=first; n.lastSeenAt=last;
     });
 
     /* 根拠ノード */
@@ -1339,7 +1369,8 @@ function displayScore(n, mode){
    ══════════════════════════════════════════════════ */
 var Map3 = (function(){
   var stage, cv, ctx, layer, W=0, H=0, dpr=1;
-  var G=null, view=null, cam={x:0,y:0,z:1}, sel=null, chip=null, raf=0, intro=0, built=false;
+  var G=null, view=null, cam={x:0,y:0,z:1,base:0,v:1}, sel=null, chip=null, raf=0, intro=0, built=false;
+  var lvl=0;   /* 0=年 1=月 2=週 3=出来事 */
   var nodeDrag=null;
   var stars=[], nebula=[];
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1360,7 +1391,7 @@ var Map3 = (function(){
   /* ---- レイアウト（m-note と同じ、自分を根にした放射ツリー）----
      すべてのノードは必ず親を持ち、たどると「自分」に着く。
      角度を再帰的に分け合うので、点が重なりにくい。 */
-  var RAD = [150, 106, 74, 56, 44];
+  var LINK = 94;                                 /* 枝の長さは、どの深さでも同じ */
   function layout(mode, list, tree){
     var byId={}; list.forEach(function(n){ byId[n.id]=n; n.depth=0; });
     var kids = tree.kids, cnt = {};
@@ -1374,7 +1405,7 @@ var Map3 = (function(){
       var n = byId[id]; if(!n) return;
       n.x=x; n.y=y; n.depth=depth;
       var ks = kids[id] || []; if(!ks.length) return;
-      var r = RAD[Math.min(depth, RAD.length-1)];
+      var r = LINK;
       var total = 0; ks.forEach(function(c){ total += (cnt[c]||1); });
       var acc = from;
       ks.forEach(function(c){
@@ -1402,12 +1433,18 @@ var Map3 = (function(){
     var self = byId['self'];
     var years  = pool.filter(function(n){ return n.kind==='chapter' && n.level==='year'; });
     var months = pool.filter(function(n){ return n.kind==='chapter' && n.level==='month'; });
-    years.sort(function(a,b){ return a.year<b.year?-1:1; });
+    years.sort(function(a,b){ return a.key<b.key?-1:1; });
     years.forEach(function(y){ setP(y, self); });
-    months.sort(function(a,b){ return a.ym<b.ym?-1:1; });
+    var weeks = pool.filter(function(n){ return n.kind==='chapter' && n.level==='week'; });
+    months.sort(function(a,b){ return a.key<b.key?-1:1; });
     months.forEach(function(m){
-      var y = years.filter(function(y2){ return y2.year===m.ym.slice(0,4); })[0];
+      var y = years.filter(function(y2){ return y2.key===m.key.slice(0,4); })[0];
       setP(m, y || self);
+    });
+    weeks.sort(function(a,b){ return a.key<b.key?-1:1; });
+    weeks.forEach(function(w){
+      var m = months.filter(function(x){ return x.key===w.key.slice(0,7); })[0];
+      setP(w, m || self);
     });
     var values = pool.filter(function(n){ return n.kind==='value'; })
                      .sort(function(a,b){ return b.display-a.display; });
@@ -1425,7 +1462,7 @@ var Map3 = (function(){
     pool.filter(function(n){ return n.kind==='turningPoint'; })
         .sort(function(a,b){ return (a.firstSeenAt||'')<(b.firstSeenAt||'')?-1:1; })
         .forEach(function(n){
-          var m = n.firstSeenAt ? months.filter(function(x){ return x.ym===n.firstSeenAt; })[0] : null;
+          var m = n.firstSeenAt ? months.filter(function(x){ return x.key===n.firstSeenAt; })[0] : null;
           setP(n, m || hostValue(n));
         });
     /* 根拠は、それを支えている星の下へ。無ければその月の章の下へ。 */
@@ -1433,8 +1470,12 @@ var Map3 = (function(){
                      .sort(function(a,b){ return b.display-a.display; });
     pool.filter(function(n){ return n.kind==='evidence'; }).forEach(function(e){
       var raw = e.id.slice(2);
-      var own = owners.filter(function(o){ return (o.evidenceIds||[]).indexOf(raw)>=0; })[0];
-      if(!own && e.firstSeenAt) own = months.filter(function(x){ return x.ym===e.firstSeenAt; })[0];
+      var own = null;
+      if(mode==='all'){                                   /* 時系列ビューでは週の下へ */
+        own = weeks.filter(function(w){ return (w.evidenceIds||[]).indexOf(raw)>=0; })[0]
+           || months.filter(function(x){ return (x.evidenceIds||[]).indexOf(raw)>=0; })[0];
+      }
+      if(!own) own = owners.filter(function(o){ return (o.evidenceIds||[]).indexOf(raw)>=0; })[0];
       setP(e, own || self);
     });
     pool.forEach(function(n){ if(n.id!=='self') setP(n, self); });   /* 取りこぼしも必ず自分へ */
@@ -1444,12 +1485,16 @@ var Map3 = (function(){
   /* ---- ビューの組み立て ---- */
   function compose(mode){
     if(!G) G = Insight.build();
-    var z = cam.z;
+    /* lvl 0=年 1=月 2=週 3=出来事。ピンチで一段ずつ深くなる */
     var pool = G.nodes.filter(function(n){
       if(mode==='likes')  return ['self','value','interest','wish','recommendation','tension','experiment','evidence'].indexOf(n.kind)>=0;
       if(mode==='career') return ['self','value','strength','condition','tension','wish','turningPoint','experiment','evidence'].indexOf(n.kind)>=0;
-      if(n.kind==='chapter') return z < MAPC.ZOOM.month ? (z < MAPC.ZOOM.year ? n.level==='year' : true) : true;
-      if(n.kind==='evidence') return z >= MAPC.ZOOM.month;
+      if(n.kind==='chapter'){
+        if(n.level==='year')  return true;
+        if(n.level==='month') return lvl >= 1;
+        return lvl >= 2;                                   /* 週 */
+      }
+      if(n.kind==='evidence') return lvl >= 3;
       return true;
     });
     pool.forEach(function(n){ n.display = displayScore(n, mode); });
@@ -1502,10 +1547,21 @@ var Map3 = (function(){
       });
     });
 
+    /* 幹ごとに色を配り、子孫へ受け継ぐ。色をたどれば枝がわかる。 */
+    var BRANCH = ['#D8B56A','#E58A8A','#9587DE','#6D9BC3','#5FA9A0','#C76F87','#68CBC4','#B9A3D8','#8FB98F'];
+    (function paint(){
+      var tops = tree.kids['self'] || [];
+      tops.forEach(function(id,i){
+        var c = BRANCH[i % BRANCH.length];
+        (function walk(x){ var n=byId[x]; if(!n) return; n.branch=c; (tree.kids[x]||[]).forEach(walk); })(id);
+      });
+      if(byId['self']) byId['self'].branch = '#F3E6C8';
+    })();
+
     layout(mode, pool, tree);
     var savedPos = ((S.cfg.pos||{})[mode]) || {};          /* 手で動かした星は、その位置を優先 */
     pool.forEach(function(n){ var q=savedPos[n.id]; if(q){ n.x=q[0]; n.y=q[1]; } });
-    return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet,
+    return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet, tree:tree,
             ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
   }
 
@@ -1539,11 +1595,21 @@ var Map3 = (function(){
   }
   function sx(n){ return W/2 + (n.x+cam.x)*cam.z; }
   function sy(n){ return H/2 + (n.y+cam.y)*cam.z; }
-  function related(n){
-    if(!sel) return true;
-    if(n===sel) return true;
-    return view.edges.some(function(e){ return (e.a===sel&&e.b===n)||(e.b===sel&&e.a===n); });
+  var selKin={};
+  function computeKin(){
+    selKin={};
+    if(!sel || !view || !view.tree) return;
+    selKin[sel.id]=1;
+    var p = view.tree.parentOf[sel.id];                 /* 自分へ戻る道すじ */
+    while(p){ selKin[p]=1; p = view.tree.parentOf[p]; }
+    (function down(id){ (view.tree.kids[id]||[]).forEach(function(c){ selKin[c]=1; down(c); }); })(sel.id);
+    view.edges.forEach(function(e){                     /* 参照でつながる相手も */
+      if(e.trunk) return;
+      if(e.a===sel) selKin[e.b.id]=1;
+      if(e.b===sel) selKin[e.a.id]=1;
+    });
   }
+  function related(n){ return !sel || !!selKin[n.id]; }
   function chipRelated(n){
     if(!chip) return true;
     if(n.id===chip || n.kind==='self') return true;
@@ -1589,13 +1655,13 @@ var Map3 = (function(){
     var list = sel ? view.primary.concat(view.edges.filter(function(e){ return !e.trunk && (e.a===sel||e.b===sel); }))
                    : view.primary;
     list.forEach(function(e){
-      var on = sel && (e.a===sel||e.b===sel);
+      var on = sel && selKin[e.a.id] && selKin[e.b.id];   /* 道すじ全体が光る */
       var A={x:sx(e.a),y:sy(e.a)}, B={x:sx(e.b),y:sy(e.b)};
       var mx=(A.x+B.x)/2 + (B.y-A.y)*0.09, my=(A.y+B.y)/2 - (B.x-A.x)*0.09;
       ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.quadraticCurveTo(mx,my,B.x,B.y);
-      ctx.strokeStyle = on ? '#C9B183' : '#39405E';
-      ctx.globalAlpha = (on ? .9 : (sel ? .18 : .62)) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
-      ctx.lineWidth = on ? 1.3 : .8;
+      ctx.strokeStyle = on ? (e.b.branch||'#C9B183') : mixHex(e.b.branch||'#39405E', '#232A44', .62);
+      ctx.globalAlpha = (on ? .95 : (sel ? .10 : .78)) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
+      ctx.lineWidth = on ? 1.6 : .9;
       ctx.setLineDash(e.dashed && !e.trunk ? [2,4] : []);
       ctx.stroke(); ctx.setLineDash([]);
     });
@@ -1604,7 +1670,7 @@ var Map3 = (function(){
     view.nodes.forEach(function(n){
       var X=sx(n), Y=sy(n), r=radiusOf(n)*cam.z*t;
       if(X<-60||X>W+60||Y<-60||Y>H+60) return;
-      var full = MAPCOL[n.kind]||'#8E97B5';
+      var full = n.branch || MAPCOL[n.kind] || '#8E97B5';
       var near = !sel || n===sel || related(n);
       var col = near ? full : mixHex(full, '#6E7794', 0.55);
       var a = alphaOf(n) * (0.5 + (n.confidence||.5)*0.5);
@@ -1631,6 +1697,17 @@ var Map3 = (function(){
       }
       ctx.globalAlpha=a; ctx.fillStyle=col;
       ctx.beginPath(); ctx.arc(X,Y,Math.max(r,1.2),0,6.284); ctx.fill();
+      if(n.kind==='chapter' && n.trend && n.trend.n){
+        var tr=n.trend, segs=[['moved',MAPCOL.interest],['effort',MAPCOL.strength],['pain',MAPCOL.tension]];
+        var rr=r+5.5, st=-Math.PI/2, tot=tr.moved+tr.effort+tr.pain || 1;
+        ctx.lineWidth=2.4; ctx.globalAlpha=a*0.95;
+        segs.forEach(function(sg){
+          var v=tr[sg[0]]; if(!v) return;
+          var sw=(v/tot)*Math.PI*2*0.94;
+          ctx.strokeStyle=sg[1]; ctx.beginPath(); ctx.arc(X,Y,rr,st,st+sw); ctx.stroke();
+          st += sw + Math.PI*2*0.02;
+        });
+      }
       if(n.confirmed){ ctx.globalAlpha=a; ctx.strokeStyle='#D8B56A'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,r+4,0,6.284); ctx.stroke(); }
       if(n.kind==='tension'){ ctx.globalAlpha=a*.9; ctx.strokeStyle=MAPCOL.tension; ctx.lineWidth=1;
@@ -1680,25 +1757,64 @@ var Map3 = (function(){
     var items = Array.prototype.filter.call(layer.children, function(el){
       return el.classList.contains('nlabel') && el.style.visibility!=='hidden' && el.style.display!=='none';
     });
+    items.forEach(function(el){ el.classList.remove('tight'); });
     items.sort(function(a,b){
       var na=view.byId[a.dataset.id], nb=view.byId[b.dataset.id];
       return (nb.display||0)-(na.display||0);
     });
+    /* 星そのものも障害物にする。文字が丸に重なると読めなくなるため。 */
     var placed=[];
+    view.nodes.forEach(function(n){
+      var rad = radiusOf(n)*cam.z;
+      if(rad < 4.5) return;                          /* 小さな点は文字が乗っても読める */
+      var X=sx(n), Y=sy(n), rr=rad+3;
+      if(X<-60||X>W+60||Y<-60||Y>H+60) return;
+      placed.push({l:X-rr, r:X+rr, t:Y-rr, b:Y+rr, node:n.id});
+    });
     items.forEach(function(el){
       var w0=el.offsetWidth, h0=el.offsetHeight;
       var x=parseFloat(el.style.left), y=parseFloat(el.style.top);
-      var tries=[[0,0],[0,h0+6],[0,-(h0+24)],[w0*0.55,0],[-w0*0.55,0],[w0*0.55,h0+6],[-w0*0.55,h0+6],[0,(h0+8)*2],[0,-(h0+8)*2],[w0*0.9,h0*0.5],[-w0*0.9,h0*0.5]];
+      /* 近いところから順に空きを探す。遠すぎる位置は使わない（どの星の名か分からなくなるため） */
+      var tries=[[0,0],[0,-(h0+16)],[w0*0.52,0],[-w0*0.52,0],[w0*0.52,-(h0+12)],[-w0*0.52,-(h0+12)],
+                 [0,h0+10],[w0*0.52,h0+10],[-w0*0.52,h0+10],[w0*0.8,h0*0.4],[-w0*0.8,h0*0.4],
+                 [0,-(h0+16)*2],[w0*0.8,-(h0+16)],[-w0*0.8,-(h0+16)]];
+      tries.sort(function(a,b){ return (a[0]*a[0]+a[1]*a[1])-(b[0]*b[0]+b[1]*b[1]); });
       var ok=false;
-      for(var i=0;i<tries.length;i++){
-        var cx=Math.max(w0/2+6, Math.min(W-w0/2-6, x+tries[i][0]));
-        var cy=Math.max(top, Math.min(bottom-h0, y+tries[i][1]));
-        var r={l:cx-w0/2, r:cx+w0/2, t:cy, b:cy+h0};
-        var hit = placed.some(function(q){ return !(r.r<q.l-4||r.l>q.r+4||r.b<q.t-2||r.t>q.b+2); });
-        if(!hit){ el.style.left=cx+'px'; el.style.top=cy+'px'; placed.push(r); ok=true; break; }
+      var MAXD = 108;                                  /* 星から離れすぎたら出さない */
+      function tryPlace(w0,h0){
+        for(var i=0;i<tries.length;i++){
+          var cx=Math.max(w0/2+6, Math.min(W-w0/2-6, x+tries[i][0]));
+          var cy=Math.max(top, Math.min(bottom-h0, y+tries[i][1]));
+          if(Math.hypot(cx-x, cy-y) > MAXD) continue;
+          var r={l:cx-w0/2, r:cx+w0/2, t:cy, b:cy+h0};
+          var hit = placed.some(function(q){
+            if(q.node===el.dataset.id) return false;    /* 自分の星の上に置くのは当然なので除く */
+            return !(r.r<q.l-4||r.l>q.r+4||r.b<q.t-2||r.t>q.b+2);
+          });
+          if(!hit){ el.style.left=cx+'px'; el.style.top=cy+'px'; placed.push(r); return true; }
+        }
+        return false;
+      }
+      ok = tryPlace(w0,h0);
+      if(!ok){                                        /* 入らなければ一行に縮めてもう一度 */
+        el.classList.add('tight');
+        var w1=el.offsetWidth, h1=el.offsetHeight;
+        tries.sort(function(a,b){ return (a[0]*a[0]+a[1]*a[1])-(b[0]*b[0]+b[1]*b[1]); });
+        ok = tryPlace(w1,h1);
+        if(!ok) el.classList.remove('tight');
       }
       if(!ok) el.style.visibility='hidden';
     });
+  }
+  /* その節と、そこから先に伸びている枝すべて（ドラッグでくっついてくる） */
+  function subtreeOf(n){
+    var out=[n]; if(!view || !view.tree) return out;
+    (function down(id){
+      (view.tree.kids[id]||[]).forEach(function(c){
+        var m=view.byId[c]; if(m){ out.push(m); down(c); }
+      });
+    })(n.id);
+    return out;
   }
   function buildDom(){
     layer.innerHTML='';
@@ -1709,19 +1825,20 @@ var Map3 = (function(){
       hit.onclick=function(ev){ ev.stopPropagation(); if(hit._sup){ hit._sup=false; return; } select(n); };
       hit.addEventListener('pointerdown', function(ev){
         ev.stopPropagation(); hit.setPointerCapture(ev.pointerId);
-        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId};
+        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId, kin:subtreeOf(n)};
       });
       hit.addEventListener('pointermove', function(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
-        var dx=ev.clientX-nodeDrag.x, dy=ev.clientY-nodeDrag.y;
-        nodeDrag.moved += Math.abs(dx)+Math.abs(dy);
-        n.x += dx/cam.z; n.y += dy/cam.z;
+        var dx=(ev.clientX-nodeDrag.x)/cam.z, dy=(ev.clientY-nodeDrag.y)/cam.z;
+        nodeDrag.moved += Math.abs(ev.clientX-nodeDrag.x)+Math.abs(ev.clientY-nodeDrag.y);
+        /* 枝ごと、くっついて動く */
+        nodeDrag.kin.forEach(function(m){ m.x += dx; m.y += dy; });
         nodeDrag.x=ev.clientX; nodeDrag.y=ev.clientY;
         draw(); syncDom();
       });
       function endDrag(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
-        if(nodeDrag.moved>=8){ hit._sup=true; savePos(n); }
+        if(nodeDrag.moved>=8){ hit._sup=true; nodeDrag.kin.forEach(savePos); }
         nodeDrag=null;
       }
       hit.addEventListener('pointerup', endDrag);
@@ -1747,7 +1864,23 @@ var Map3 = (function(){
   }
 
   /* ---- 選択と詳細カード ---- */
-  function select(n){ sel = (sel===n)?null:n; if(sel) showCard(sel); else hideCard(); draw(); syncDom(); }
+  function select(n){
+    sel = (sel===n)?null:n; computeKin();
+    if(sel){ showCard(sel); panIntoView(sel); } else hideCard();
+    draw(); syncDom();
+  }
+  /* 選んだ星と、そこから中心へ戻る道すじが、カードに隠れないように寄せる */
+  function panIntoView(n){
+    var card=$('#nodeDetail'), st=stage.getBoundingClientRect();
+    var lim = card ? Math.max(160, card.getBoundingClientRect().top - st.top - 16) : H-160;
+    var ys=[sy(n)], p=view.tree.parentOf[n.id];
+    while(p){ var m=view.byId[p]; if(m) ys.push(sy(m)); p=view.tree.parentOf[p]; }
+    var lo=Math.min.apply(null,ys), hi=Math.max.apply(null,ys);
+    var dy=0;
+    if(hi>lim-14) dy = (lim-14)-hi;
+    if(lo+dy < 120) dy = 120-lo;
+    if(dy) cam.y += dy/cam.z;
+  }
   function hideCard(){ $('#nodeDetail').classList.remove('on'); }
   function evLine(id){
     var e = G.entries[id]; if(!e) return '';
@@ -1821,7 +1954,7 @@ var Map3 = (function(){
       stage.setPointerCapture(e.pointerId); pts[e.pointerId]={x:e.clientX,y:e.clientY};
       var ids=Object.keys(pts);
       if(ids.length===2){ var A=pts[ids[0]],B=pts[ids[1]];
-        pinch={d:Math.hypot(A.x-B.x,A.y-B.y), z:cam.z}; drag=null; return; }
+        pinch={d:Math.hypot(A.x-B.x,A.y-B.y), v:cam.v}; drag=null; return; }
       drag={x:e.clientX,y:e.clientY,moved:0,id:e.pointerId}; stage.classList.add('grabbing');
     });
     stage.addEventListener('pointermove', function(e){
@@ -1829,7 +1962,7 @@ var Map3 = (function(){
       var ids=Object.keys(pts);
       if(pinch && ids.length===2){ var A=pts[ids[0]],B=pts[ids[1]];
         var d=Math.hypot(A.x-B.x,A.y-B.y);
-        setZoom(pinch.z*d/pinch.d); return; }
+        setZoom(pinch.v*d/pinch.d); return; }
       if(!drag) return;
       var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
       drag.moved+=Math.abs(dx)+Math.abs(dy);
@@ -1840,20 +1973,34 @@ var Map3 = (function(){
       delete pts[e.pointerId]; if(Object.keys(pts).length<2) pinch=null;
       stage.classList.remove('grabbing');
       if(drag && drag.id===e.pointerId){
-        if(drag.moved<8 && e.target===stage){ sel=null; hideCard(); draw(); syncDom(); }
+        if(drag.moved<8 && e.target===stage){ sel=null; computeKin(); hideCard(); draw(); syncDom(); }
         drag=null;
       }
     }
     stage.addEventListener('pointerup', up);
     stage.addEventListener('pointercancel', up);
-    stage.addEventListener('wheel', function(e){ e.preventDefault(); setZoom(cam.z*(e.deltaY<0?1.12:0.89)); }, {passive:false});
+    stage.addEventListener('wheel', function(e){ e.preventDefault(); setZoom(cam.v*(e.deltaY<0?1.12:0.89)); }, {passive:false});
   }
-  function setZoom(z){
-    var prev = cam.z;
-    cam.z = Math.max(MAPC.ZOOM.min, Math.min(MAPC.ZOOM.max, z));
-    var crossed = (view && view.mode==='all') &&
-      ((prev<MAPC.ZOOM.year)!==(cam.z<MAPC.ZOOM.year) || (prev<MAPC.ZOOM.month)!==(cam.z<MAPC.ZOOM.month));
-    if(crossed) rebuild(true); else { draw(); syncDom(); }
+  /* ピンチは「拡大」ではなく「深さ」。一段深くなるたびに画面に収めなおす。
+     cam.v は基準倍率からの相対値（画面に収まる倍率が常に v=1）。 */
+  function setZoom(v){
+    cam.v = Math.max(.18, Math.min(6, v));
+    if(view && view.mode==='all'){
+      if(cam.v >= MAPC.STEP_IN  && lvl < 3){ lvl++; rebuild(); flashLevel(); return; }
+      if(cam.v <= MAPC.STEP_OUT && lvl > 0){ lvl--; rebuild(); flashLevel(); return; }
+    }
+    applyV(); draw(); syncDom();
+  }
+  function applyV(){
+    var base = cam.base || 1;
+    cam.z = Math.max(MAPC.ZOOM.min, Math.min(MAPC.ZOOM.max, base * cam.v));
+  }
+  var LVLJA = ['年ごと','月ごと','週ごと','出来事'];
+  function flashLevel(){
+    var el=$('#mapLvl'); if(!el) return;
+    el.textContent = LVLJA[lvl]; el.classList.add('on');
+    clearTimeout(flashLevel._t);
+    flashLevel._t = setTimeout(function(){ el.classList.remove('on'); }, 1400);
   }
 
   function fit(){
@@ -1864,9 +2011,12 @@ var Map3 = (function(){
     });
     if(x0>x1) return;
     var gw=Math.max(x1-x0,140), gh=Math.max(y1-y0,140);
-    var topPad=126, botPad=86;
-    var z=Math.min((W-130)/gw, (H-topPad-botPad)/gh);
-    cam.z=Math.max(MAPC.ZOOM.min, Math.min(1.2, z));
+    var sumEl=$('#mapSum'), st=stage.getBoundingClientRect().top;
+    var topPad = sumEl ? Math.max(120, Math.min(H*0.42, sumEl.getBoundingClientRect().bottom - st + 14)) : 126;
+    var botPad = 86;
+    var z=Math.min((W-104)/gw, (H-topPad-botPad)/gh);
+    cam.z=Math.max(MAPC.ZOOM.min, Math.min(1.55, z));
+    cam.base=cam.z; cam.v=1;                          /* この深さでの基準倍率 */
     cam.x=-(x0+x1)/2; cam.y=-(y0+y1)/2 + (topPad-botPad)/2/cam.z;
   }
   function rebuild(keepCam){
@@ -1875,7 +2025,7 @@ var Map3 = (function(){
     buildDom(); renderChips();
     $('#mapSum').textContent = summarize(view);
     $('#mapHint').textContent = S.mapMode==='all'
-      ? '中心が自分。外へ行くほど、年 → 月 → 出来事へ細かくなります'
+      ? 'ピンチで 年 → 月 → 週 → 出来事。輪の色分けがその期間の内訳です'
       : '星にふれると、そこへ至る道と記録がひらきます';
     draw(); syncDom();
   }
@@ -1896,11 +2046,11 @@ var Map3 = (function(){
       ctx=cv.getContext('2d'); seedSky(); bind();
       window.addEventListener('resize', resize);
       $('#mapReset').onclick=function(){
-        sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1};
+        sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1,base:0,v:1}; lvl=0;
         if(S.cfg.pos) delete S.cfg.pos[S.mapMode];     /* 手で動かした位置も戻す */
         Store.saveLocal(); rebuild();
       };
-      $('#ndClose').onclick=function(){ sel=null; hideCard(); draw(); syncDom(); };
+      $('#ndClose').onclick=function(){ sel=null; computeKin(); hideCard(); draw(); syncDom(); };
     },
     show:function(mode){
       if(!cv) return;
@@ -1915,7 +2065,7 @@ var Map3 = (function(){
         resize(); return;
       }
       if(e) e.remove();
-      cam={x:0,y:0,z:1};
+      cam={x:0,y:0,z:1,base:0,v:1}; lvl=0;
       setTimeout(function(){ resize(); rebuild(); intro=0; animateIn(); }, 0);
     },
     resize:resize,
