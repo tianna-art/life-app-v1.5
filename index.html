@@ -240,6 +240,14 @@ button{cursor:pointer}
 .ndetail.on{transform:none;opacity:1;pointer-events:auto}
 .ndetail .x{position:absolute;right:6px;top:4px;padding:10px 12px;color:#A8926A;font-size:1.1rem;line-height:1}
 .ndetail .x:focus-visible{outline:2px solid #C88A5C;outline-offset:-2px}
+.nd-layers .ly{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #E6D8A6}
+.nd-layers .ly:last-child{border-bottom:0}
+.nd-layers .ly b{flex:0 0 92px;font-size:.58rem;font-weight:700;letter-spacing:.08em;color:#A8926A;padding-top:2px}
+.nd-layers .ly span{flex:1;font-size:.78rem;line-height:1.7;color:#3E3226}
+.nd-fit{margin-top:8px;font-size:.72rem;line-height:1.75;color:#6A5A46;background:#F3ECD8;border-radius:8px;padding:9px 11px}
+.nd-sides{display:flex;align-items:center;gap:10px;justify-content:center;text-align:center}
+.nd-sides span{flex:1;font-size:.78rem;line-height:1.6;color:#3E3226;background:#F5EEDC;border-radius:8px;padding:8px 9px}
+.nd-sides em{font-style:normal;color:#B09A6E;font-size:.9rem}
 .nd-k{font-size:.54rem;font-weight:700;letter-spacing:.2em;color:#B09A6E;display:flex;align-items:center;gap:7px}
 .nd-k i{width:7px;height:7px;border-radius:50%;display:block}
 .ndetail h4{font-family:var(--serif);font-size:1rem;line-height:1.6;letter-spacing:.04em;margin:7px 34px 9px 0;color:#3B3025}
@@ -389,7 +397,7 @@ button{cursor:pointer}
     <section class="view flush" id="v-map" aria-label="Map：わたしを構成する星座">
       <div class="mapwrap">
         <div class="maptabs" id="mapTabs" role="tablist" aria-label="Mapの見かた">
-          <button data-m="likes"  role="tab" aria-selected="false">好きなこと</button>
+          <button data-m="likes"  role="tab" aria-selected="false">プライベート</button>
           <button data-m="career" role="tab" aria-selected="false">キャリア</button>
           <button data-m="all"    role="tab" aria-selected="true" class="on">全て</button>
         </div>
@@ -446,19 +454,23 @@ button{cursor:pointer}
 "use strict";
 
 /* ── 1. 定数 ───────────────────────────── */
-/* 入力カテゴリは3つだけ。分析結果のカテゴリとは分ける。
-   保存する値は既存データと同じ moved / effort / hard。
+/* 入力カテゴリは3つだけ。ここは「どんな入口から書いたか」であって、
+   どのMapに出るかではない。表示先は本文からの抽出結果が決める。
+   保存する値は既存データと同じ moved / effort / hard（移行不要）。
    旧データの chose / wish は表示のうえでこの3つへ寄せる。 */
 var KINDS = [
-  {id:'moved',  ja:'心が動いた',   en:'MOVED',  v:'--k-moved',
-   hint:'好き・うれしい・感動・違和感・嫉妬・憧れ'},
-  {id:'effort', ja:'力を使った',   en:'EFFORT', v:'--k-effort',
-   hint:'仕事・創作・勉強・誰かを助けたこと。うまくいったかは問わない'},
-  {id:'hard',   ja:'引っかかった', en:'SNAG',   v:'--k-hard',
-   hint:'つらさ・怒り・疲れ・満たされなさ・うまくいかなかったこと'}
+  {id:'moved',  ja:'好きなこと', en:'LIKES',  v:'--k-moved',
+   hint:'惹かれたもの、心地よかったこと、また触れたいもの',
+   ph:'惹かれたもの、心地よかったこと、また触れたいもの。一文でかまいません。'},
+  {id:'effort', ja:'キャリア',   en:'CAREER', v:'--k-effort',
+   hint:'仕事や学びで、残しておきたい出来事や違和感',
+   ph:'仕事や学びで、残しておきたい出来事や違和感を、そのまま。'},
+  {id:'hard',   ja:'つぶやき',   en:'MURMUR', v:'--k-hard',
+   hint:'まだまとまっていなくても、そのまま',
+   ph:'まだまとまっていなくても、そのままで大丈夫です。'}
 ];
 var LEGACY_KIND = {chose:'effort', wish:'moved'};
-function kindOf(l){ var k=(l&&l.kind)||'moved'; return LEGACY_KIND[k] || k; }
+function kindOf(l){ var k=(l&&l.kind)||'hard'; return LEGACY_KIND[k] || k; }
 var KIND = {}; KINDS.forEach(function(k){ KIND[k.id]=k; });
 var TONES = [
   {id:'hold',  ja:'そっと受け止める'},
@@ -495,28 +507,31 @@ function toast(msg, ms){
   clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('on'); }, ms||2200);
 }
 
-/* ── 2b. おまかせ判定と表記ゆれの統合 ───────
+/* ── 2b. おまかせ判定 ───────
    ユーザーには「起きたことを一文」だけ求める。
-   カテゴリを選ばなければ、本文から3つのどれかへ自動で寄せる。 */
-var AUTO_NEG = ['疲れ','つら','しんど','消耗','空虚','もやもや','うまくいかな','できなかった','言えなかった',
-  '違和感','怒','悔','焦','不安','嫌','ばかり','だけで終わ','虚し','無駄','手応えがな','意味がな','つまらな'];
-/* 「何も◯◯しなかった」のような、不足を言い表す形も引っかかったに寄せる */
-var AUTO_NEG_RE = [/何も[^。]{0,12}(な|ず)/, /(感じ|手応え|実感)が[^。]{0,4}しなかった/, /残らな/];
-var AUTO_ACT = ['つくった','作った','書いた','描いた','まとめ','整理','設計','企画','担当','構成','編集',
-  '対応','伝えた','提案','相談','面談','決めた','選んだ','始めた','完成','発表','手伝','助け','進めた','考え'];
-var AUTO_MOV = ['心が','惹か','よかった','嬉し','美し','好き','감','感動','ぐっと','立ち止ま','見と','心地',
-  '気になっ','憧れ','うらやま','沁み','刺さ','静か','ほっと'];
+   入口を選ばなければ、本文から3つのどれかへ寄せる。
+   ここで決まるのは入口だけで、分析結果ではない。 */
+var AUTO_CAREER = ['仕事','会社','職場','上司','同僚','チーム','プロジェクト','企画','資料','会議','打ち合わ',
+  '面談','転職','キャリア','評価','成果','売上','数字','納期','締め切り','クライアント','顧客','提案',
+  '改善','運用','問い合わせ','実務','業務','学び','勉強','研修','資格','面接','部署','人事','役割'];
+var AUTO_LIKE = ['惹か','好き','好きだ','心地','美し','この色','展示','ギャラリー','美術館','作品','作家','音楽','映画',
+  '写真','絵','水彩','にじみ','本','小説','詩','光','青','花','散歩','カフェ','静か','眺め','見と','立ち止ま','手を動か',
+  'つくって','描いて','聴い','読ん','食べ','旅','自然','海','川','空','朗'];
 function autoKind(text){
   var t = String(text||'');
   var score = {moved:0, effort:0, hard:0};
-  AUTO_NEG.forEach(function(w){ if(t.indexOf(w)>=0) score.hard += 2; });
-  AUTO_NEG_RE.forEach(function(re){ if(re.test(t)) score.hard += 2.5; });
-  AUTO_ACT.forEach(function(w){ if(t.indexOf(w)>=0) score.effort += 1; });
-  AUTO_MOV.forEach(function(w){ if(t.indexOf(w)>=0) score.moved += 1.4; });
-  var best='moved', bv=-1;
+  AUTO_CAREER.forEach(function(w){ if(t.indexOf(w)>=0) score.effort += 1.4; });
+  AUTO_LIKE.forEach(function(w){ if(t.indexOf(w)>=0) score.moved  += 1.2; });
+  /* 感情・関係・葛藤が中心なら、まだまとまっていない「つぶやき」へ */
+  ['なんか','なぜか','でも','けど','もやもや','ゆるさない','わからない','思った','気がする','気分',
+   '疲れ','しんど','寂し','不安','怒','悩','迷っ','自分は','自分の'].forEach(function(w){
+    if(t.indexOf(w)>=0) score.hard += 1.1;
+  });
+  var best='hard', bv=0;
   ['hard','effort','moved'].forEach(function(k){ if(score[k]>bv){ bv=score[k]; best=k; } });
-  return bv<=0 ? 'moved' : best;
+  return bv<=0 ? 'hard' : best;
 }
+
 /* 同じものを別ノードにしないための言い換え統合 */
 var ALIAS = {
   'ChatGPT':'AI対話','Claude':'AI対話','生成AI':'AI対話','AIとの壁打ち':'AI対話','AIと話した':'AI対話',
@@ -693,13 +708,13 @@ function logsOfMonth(ym){
 }
 function renderQuick(){
   var w=$('#quickRow'); w.innerHTML='';
-  KINDS.concat([{id:'auto', ja:'おまかせ', v:'--muted', hint:'アプリが3つのどれかに寄せます'}])
+  KINDS.concat([{id:'auto', ja:'おまかせ', v:'--muted', hint:'本文から3つのどれかへ寄せます'}])
    .forEach(function(k){
     var b=document.createElement('button');
     b.type='button';
     b.setAttribute('aria-label', k.ja + (k.hint? '：'+k.hint : ''));
     b.innerHTML = '<span class="bl" style="background:'+cssv(k.v)+'"></span>'+
-                  '<span class="lb">'+k.ja.replace(/(が|を|っ)/, '$1<br>')+'</span>';
+                  '<span class="lb">'+k.ja+'</span>';
     b.onclick = function(){ openLogSheet({kind: k.id==='auto' ? null : k.id}); };
     w.appendChild(b);
   });
@@ -798,7 +813,8 @@ function openLogSheet(seed){
   var isNew = !seed || !seed.id;
   var l = Object.assign({id:uid(), kind:null, body:'', occurred_at:todayISO(), place:'', people:[], tags:[]}, seed||{});
   Sheet.open(
-    '<h2>'+(isNew?'今日、何が残った？':'ログを編集')+'</h2><p class="sub">一文でかまいません。分類は「おまかせ」でも大丈夫です</p>'+
+    '<h2>'+(isNew?'今日、何が残った？':'ログを編集')+'</h2>'+
+    '<p class="sub" id="_sub">一文でかまいません。入口は「おまかせ」でも大丈夫です</p>'+
     '<div class="chips" id="_kinds"></div>'+
     '<div class="field"><label>できごと</label><textarea id="_b" placeholder="起きたことを、そのまま一文で。">'+esc(l.body)+'</textarea></div>'+
     '<div class="two">'+
@@ -814,13 +830,22 @@ function openLogSheet(seed){
     '<button class="btn ghost sm" id="_ng">やめる</button></div>',
     function(b){
       var kw=b.querySelector('#_kinds');
+      /* 入口を選ぶと、促し文と例示が入口に合わせて変わる。
+         入口は表示先ではなく、書きやすさのためのもの。 */
+      function applyHint(){
+        var k = KIND[l.kind];
+        b.querySelector('#_sub').textContent = k ? k.hint : '一文でかまいません。入口は「おまかせ」でも大丈夫です';
+        b.querySelector('#_b').placeholder   = k ? k.ph   : '起きたことを、そのまま一文で。';
+      }
       KINDS.concat([{id:null, ja:'おまかせ'}]).forEach(function(k){
         var c=document.createElement('button');
         c.type='button'; c.className='chip'+(k.id===l.kind?' on':'');
         c.textContent=k.ja;
-        c.onclick=function(){ l.kind=k.id; $$('.chip',kw).forEach(function(x){x.classList.remove('on');}); c.classList.add('on'); };
+        c.setAttribute('aria-label', k.ja + (k.hint? '：'+k.hint : '：アプリが3つのどれかに寄せます'));
+        c.onclick=function(){ l.kind=k.id; $$('.chip',kw).forEach(function(x){x.classList.remove('on');}); c.classList.add('on'); applyHint(); };
         kw.appendChild(c);
       });
+      applyHint();
       b.querySelector('#_b').focus();
       b.querySelector('#_ok').onclick=function(){
         var body=b.querySelector('#_b').value.trim();
@@ -833,6 +858,7 @@ function openLogSheet(seed){
         var i=S.logs.map(function(x){return x.id;}).indexOf(l.id);
         if(i<0) S.logs.push(l); else S.logs[i]=l;
         Store.putLog(l); Sheet.close(); S.ym=ymOf(l.occurred_at); renderAll(); toast('残しました');
+        if(isNew) setTimeout(function(){ maybeAsk(l); }, 520);   /* 確信度が低いときだけ一問 */
       };
       if(b.querySelector('#_del')) b.querySelector('#_del').onclick=function(){
         S.logs = S.logs.filter(function(x){return x.id!==l.id;});
@@ -841,6 +867,71 @@ function openLogSheet(seed){
       b.querySelector('#_ng').onclick=Sheet.close;
     });
 }
+/* ── 補助質問 ────────────────────────────
+   毎回は聞かない。抽出の確信度が低いときだけ、保存のあとに一問だけ。
+   必ずスキップを用意し、連続では聞かない。 */
+var ASK = {
+  where: {q:'どこに惹かれましたか？', opts:['色や形','空気感','考え方','体験','うまく言えない'],
+          kind:'tag'},
+  changed:{q:'あなたがしたことで、何が変わりましたか？', ph:'例：みんなが動けるようになった',
+          kind:'text'},
+  lack:  {q:'何があれば、少し違っていたと思いますか？', ph:'例：もう少し時間があれば',
+          kind:'text'},
+  small: {q:'まず小さく試すなら、何ができそうですか？', ph:'例：一回だけ人に見せてみる',
+          kind:'text'}
+};
+function pickAsk(e){
+  if(e.confidence >= .58) return null;                  /* 十分に具体なら聞かない */
+  if(e.inputTag==='moved' && !e.statedReason && !e.aestheticAttributes.length) return 'where';
+  if(e.inputTag==='effort' && e.userAction && !e.outcome) return 'changed';
+  if(e.energy==='drain' && !e.statedReason) return 'lack';
+  if(e.wish && !e.nextInterest) return 'small';
+  if(!e.emotions.length && !e.userAction) return 'lack';
+  return null;
+}
+function maybeAsk(l){
+  var e;
+  try{ e = extract(l); }catch(err){ return; }
+  var key = pickAsk(e);
+  if(!key) return;
+  if(S.cfg.lastAsk === l.id) return;
+  if(S.cfg.askedPrev) { S.cfg.askedPrev = false; Store.saveLocal(); return; }  /* 連続では聞かない */
+  var A = ASK[key];
+  var body = '<h2>'+esc(A.q)+'</h2><p class="sub">答えなくても大丈夫です。分かるときだけで足ります</p>';
+  if(A.kind==='tag') body += '<div class="chips" id="_a"></div>';
+  else body += '<div class="field"><textarea id="_t" placeholder="'+esc(A.ph)+'"></textarea></div>';
+  body += '<div class="actions">'+
+          (A.kind==='text' ? '<button class="btn" id="_ok">これも残す</button>' : '')+
+          '<button class="btn ghost sm" id="_skip">スキップ</button></div>';
+  function done(added){
+    S.cfg.askedPrev = true; S.cfg.lastAsk = l.id; Store.saveLocal();
+    Sheet.close();
+    if(added){ Store.putLog(l); renderAll(); toast('足しました'); }
+  }
+  Sheet.open(body, function(b){
+    if(A.kind==='tag'){
+      var w=b.querySelector('#_a');
+      A.opts.forEach(function(o){
+        var c=document.createElement('button');
+        c.type='button'; c.className='chip'; c.textContent=o;
+        c.onclick=function(){
+          if(o!=='うまく言えない'){ l.tags=(l.tags||[]).concat([o]); done(true); } else done(false);
+        };
+        w.appendChild(c);
+      });
+    } else {
+      b.querySelector('#_t').focus();
+      b.querySelector('#_ok').onclick=function(){
+        var v=b.querySelector('#_t').value.trim();
+        if(!v){ done(false); return; }
+        l.body = String(l.body||'').replace(/[。.\s]+$/,'') + '。' + v;
+        done(true);
+      };
+    }
+    b.querySelector('#_skip').onclick=function(){ done(false); };
+  });
+}
+
 function splitList(s){
   return String(s||'').split(/[,、]/).map(function(x){return x.trim();}).filter(Boolean);
 }
@@ -911,11 +1002,14 @@ var MAPC = {
 var MAPCOL = {
   self:'#F3E6C8', value:'#D8B56A', interest:'#E58A8A', strength:'#9587DE',
   condition:'#6D9BC3', tension:'#C76F87', wish:'#68CBC4', turningPoint:'#5FA9A0',
-  chapter:'#A9B0C5', evidence:'#697792', recommendation:'#68CBC4', experiment:'#68CBC4'
+  chapter:'#A9B0C5', evidence:'#697792', recommendation:'#68CBC4', experiment:'#68CBC4',
+  aesthetic:'#E0A3C4', friction:'#C98A6B'
 };
 var KINDJA = {
   self:'いまの自分', value:'大切にしている価値観', interest:'惹かれるもの',
+  aesthetic:'共通している美意識',
   strength:'繰り返し現れる強み', condition:'力の出る／消耗する条件', tension:'いま抱えている葛藤',
+  friction:'仕事で残っているモヤモヤ',
   wish:'続いている願い', turningPoint:'人生の転機', chapter:'人生の章',
   evidence:'根拠となった出来事', recommendation:'次に広げられそうなこと', experiment:'次に試せる小さな実験'
 };
@@ -934,7 +1028,7 @@ var LEX = {
      w:['余白','急がなくて','急がな','ゆっくり','眺め','休','肩の力','のんびり','待']},
     {id:'v_honest', chip:'感性',   label:'感性を手放さない',
      sum:'うまくやることより、自分の感じ方を守ることを選んでいる。',
-     w:['感性','正直','ちゃんと','嘘','納得','手放したくな']},
+     w:['感性','正直','ちゃんと','嘘','納得','手放したくな','自分の感覚','感覚が','置いていかれ']},
     {id:'v_connect',chip:'つながり',label:'安心して弱さを話せる関係',
      sum:'ひとりで完結させず、人との間で確かめながら進んでいる。',
      w:['友','家族','一緒','相談','面談','仲間','紹介','話し','聞い']},
@@ -1010,7 +1104,57 @@ var LEX = {
     {id:'r_paint', label:'水彩のにじみを試す時間',     tags:['i_water','i_hands','v_space']}
   ]
 };
-function lexHits(item, text){ var n=0; for(var i=0;i<item.w.length;i++){ if(text.indexOf(item.w[i])>=0) n++; } return n; }
+/* 相反する価値の組。どちらかを正解にせず、両方を残したまま問いとして立てる。 */
+var OPPOSE = [
+  {id:'t_bond2', a:'v_free',    b:'v_connect',
+   label:'自分の自由も守りたいが、人と深くつながりたい',
+   sum:'ひとりで選びたい気持ちと、誰かと深くいたい気持ちが、同時に存在しています。'},
+  {id:'t_burn',  a:'v_create',  b:'v_space',
+   label:'挑戦したいが、自分を消耗させたくない',
+   sum:'新しいことへ進みたい気持ちと、自分の感覚を置き去りにしたくない気持ちが、同時に存在しています。'},
+  {id:'t_decide',a:'v_explore', b:'v_free',
+   label:'答えを出したいが、まだ決めきりたくない',
+   sum:'早く落ち着きたい気持ちと、決めてしまいたくない気持ちが、同時に存在しています。'},
+  {id:'t_form',  a:'v_honest',  b:'v_create',
+   label:'形にしたいが、感じ方を曲げてまで出したくない',
+   sum:'届く形にしたい気持ちと、自分の感覚を守りたい気持ちが、同時に存在しています。'},
+  {id:'t_share', a:'v_beauty',  b:'v_connect',
+   label:'感覚を信じたいが、人に分かる形にもしたい',
+   sum:'自分の感覚を信じたい気持ちと、人と分かち合いたい気持ちが、同時に存在しています。'}
+];
+
+/* モヤモヤの型。侵害された欲求ごとに、4層で保存する。 */
+var FRICTION = {
+  '自由':   {label:'進めたいが、進め方まで決められたくない',
+             sum:'動くことは嫌ではなく、順番や速さを自分で選べないことが残っています。',
+             expect:'順番や速さを自分で決められること', lack:'進め方を選ぶ余地', envw:'手順の統一'},
+  '創造':   {label:'役に立ちたいが、何もつくらない時間が続くのはつらい',
+             sum:'やることはあったのに、自分の手から何も出ていない感じが残っています。',
+             expect:'手を動かして形にする時間', lack:'つくる時間そのもの', envw:'処理量'},
+  '余白':   {label:'前に進みたいが、急がされると自分の感覚が置いていかれる',
+             sum:'止まりたいのではなく、育てる時間がないことが残っています。',
+             expect:'考えを育てる時間', lack:'締め切りまでの余白', envw:'速さ'},
+  '納得感': {label:'成果は出したいが、自分の価値を一つの数字だけで決められたくない',
+             sum:'評価されたくないのではなく、見られている面が狭いことが残っています。',
+             expect:'プロセスや顧客への貢献も見られること', lack:'多面的に見る視点', envw:'単一の指標'},
+  'つながり':{label:'ひとりで進められるが、途中を誰かと確かめたい',
+             sum:'助けが要るというより、途中を話せる相手がいないことが残っています。',
+             expect:'途中経過を話せる相手', lack:'話せる場', envw:'完成してからの共有'},
+  '意味':   {label:'やり切りたいが、誰のためかが分からないまま続けたくない',
+             sum:'手を抜きたいのではなく、届き先が見えないことが残っています。',
+             expect:'誰に届いているかが見えること', lack:'届き先の手応え', envw:'工程の分業'},
+  '安心':   {label:'挑戦したいが、外したときに責められる場では動けない',
+             sum:'臆病なのではなく、試して外せる余地がないことが残っています。',
+             expect:'試して外しても大丈夫だと思えること', lack:'安全に試せる余地', envw:'無謬性'},
+  '成長':   {label:'続けたいが、同じことの繰り返しだけでは削られる',
+             sum:'飽きたのではなく、少し難しいことが来ないことが残っています。',
+             expect:'前より少し難しい役割', lack:'伸びしろのある持ち場', envw:'安定運用'},
+  '多面的な評価':{label:'成果を出したいが、自分の価値を一つの数字だけで決められたくない',
+             sum:'数字を否定したいのではなく、そこに乗らない仕事が見えないことが残っています。',
+             expect:'プロセスや顧客への貢献が見られること', lack:'多面的な評価の軸', envw:'一つの数字'}
+};
+
+function lexHits(item, text){ var n=0; for(var i=0;i<item.w.length;i++){ var w=item.w[i]; if(text.indexOf(w)>=0 && !negated(text,w)) n++; } return n; }
 function mixHex(a,b,t){
   function h2(x){ x=x.replace('#',''); if(x.length===3) x=x[0]+x[0]+x[1]+x[1]+x[2]+x[2];
     return [parseInt(x.slice(0,2),16),parseInt(x.slice(2,4),16),parseInt(x.slice(4,6),16)]; }
@@ -1026,91 +1170,280 @@ function monthsBetween(a,b){                     /* 'YYYY-MM' の差 */
   return (+b.slice(0,4)-(+a.slice(0,4)))*12 + (+b.slice(5,7)-(+a.slice(5,7)));
 }
 
-/* ── ログ → 共通形式（後方互換アダプター）──
-   ユーザーは一文を残すだけ。ここで事実・感情・裁量・不足を裏側で分解する。
+/* ── ログ → Evidence（裏側の構造化）──────────────────
+   ユーザーが選ぶ入口は3つだけ。精度は抽象語を選ばせて上げるのではなく、
+   具体的な場面から「何について・何が起きて・どう反応して・何をして・
+   何が変わって・何を望んだか」を取り出して上げる。
+   入口タグと表示先は一致させない。つぶやきに書かれた一文が、
+   プライベートMapとキャリアMapの両方へ同時につながることがある。
    AI の構造化出力に差し替えるときは、この関数の戻り値の形だけ合わせればよい。 */
+
+/* 感情語。極性と強さを持たせ、eventType は入口タグではなくここから決める。 */
+var EMO_LEX = [
+  {e:'うれしい', v: .80, w:['嬉し','うれし','楽し','たのし','よかった','幸せ','わくわく','うきうき']},
+  {e:'心地よい', v: .70, w:['心地よ','落ち着い','ほっと','安心し','ゆったり','癒さ','和らい','ゆるん']},
+  {e:'感動',     v: .90, w:['感動','胸が','沁み','刺さ','泣い','美し','見と','息をのむ','ぐっと','立ち止ま']},
+  {e:'誇らしい', v: .75, w:['誇ら','達成','やりきっ','手応え','認められ','褒め','感謝され','喜ばれ']},
+  {e:'憧れ',     v: .60, w:['憧れ','うらやま','素敵','いいなと','なりたい','まぶし']},
+  {e:'安堵',     v: .55, w:['肩の力','力が抜け','ほぐれ','楽になっ','許され','救われ']},
+  {e:'興味',     w:['気になっ','面白','おもしろ','知りた','もっと','惹か','引き込ま'], v: .50},
+  {e:'疲れ',     v:-.60, w:['疲れ','しんど','へとへと','消耗','すり減','限界','もたな']},
+  {e:'苛立ち',   v:-.70, w:['苛立','いらい','腹が立','怒','ムカ','理不尽','納得いかな']},
+  {e:'不安',     v:-.60, w:['不安','怖','焦','心配','落ち着かな','ざわ','おそる']},
+  {e:'虚しさ',   v:-.75, w:['虚し','空虚','意味がな','無駄','手応えがな','残らな','空回り','置いていかれ']},
+  {e:'違和感',   v:-.50, w:['違和感','しっくり','引っかか','ひっかか','なんか違','腑に落ちな','ずれ']},
+  {e:'悔しさ',   v:-.60, w:['悔し','くやし','情けな','ふがいな','足りな']},
+  {e:'寂しさ',   v:-.55, w:['寂し','さみし','孤独','ひとりだ','置いてけぼり','分かってもらえ']},
+  {e:'諦め',     v:-.50, w:['諦め','あきらめ','どうせ','仕方な','まあいい','言っても']}
+];
+
+/* 欲求。同じ辞書の両側を使い、満たされた／侵害されたに振り分ける。 */
+var NEEDS = [
+  {n:'自由',     w:['自分で決め','自分で選','自分のペース','任され','好きに','裁量','断っ','やめた'],
+                 vw:['言われ','指示','決められ','やらされ','勝手に決め','選べな','断れな','急かされ']},
+  {n:'創造',     w:['つくっ','作っ','描い','制作','企画し','設計','形にし','試作','考えた'],
+                 vw:['つくった感じがしな','何も残ら','作れな','消化','ルーティン','単調','ただの作業']},
+  {n:'余白',     w:['余白','ゆっくり','急がな','眺め','休め','静か','間があ','のんびり'],
+                 vw:['急かされ','急いで','締め切り','詰まっ','休めな','余裕がな','時間がな','せかされ','早く']},
+  {n:'納得感',   w:['納得','腹落ち','理由が分か','説明でき','意味があ'],
+                 vw:['納得できな','腑に落ちな','数字だけ','評価だけ','理由が分から','なぜか分から']},
+  {n:'つながり', w:['一緒','仲間','話せ','聞いてもら','分かってもら','支え','相談し'],
+                 vw:['ひとりで','孤立','分かってもらえ','言えなかっ','相談できな','誰も']},
+  {n:'意味',     w:['誰かの役','喜ばれ','届い','貢献','意味があ'],
+                 vw:['意味がな','何のため','誰のため','虚し','空虚']},
+  {n:'安心',     w:['安心','受け止め','素のまま','責められな'],
+                 vw:['怖','責められ','否定され','緊張','萎縮','見られて']},
+  {n:'成長',     w:['学べ','分かるようにな','できるようにな','初めて','挑戦'],
+                 vw:['変わらな','同じことの繰り返し','成長でき','伸びな']},
+  {n:'多面的な評価', w:['プロセスを見','過程を','全体を見てもら','丁寧に見'],
+                 vw:['数字だけ','結果だけ','成果だけ','売上だけ','一つの指標','点数']}
+];
+
+/* 美意識。単体の「好き」ではなく、複数の対象に共通する要素を取り出す。 */
+var AESTH = [
+  {id:'a_blur',  label:'境界が曖昧なもの',
+   sum:'はっきり区切られたものより、混ざって溶けているものに目が止まっている。',
+   w:['にじみ','ぼか','グラデ','曖昧','混ざ','溶け','霧','もや','淡い','ふわ']},
+  {id:'a_space', label:'余白のある表現',
+   sum:'埋めることより、空けておくことに心地よさを感じている。',
+   w:['余白','空白','静か','シンプル','少なめ','引き算','間が','すっき','削ぎ']},
+  {id:'a_grow',  label:'完成を急がず育てること',
+   sum:'仕上がったものより、育っている途中のものに惹かれている。',
+   w:['未完成','途中','育て','試作','ラフ','下書き','これから','急がな','じっくり','発酵']},
+  {id:'a_flow',  label:'流動的で重なりのある世界',
+   sum:'固まったものより、流れて重なっていくものを選んでいる。',
+   w:['波','流れ','重な','層','ゆらぎ','うねり','水','川','雲','海','循環']},
+  {id:'a_hand',  label:'手のあとが残るもの',
+   sum:'均一なものより、手のあとが見えるものに触れていたい。',
+   w:['手描き','手仕事','版画','活版','紙','質感','かすれ','手触り','手を動か','アナログ']},
+  {id:'a_light', label:'光と透明感',
+   sum:'重い色より、光が通るものに繰り返し戻っている。',
+   w:['光','透明','透け','青','水色','ガラス','反射','朝','窓','きらめ']}
+];
+
+/* 行動の型。「資料作成が得意」ではなく「何を何に変えたか」で持つ。 */
 var VERB_LEX = [
-  {v:'構成する',   w:['構成','流れを','組み立て','設計','企画']},
-  {v:'編集する',   w:['編集','まとめ','整理','書き直','整え']},
-  {v:'翻訳する',   w:['図に','説明','言語化','伝え','分かる形','動きやすく']},
-  {v:'つくる',     w:['つく','作','描','制作','試作','完成']},
-  {v:'つなぐ',     w:['紹介','声をかけ','巻き込','つなぎ','一緒に']},
-  {v:'選び直す',   w:['決めた','選んだ','断っ','やめ','決めない']},
-  {v:'受けとめる', w:['聞い','受け止め','支え','寄り添']},
-  {v:'対応する',   w:['対応','問い合わせ','依頼','調整','返信']}
+  {v:'構成する',   w:['構成','流れを','組み立て','設計','企画','段取り']},
+  {v:'編集する',   w:['編集','まとめ','整理','書き直','整え','削っ']},
+  {v:'翻訳する',   w:['図に','図解','説明','言語化','伝え','分かる形','動きやすく','噛み砕']},
+  {v:'つくる',     w:['つく','作っ','描い','制作','試作','完成','形にし']},
+  {v:'つなぐ',     w:['紹介','声をかけ','巻き込','つなぎ','一緒に','引き合わ']},
+  {v:'選び直す',   w:['決めた','選んだ','断っ','やめ','決めない','とどま','手放し']},
+  {v:'受けとめる', w:['聞い','受け止め','支え','寄り添','待っ']},
+  {v:'対応する',   w:['対応','問い合わせ','依頼','調整','返信','処理']},
+  {v:'掘り下げる', w:['調べ','読み込','分析','たどっ','深掘','検証']}
 ];
-var NEED_LEX = [
-  {n:'創造',   w:['つくった感じがしな','何も残ら','作れな','消化','ルーティン','単調']},
-  {n:'完結感', w:['終わらな','細切れ','中途半端','途切れ','散らか']},
-  {n:'意味',   w:['意味が','虚し','空虚','何のため','納得できな']},
-  {n:'余白',   w:['急ぎ','詰まっ','休めな','余裕がな','時間がな']},
-  {n:'裁量',   w:['言われた','指示','決められ','任されな','勝手に決め']}
+
+/* 結果が変わったことの手がかり。強みは「やった」ではなく「変わった」で測る。 */
+var OUTCOME_RE = [
+  /(ようになった|ようにな|変わった|進み始め|動き出し|決ま(っ|り)|通っ|通った|受かっ|終わ(っ|らせ)|完成し|届いた|できた|うまくいっ|解け|前に進)/,
+  /(なくなった|減った|増えた|早くなった|楽になった)/
 ];
-var CHOICE_W = ['決めた','決めない','選んだ','選び直','断っ','やめた','とどまる','進むと','行くと決め'];
-var WISH_W   = ['したい','たい。','いつか','来年','叶え','ひらきたい','なりたかった','なりたい','続けたい','試したい'];
-function hitAny(t, ws){ for(var i=0;i<ws.length;i++){ if(t.indexOf(ws[i])>=0) return true; } return false; }
-function toLogEntry(l){
-  if(l.entry) return l.entry;                    /* 既に構造化済みならそのまま使う */
-  var k = kindOf(l);
-  var text = (l.body||'') + ' ' + (l.tags||[]).join(' ') + ' ' + (l.place||'');
-  var et = {moved:'moved', effort:'effort', hard:'pain'}[k] || 'moved';
-  var isChoice = hitAny(text, CHOICE_W) || l.kind==='chose';
-  var isWish   = hitAny(text, WISH_W)   || l.kind==='wish';
-  var val = {moved:.7, effort:.3, pain:-.7}[et];
-  var strong = ['泣','怖','勇気','嬉','悔','疲れ','違和感','肩の力','心が','決め','惹か','立ち止ま'];
-  var bump = 0; strong.forEach(function(x){ if(text.indexOf(x)>=0) bump += .08; });
-  var ids = function(dict){ return dict.filter(function(d){ return lexHits(d,text)>0; }).map(function(d){ return d.id; }); };
-  var conds = LEX.conditions.filter(function(d){ return lexHits(d,text)>0; });
-  var drain = conds.some(function(c){ return c.energy==='drain'; }) || et==='pain';
-  var gain  = conds.some(function(c){ return c.energy==='gain'; })  || et==='moved' || isChoice;
-  var energy = drain ? 'drain' : (gain ? 'gain' : 'neutral');
-  var dom = 'life';
-  if(/仕事|会社|企画|面談|転職|キャリア|評価|職|プロジェクト|資料|上司|部長|問い合わせ|依頼/.test(text)) dom='career';
-  else if((l.people||[]).length) dom='relationship';
-  else if(ids(LEX.interests).length || et==='moved') dom='likes';
-  /* 裁量と創作の余地。自分で決めた記述があれば高く、依頼・指示なら低く。 */
-  var autonomy = isChoice ? .9 : et==='effort' ? .65 : et==='pain' ? .25 : .4;
-  if(/言われ|指示|依頼|問い合わせ|対応/.test(text)) autonomy = Math.min(autonomy, .25);
-  if(/自分で|自分の言葉|勝手に|自主/.test(text)) autonomy = Math.max(autonomy, .85);
-  var creative = /つく|作|描|企画|設計|構成|物語|デザイン|制作/.test(text) ? .8
-               : /対応|調整|返信|処理/.test(text) ? .15 : .4;
+var FEEDBACK_RE = /(と言われ|と言ってもら|褒め|感謝され|喜ばれ|評価され|お礼|ありがとう|助かる|反応があ|伝わった|理解して)/;
+var CHOICE_RE   = /(決めた|決めない|決めなくて|選んだ|選び直|断っ|やめた|とどま|進むと|行くと決め|手放し)/;
+var TRADEOFF_RE = /(けれど|けど|でも|ても|より|かわりに|代わりに|一方で|ながらも|ものの)/;
+var REASON_RE   = /([^。、]{4,40})(ので|から|ため|おかげ)[、。]/;
+var WISH_RE     = /([^。]{2,40})(したい|してみたい|なりたい|続けたい|ひらきたい|つくりたい|行きたい|会いたい|やってみたい|試したい)/;
+var NEXT_RE     = /(試し|やってみ|行ってみ|始めて|一回|一度|小さく|まずは)/;
+var EXPECT_RE   = /(はずだった|と思っていた|つもりだった|期待し|望んで|欲しかった|見てほしかった|分かってほしかった)/;
+
+var CTX_LEX = [
+  {c:'仕事',   w:['仕事','会社','職場','上司','同僚','チーム','案件','業務','クライアント','顧客','会議','面談','評価','納期']},
+  {c:'制作',   w:['制作','つく','描い','企画','設計','作品','試作','ZINE','版画']},
+  {c:'学び',   w:['勉強','学び','研修','読ん','調べ','資格','講座']},
+  {c:'人との時間', w:['友','家族','恋人','一緒','会っ','話し','紹介','飲み','相談']},
+  {c:'ひとりの時間', w:['ひとり','一人','静か','散歩','眺め','家で','部屋で']},
+  {c:'外へ出た日', w:['展示','美術館','ギャラリー','旅','海','山','公園','カフェ','街']}
+];
+
+/* 「落ち着かない」を「落ち着く」と読まないための打ち消し判定。
+   語のすぐあとに否定が続くときは、当たったことにしない。 */
+var NEG_TAIL = /^[いくきしせりれらえまなはくつ]{0,2}(な(い|く|かった|くて|さ)|ませんで|ません|ず|ぬ|ないまま)/;
+function negated(t, w){
+  var i = t.indexOf(w);
+  while(i >= 0){
+    if(!NEG_TAIL.test(t.slice(i + w.length, i + w.length + 6))) return false;  /* 否定でない出現がある */
+    i = t.indexOf(w, i + 1);
+  }
+  return true;
+}
+function hitAny(t, ws){ for(var i=0;i<ws.length;i++){ if(t.indexOf(ws[i])>=0 && !negated(t, ws[i])) return true; } return false; }
+function countAny(t, ws){ var n=0; for(var i=0;i<ws.length;i++){ if(t.indexOf(ws[i])>=0 && !negated(t, ws[i])) n++; } return n; }
+function clause(t, re){ var m = t.match(re); return m ? m[0] : null; }
+
+/* 一文を、意味のかたまりに割る */
+function segs(t){
+  return String(t||'').split(/[。．\n]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+}
+
+function extract(l){
+  var body = String(l.body||'');
+  var text = body + ' ' + (l.tags||[]).join(' ') + ' ' + (l.place||'') + ' ' + (l.people||[]).join(' ');
+  var tag  = kindOf(l);                       /* 入口。分析の弱い前提としてだけ使う */
+  var ss   = segs(body);
+
+  /* ── 何についての出来事か ── */
+  var object  = canonList((l.tags||[]).slice());
+  AESTH.forEach(function(a){ a.w.forEach(function(w){ if(body.indexOf(w)>=0 && object.indexOf(w)<0) object.push(w); }); });
+  var context = CTX_LEX.filter(function(c){ return hitAny(text, c.w); }).map(function(c){ return c.c; });
+  if((l.people||[]).length && context.indexOf('人との時間')<0) context.push('人との時間');
+  if(l.place) context.push(canon(l.place));
+
+  /* ── 何が起きたか ── */
+  var situation = ss[0] || body;
   var verbs = VERB_LEX.filter(function(d){ return hitAny(text, d.w); }).map(function(d){ return d.v; });
-  var needs = et==='pain' ? NEED_LEX.filter(function(d){ return hitAny(text, d.w); }).map(function(d){ return d.n; }) : [];
-  var social = (l.people||[]).length ? '人と一緒'
-             : /依頼|問い合わせ|言われ|指示/.test(text) ? '他者からの依頼' : 'ひとり';
-  var inten = Math.max(.15, Math.min(1, Math.abs(val)*0.8 + bump));
+  var userAction = verbs.length ? verbs.join('・') : null;
+  var outcome = null;
+  for(var oi=0; oi<OUTCOME_RE.length; oi++){
+    var om = body.match(OUTCOME_RE[oi]);
+    if(om){ outcome = (ss.filter(function(x){ return OUTCOME_RE[oi].test(x); })[0]) || om[0]; break; }
+  }
+  var externalFeedback = FEEDBACK_RE.test(body)
+    ? (ss.filter(function(x){ return FEEDBACK_RE.test(x); })[0] || null) : null;
+
+  /* ── 本人の反応 ── */
+  var emotions = [], vsum = 0, vn = 0;
+  EMO_LEX.forEach(function(d){
+    if(hitAny(body, d.w)){ emotions.push(d.e); vsum += d.v; vn++; }
+  });
+  var valence = vn ? vsum/vn : (tag==='moved' ? .45 : tag==='effort' ? .15 : 0);
+  var inten = Math.max(.15, Math.min(1, (vn ? Math.abs(valence) : .3) + Math.min(.3, (vn-1)*0.12) +
+                       (/[！!]|とても|すごく|ほんとう|本当に|ずっと/.test(body) ? .15 : 0)));
+
+  /* ── 何が満たされた・侵害されたか ── */
+  var satisfied = [], violated = [];
+  NEEDS.forEach(function(d){
+    var vhit = countAny(body, d.vw), shit = countAny(body, d.w);
+    if(vhit > 0 && vhit >= shit) violated.push(d.n);
+    else if(shit > 0) satisfied.push(d.n);
+  });
+
+  var energy = violated.length > satisfied.length ? 'drain'
+             : satisfied.length > violated.length ? 'gain'
+             : valence >  .25 ? 'gain'
+             : valence < -.25 ? 'drain' : 'neutral';
+
+  /* ── 選択と背景 ── */
+  var choice = CHOICE_RE.test(body) ? (ss.filter(function(x){ return CHOICE_RE.test(x); })[0] || null) : null;
+  var tradeoff = (choice && TRADEOFF_RE.test(choice)) ? choice : (TRADEOFF_RE.test(body) && choice ? body : null);
+  var rm = body.match(REASON_RE);
+  var statedReason = rm ? rm[1] : null;
+
+  /* ── 未来への方向 ── */
+  var wm = body.match(WISH_RE);
+  var wish = wm ? wm[0] : null;
+  var nextInterest = (wish && NEXT_RE.test(body)) ? wish : null;
+
+  /* ── 美意識 ── */
+  var aesthetic = AESTH.filter(function(a){ return hitAny(body, a.w); }).map(function(a){ return a.id; });
+
+  /* ── 仮説（このあと証拠を横断して重みづけされる）── */
+  var ids = function(dict){ return dict.filter(function(d){ return lexHits(d, text)>0; }).map(function(d){ return d.id; }); };
+  var conds = LEX.conditions.filter(function(d){ return lexHits(d, text)>0; });
+
+  /* eventType は入口タグではなく、反応と欲求から決める */
+  var et = energy==='drain' || valence < -.2 ? 'pain'
+         : (verbs.length && valence <= .45)  ? 'effort'
+         : 'moved';
+
+  var autonomy = choice ? .9 : hitAny(body, ['言われ','指示','依頼','問い合わせ','対応','決められ']) ? .2
+               : hitAny(body, ['自分で','自分の言葉','自主','任され']) ? .85
+               : et==='effort' ? .6 : .45;
+  var creative = /つく|作っ|描い|企画|設計|構成|物語|デザイン|制作|形にし/.test(body) ? .8
+               : /対応|調整|返信|処理|問い合わせ/.test(body) ? .15 : .4;
+
+  var dom = context.indexOf('仕事')>=0 || context.indexOf('学び')>=0 ? 'career'
+          : (l.people||[]).length || context.indexOf('人との時間')>=0 ? 'relationship'
+          : (aesthetic.length || ids(LEX.interests).length) ? 'likes' : 'life';
+
+  /* 確信度：具体が多いほど高い。低いときだけ、あとで一問だけ聞く。 */
+  var conf = Math.min(1, .28
+    + (emotions.length ? .16 : 0)
+    + (verbs.length ? .14 : 0)
+    + (outcome ? .12 : 0)
+    + (object.length ? .10 : 0)
+    + (satisfied.length + violated.length ? .12 : 0)
+    + (statedReason ? .08 : 0)
+    + ((l.tags||[]).length ? .06 : 0));
+
   return {
-    id:l.id, occurredAt: l.undated ? null : l.occurred_at, rawText:l.body||'', eventType:et, domain:dom,
-    isChoice:isChoice, isWish:isWish,
-    action: verbs, objects: canonList(l.tags||[]),
-    entities: canonList((l.tags||[]).concat(l.people||[]).concat(l.place?[l.place]:[])),
+    /* Evidence（仕様の形） */
+    object: object, context: canonList(context),
+    situation: situation, userAction: userAction, outcome: outcome, externalFeedback: externalFeedback,
+    emotions: emotions, emotionalIntensity: inten, energy: energy,
+    satisfiedNeeds: satisfied, violatedNeeds: violated,
+    choice: choice, tradeoff: tradeoff, statedReason: statedReason,
+    wish: wish, nextInterest: nextInterest,
+    aestheticAttributes: aesthetic,
+    valueCandidates: ids(LEX.values), strengthCandidates: ids(LEX.strengths),
+    tensionCandidates: [],
+    /* 既存のMap側が読む形（互換） */
+    id:l.id, occurredAt: l.undated ? null : l.occurred_at, rawText: body,
+    inputTag: tag, eventType: et, domain: dom,
+    isChoice: !!choice, isWish: !!wish,
+    action: verbs, objects: object,
+    entities: canonList(object.concat(l.people||[]).concat(l.place?[l.place]:[])),
     people: canonList(l.people||[]),
-    emotionalValence:val, arousal: inten, emotionalIntensity: inten,
+    emotionalValence: valence, arousal: inten,
     agency: autonomy, autonomy: autonomy, creativeControl: creative,
-    energy:energy, energyDelta: energy==='gain' ? .6 : energy==='drain' ? -.7 : 0,
-    socialContext: social,
+    energyDelta: energy==='gain' ? .6 : energy==='drain' ? -.7 : 0,
+    socialContext: (l.people||[]).length ? '人と一緒'
+                 : /依頼|問い合わせ|言われ|指示/.test(body) ? '他者からの依頼' : 'ひとり',
     candidateValues: ids(LEX.values), candidateStrengths: ids(LEX.strengths),
     candidateInterests: ids(LEX.interests), candidateConditions: conds.map(function(c){ return c.id; }),
-    strengthVerbs: verbs, missingNeeds: needs,
-    tensions: [], wishes: isWish ? [l.body] : [],
-    futureIntent: isWish ? l.body : null,
+    candidateAesthetics: aesthetic,
+    strengthVerbs: verbs, missingNeeds: violated,
+    tensions: [], wishes: wish ? [wish] : [], futureIntent: wish,
     importance: l.importance||0, userConfirmed: !!l.userConfirmed,
-    confidence: Math.min(1, .45 + verbs.length*0.12 + (l.tags||[]).length*0.06)
+    confidence: conf
   };
 }
-/* Future Memo も証拠として扱う（未来側の記録） */
+function toLogEntry(l){
+  if(l.entry) return l.entry;                    /* 既に構造化済みならそのまま使う */
+  return extract(l);
+}
+
+/* Future Memo も証拠として扱う（未来側の記録）。形は Evidence とそろえる。 */
 function futureEntry(f){
   var text = f.body||'';
   var ids = function(dict){ return dict.filter(function(d){ return lexHits(d,text)>0; }).map(function(d){ return d.id; }); };
+  var aesthetic = AESTH.filter(function(a){ return hitAny(text, a.w); }).map(function(a){ return a.id; });
   return {
-    id:'f:'+f.id, occurredAt: f.done_at || f.due || null, rawText:text, eventType:'wish',
-    domain:'life', entities:[], emotionalValence:.5, emotionalIntensity:.5, agency:.6,
-    energy:'gain', candidateValues:ids(LEX.values), candidateStrengths:[],
-    candidateInterests:ids(LEX.interests), candidateConditions:[],
-    tensions:[], wishes:[text], importance:0, userConfirmed:false, isFuture:true, isWish:true, isChoice:false,
-    action:[], objects:[], people:[], arousal:.5, autonomy:.6, creativeControl:.5,
-    energyDelta:.6, socialContext:'ひとり', strengthVerbs:[], missingNeeds:[],
-    futureIntent:text, confidence:.6, due:f.due, doneAt:f.done_at
+    object:[], context:['これから'], situation:text, userAction:null, outcome:null, externalFeedback:null,
+    emotions:['憧れ'], emotionalIntensity:.5, energy:'gain',
+    satisfiedNeeds:[], violatedNeeds:[],
+    choice:null, tradeoff:null, statedReason:null,
+    wish:text, nextInterest:text, aestheticAttributes:aesthetic,
+    valueCandidates:ids(LEX.values), strengthCandidates:[], tensionCandidates:[],
+    id:'f:'+f.id, occurredAt: f.done_at || f.due || null, rawText:text, inputTag:'moved',
+    eventType:'wish', domain:'life', entities:[], emotionalValence:.5, agency:.6, arousal:.5,
+    autonomy:.6, creativeControl:.5, energyDelta:.6, socialContext:'ひとり',
+    candidateValues:ids(LEX.values), candidateStrengths:[],
+    candidateInterests:ids(LEX.interests), candidateConditions:[], candidateAesthetics:aesthetic,
+    action:[], objects:[], people:[], strengthVerbs:[], missingNeeds:[],
+    tensions:[], wishes:[text], futureIntent:text,
+    importance:0, userConfirmed:false, isFuture:true, isWish:true, isChoice:false,
+    confidence:.6, due:f.due, doneAt:f.done_at
   };
 }
 
@@ -1151,6 +1484,55 @@ var Insight = (function(){
             W.domain*Math.min(1,(st.domains-1)/2) + W.effort*st.effort +
             W.duration*Math.min(1, st.span/12) + W.stated*stated;
   }
+
+  /* ── 種類ごとのスコア。抽象語の申告回数ではなく、証拠の性質で測る。 ──
+     どれも 0〜1。identity（＝その人らしさの確からしさ）として使う。 */
+
+  /* 価値観：犠牲を払ってでも選んだか / 強く動いたか / 繰り返すか /
+     侵害されたときに痛んだか / 未来の願いにも出てくるか */
+  function valueScore(es, id){
+    var n = es.length || 1;
+    var sacrifice = es.filter(function(e){ return e.choice && (e.tradeoff || e.emotionalIntensity>=.5); }).length / n;
+    var moved     = es.reduce(function(a,e){ return a + Math.min(1, e.emotionalIntensity); }, 0) / n;
+    var repeat    = Math.min(1, (es.length-1)/3);
+    var violated  = es.filter(function(e){ return e.violatedNeeds.length && e.energy==='drain'; }).length / n;
+    var future    = es.some(function(e){ return e.wish || e.isFuture; }) ? 1 : 0;
+    return .30*sacrifice + .20*moved + .20*repeat + .15*violated + .15*future;
+  }
+
+  /* 美意識：複数の対象に共通するか / 戻ってきているか / 自分から時間を使ったか /
+     感情が動いたか / 理由を語っているか */
+  function aestheticScore(es){
+    var n = es.length || 1;
+    var objs = {}; es.forEach(function(e){ (e.object||[]).forEach(function(o){ objs[o]=1; }); });
+    var across  = Math.min(1, (Object.keys(objs).length)/3);
+    var repeat  = Math.min(1, (es.length-1)/3);
+    var own     = es.filter(function(e){ return e.autonomy>=.6 && e.socialContext!=='他者からの依頼'; }).length / n;
+    var moved   = es.reduce(function(a,e){ return a + Math.min(1, e.emotionalIntensity); }, 0) / n;
+    var stated  = es.some(function(e){ return e.statedReason; }) ? 1 : 0;
+    return .30*across + .20*repeat + .20*own + .20*moved + .10*stated;
+  }
+
+  /* 強み：同じ行動を複数場面で / それで結果が変わったか / 他者の反応があるか /
+     エネルギーが増えたか / 違う領域でも再現したか */
+  function strengthScore(es){
+    var n = es.length || 1;
+    var sits = {}; es.forEach(function(e){ (e.context||[]).forEach(function(c){ sits[c]=1; }); });
+    var doms = {}; es.forEach(function(e){ doms[e.domain]=1; });
+    var repeat = Math.min(1, Object.keys(sits).length/3) * .5 + Math.min(1, (es.length-1)/3) * .5;
+    var changed = es.filter(function(e){ return e.outcome; }).length / n;
+    var praised = es.filter(function(e){ return e.externalFeedback; }).length / n;
+    var gained  = es.filter(function(e){ return e.energy==='gain'; }).length / n;
+    var cross   = Math.min(1, (Object.keys(doms).length-1)/2);
+    return .25*repeat + .25*changed + .20*praised + .15*gained + .15*cross;
+  }
+
+  /* 次のステップ適合度：繰り返す強みを使えるか / 願いに近いか / 力の出る条件を満たすか /
+     いまの制約で小さく試せるか / 新しい自己理解につながるか */
+  function stepScore(parts){
+    return .30*(parts.strength||0) + .25*(parts.wish||0) + .20*(parts.energy||0) +
+           .15*(parts.small||0)    + .10*(parts.newness||0);
+  }
   function tierOf(st){
     if(st.n >= MAPC.PROMOTE.identity && (st.months>=2 || st.domains>=2)) return 'identity';
     if(st.n >= MAPC.PROMOTE.pattern) return 'pattern';
@@ -1168,25 +1550,38 @@ var Insight = (function(){
     var self = add(mk('self','self','いまの自分','','' ? [] : order.slice(0,1)));
     self.evidenceIds = order.slice();
 
-    /* 価値観・強み・条件・惹かれるもの */
-    function collect(dict, kind, field){
+    /* 価値観・強み・条件・惹かれるもの・美意識。
+       種類ごとに違うスコア式を使う。抽象語の申告回数では測らない。 */
+    function collect(dict, kind, field, scorer){
       dict.forEach(function(d){
         var evs = order.filter(function(id){ return (entries[id][field]||[]).indexOf(d.id)>=0; });
         if(!evs.length) return;
         var n = add(mk(kind, d.id, d.label, d.sum, evs));
         n.chip = d.chip; n.energy = d.energy;
         var st = stats(entries, evs);
+        var es = evs.map(function(id){ return entries[id]; });
         n.stat = st; n.tier = tierOf(st);
-        n.identity = identityScore(st, n);
+        n.identity = scorer ? scorer(es, d.id) : identityScore(st, n);
+        n.identity = Math.max(0, Math.min(1, n.identity*0.75 + identityScore(st,n)*0.25));
         n.confidence = Math.min(1, .25 + evs.length*0.25 + (st.domains-1)*.1);
         n.firstSeenAt = st.minM; n.lastSeenAt = st.maxM;
         n.confirmed = fbGet(d.id)>0;
+        /* 根拠の内訳。カードで「なぜここにあるか」を具体で説明するために持つ。 */
+        n.evidenceMix = {
+          choice:   es.filter(function(e){ return e.choice; }).length,
+          outcome:  es.filter(function(e){ return e.outcome; }).length,
+          praised:  es.filter(function(e){ return e.externalFeedback; }).length,
+          violated: es.filter(function(e){ return e.violatedNeeds.length; }).length,
+          gain:     es.filter(function(e){ return e.energy==='gain'; }).length,
+          objects:  (function(){ var o={}; es.forEach(function(e){ (e.object||[]).forEach(function(x){ o[x]=1; }); }); return Object.keys(o); })()
+        };
       });
     }
-    collect(LEX.values,     'value',     'candidateValues');
-    collect(LEX.strengths,  'strength',  'candidateStrengths');
-    collect(LEX.conditions, 'condition', 'candidateConditions');
-    collect(LEX.interests,  'interest',  'candidateInterests');
+    collect(LEX.values,     'value',     'candidateValues',     valueScore);
+    collect(LEX.strengths,  'strength',  'candidateStrengths',  strengthScore);
+    collect(LEX.conditions, 'condition', 'candidateConditions', null);
+    collect(LEX.interests,  'interest',  'candidateInterests',  null);
+    collect(AESTH,          'aesthetic', 'candidateAesthetics', aestheticScore);
 
     /* 価値観との関係づけ */
     nodes.forEach(function(n){
@@ -1197,7 +1592,7 @@ var Insight = (function(){
         .sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,2);
     });
 
-    /* 葛藤 */
+    /* 葛藤：どちらかを正解にせず、相反する2つを両方残したまま問いとして立てる。 */
     LEX.tensions.forEach(function(t){
       var have = t.need.every(function(id){ return byId[id]; });
       var withN = t.with.filter(function(id){ return byId[id]; });
@@ -1213,6 +1608,68 @@ var Insight = (function(){
       n.relatedValueIds = t.need.concat(withN).filter(function(id){ return byId[id] && byId[id].kind==='value'; }).slice(0,2);
       n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(t.id)>0;
     });
+
+    /* 相反する2つの価値が、どちらも証拠を持っているときに立てる葛藤。
+       片方が満たされた記録と、もう片方が侵害された記録の両方があるほど強い。 */
+    OPPOSE.forEach(function(o){
+      var A=byId[o.a], B=byId[o.b];
+      if(!A || !B || byId[o.id]) return;
+      var evs=[];
+      [A,B].forEach(function(x){ (x.evidenceIds||[]).slice(0,4).forEach(function(e){ if(evs.indexOf(e)<0) evs.push(e); }); });
+      if(evs.length < 2) return;
+      var es = evs.map(function(id){ return entries[id]; });
+      var pull = es.filter(function(e){ return e.energy==='gain'; }).length;
+      var push = es.filter(function(e){ return e.energy==='drain' || e.violatedNeeds.length; }).length;
+      if(!pull || !push) return;                       /* 引っ張り合っていなければ葛藤にしない */
+      var n = add(mk('tension', o.id, o.label, o.sum, evs.slice(0,6)));
+      var st = stats(entries, n.evidenceIds);
+      n.stat=st; n.tier = st.n>=3?'pattern':'seed';
+      n.identity = Math.min(1, .35 + Math.min(.35, (pull+push)*.06) + identityScore(st,n)*.4);
+      n.confidence = Math.min(.85, .35 + evs.length*.1);
+      n.relatedValueIds = [o.a, o.b];
+      n.sides = [A.label, B.label];
+      n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(o.id)>0;
+    });
+
+    /* モヤモヤ：起きたこと → 期待していたこと → 不足していた条件 → 侵害された価値観。
+       うまくいかなかった理由を能力不足に閉じず、本人と環境の相性として分けて置く。 */
+    (function(){
+      var byNeed = {};
+      order.forEach(function(id){
+        var e = entries[id];
+        if(e.isFuture || e.energy!=='drain') return;
+        (e.violatedNeeds||[]).forEach(function(nd){ (byNeed[nd] = byNeed[nd] || []).push(id); });
+      });
+      Object.keys(byNeed).forEach(function(nd){
+        var F = FRICTION[nd]; if(!F) return;
+        var evs = byNeed[nd];
+        var es = evs.map(function(x){ return entries[x]; });
+        var n = add(mk('friction', 'fr_'+nd, F.label, F.sum, evs.slice(0,6)));
+        var st = stats(entries, n.evidenceIds);
+        n.stat = st; n.tier = st.n>=3 ? 'identity' : st.n>=2 ? 'pattern' : 'seed';
+        /* 繰り返しているほど、また感情が強いほど「いま残っている」ものとして上げる */
+        n.identity = Math.min(1, .28 + Math.min(.34, (evs.length-1)*.14) +
+                     (es.reduce(function(a,e){ return a+e.emotionalIntensity; },0)/es.length)*.30);
+        n.confidence = Math.min(.9, .35 + evs.length*.14);
+        n.need = nd;
+        n.layers = {
+          happened: (es.filter(function(e){ return e.outcome || e.situation; })[0]||es[0]).situation,
+          expected: es.map(function(e){ return e.statedReason; }).filter(Boolean)[0] || F.expect,
+          lacked:   F.lack,
+          violated: (function(){
+            var v={}; es.forEach(function(e){ (e.violatedNeeds||[]).forEach(function(x){ v[x]=1; }); });
+            return Object.keys(v);
+          })()
+        };
+        n.fitNote = '力が足りなかったという話ではなく、「'+nd+'」を必要とするあなたと、'+
+                    F.envw+'を重く見る環境の、相性として置いています。';
+        n.relatedValueIds = (function(){
+          var vs={}; es.forEach(function(e){ (e.candidateValues||[]).forEach(function(v){ if(byId[v]) vs[v]=(vs[v]||0)+1; }); });
+          return Object.keys(vs).sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,2);
+        })();
+        n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(n.id)>0;
+      });
+    })();
 
     /* 願い（過去から続いているもの・Future Memo）*/
     order.forEach(function(id){
@@ -1316,18 +1773,48 @@ var Insight = (function(){
       n.identity=.35; n.confidence=.5; n.tier='seed'; n.relatedValueIds=hit.filter(function(t){ return byId[t].kind==='value'; });
     });
 
-    /* 次の小さな実験：強み仮説 × 活力条件 × 最近の関心 から、検証できる一歩を作る。
-       「次の正解」ではなく「次に検証すること」を返す。 */
+    /* 次に試せる小さな実験。
+       一般的なキャリア助言ではなく、蓄積された本人の証拠から出す。
+       いきなり「転職すべき」とは言わず、検証できる小ささに落とす。 */
     var topS = nodes.filter(function(n){ return n.kind==='strength'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
-    var topC = nodes.filter(function(n){ return n.kind==='condition' && n.energy==='gain'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
-    var topI = nodes.filter(function(n){ return n.kind==='interest'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
-    if(topS && topC){
+    var gainC = nodes.filter(function(n){ return n.kind==='condition' && n.energy==='gain'; }).sort(function(a,b){ return b.identity-a.identity; });
+    var topC = gainC[0];
+    var topI = nodes.filter(function(n){ return n.kind==='interest'||n.kind==='aesthetic'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
+    var topW = nodes.filter(function(n){ return n.kind==='wish'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
+    if(topS){
       var evs2=[];
-      [topS, topC, topI].forEach(function(x){ if(x) (x.evidenceIds||[]).slice(0,2).forEach(function(e){ if(evs2.indexOf(e)<0) evs2.push(e); }); });
-      var n2 = add(mk('experiment','x_next', '「'+topS.label+'」を、小さく試す',
-        topC.label + '状態で、' + (topI? '「'+topI.label+'」に近いテーマで' : '身近なテーマで') +
-        '、5人以下の小さな企画を1つだけ設計してみる。うまくいくかではなく、力が出るかを確かめる実験です。', evs2));
-      n2.identity=.5; n2.confidence=.55; n2.tier='seed';
+      [topS, topC, topI, topW].forEach(function(x){ if(x) (x.evidenceIds||[]).slice(0,2).forEach(function(e){ if(evs2.indexOf(e)<0) evs2.push(e); }); });
+      /* 候補を4つ作り、適合度が最も高いものを1つだけ出す */
+      var cands = [
+        {t:'クリエイティブな案件を、ひとつだけ担当してみる',
+         d:'いまの持ち場のなかで、'+(topI? '「'+topI.label+'」':'自分の感覚')+'を使える案件を1件だけ引き受けてみる。',
+         small:1, newness:.5, needI:0},
+        {t:'5人以下の小さなワークショップを1回だけ開く',
+         d:'完成度ではなく、「'+topS.label+'」が実際に働くかを見るための1回。',
+         small:.8, newness:.9, needI:.4},
+        {t:'企画と場づくりを、ひとつにして試す',
+         d:'考える役と場に立つ役を分けずに、小さく1本だけ通してみる。',
+         small:.6, newness:.8, needI:.3},
+        {t:'気になっている人と、1回だけ話す',
+         d:'転職や結論のためではなく、'+(topW? '「'+topW.label.slice(0,14)+'」':'いまの願い')+'が言葉になるかを見るための1回。',
+         small:1, newness:.7, needI:0}
+      ];
+      var best=null;
+      cands.forEach(function(c){
+        var sc = stepScore({
+          strength: Math.min(1, topS.identity + (topS.tier==='identity'?.2:0)),
+          wish:     topW ? Math.min(1, topW.identity+.3) : .2,
+          energy:   topC ? Math.min(1, topC.identity+.35) : .2,
+          small:    c.small,
+          newness:  c.newness
+        }) + (topI ? c.needI*topI.identity : -c.needI*.5);
+        if(!best || sc>best.sc) best={c:c, sc:sc};
+      });
+      var n2 = add(mk('experiment','x_next', best.c.t,
+        best.c.d + (topC ? ' 力が出やすいのは「'+topC.label+'」なので、その形に寄せます。' : '') +
+        ' うまくいくかではなく、力が出るかを確かめる実験です。', evs2));
+      n2.identity = Math.max(.35, Math.min(.9, best.sc));
+      n2.confidence=.55; n2.tier='seed';
       n2.relatedValueIds = (topS.relatedValueIds||[]).slice(0,2);
       n2.firstSeenAt = topS.lastSeenAt; n2.lastSeenAt = topS.lastSeenAt;
       n2.confirmed = fbGet('x_next')>0;
@@ -1342,10 +1829,16 @@ var Insight = (function(){
 })();
 
 /* ── ビューごとの選抜とスコア ── */
+/* プライベート＝価値観／美意識／惹かれるもの／葛藤
+   キャリア＝強み／力の出る条件／モヤモヤ／願う働き方／次の実験
+   全て＝それらがいつ、どの経験から生まれたか */
 function viewFit(n, mode){
-  if(mode==='likes')  return ({interest:1, value:.85, wish:.6, recommendation:.7, tension:.45, evidence:.3, self:1, strength:.2, condition:.2, turningPoint:.3, chapter:.15, experiment:.3})[n.kind]||.2;
-  if(mode==='career') return ({strength:1, condition:.9, experiment:.88, tension:.8, value:.7, wish:.5, turningPoint:.6, evidence:.3, self:1, interest:.25, chapter:.15, recommendation:.2})[n.kind]||.2;
-  return ({chapter:1, turningPoint:.95, value:.8, wish:.7, tension:.6, evidence:.5, self:1, interest:.4, strength:.4, condition:.35, recommendation:.2, experiment:.45})[n.kind]||.2;
+  if(mode==='likes')  return ({value:1, aesthetic:.98, interest:.92, tension:.85, wish:.6, recommendation:.7,
+                               evidence:.3, self:1, strength:.2, condition:.2, friction:.25, turningPoint:.35, chapter:.15, experiment:.3})[n.kind]||.2;
+  if(mode==='career') return ({strength:1, condition:.95, friction:.92, experiment:.88, wish:.6, value:.62,
+                               tension:.5, turningPoint:.6, evidence:.3, self:1, interest:.2, aesthetic:.2, chapter:.15, recommendation:.2})[n.kind]||.2;
+  return ({chapter:1, turningPoint:.95, value:.8, wish:.7, tension:.6, friction:.55, evidence:.5, self:1,
+           interest:.4, aesthetic:.45, strength:.4, condition:.35, recommendation:.2, experiment:.45})[n.kind]||.2;
 }
 function currentness(n){
   if(!n.lastSeenAt) return .4;
@@ -1369,7 +1862,7 @@ function displayScore(n, mode){
    ══════════════════════════════════════════════════ */
 var Map3 = (function(){
   var stage, cv, ctx, layer, W=0, H=0, dpr=1;
-  var G=null, view=null, cam={x:0,y:0,z:1,base:0,v:1}, sel=null, chip=null, raf=0, intro=0, built=false;
+  var G=null, view=null, cam={x:0,y:0,z:1,base:0,v:1}, sel=null, chip=null, raf=0, iraf=0, intro=0, built=false;
   var lvl=0;   /* 0=年 1=月 2=週 3=出来事 */
   var nodeDrag=null;
   var stars=[], nebula=[];
@@ -1392,6 +1885,88 @@ var Map3 = (function(){
      すべてのノードは必ず親を持ち、たどると「自分」に着く。
      角度を再帰的に分け合うので、点が重なりにくい。 */
   var LINK = 94;                                 /* 枝の長さは、どの深さでも同じ */
+
+  /* ---- ばねの力で落ち着かせる ----
+     枝の長さは一定のまま、形だけが有機的に動く。
+     放射ツリーを初期形として置き、そこから力で解いていく。
+     同じ記録からは必ず同じ形になるよう、初期化から決まった回数だけ回す。 */
+  var SIMC = {
+    spring: 0.42,      /* 枝の長さを保つ強さ。強いほど距離が変わらない */
+    repel : 5600,      /* 星どうしが押し合う強さ */
+    repelMax: 26,      /* 一度に押し合う上限。飛び散らせない */
+    damp  : 0.80,      /* 速度の減衰 */
+    settle: 320,       /* 初期化のとき、内部で回す回数 */
+    stop  : 0.015      /* これ以下になったら静かになる */
+  };
+  var sim = {edges:[], list:[], byId:null, alpha:0, drag:null, pin:{}};
+
+  function simBuild(list, byId, tree, pinned){
+    var es=[];
+    Object.keys(tree.parentOf).forEach(function(cid){
+      var p = byId[tree.parentOf[cid]], c = byId[cid];
+      if(p && c) es.push([p, c]);
+    });
+    sim.edges = es; sim.list = list; sim.byId = byId; sim.pin = pinned || {};
+    list.forEach(function(n){ n.vx = 0; n.vy = 0; });
+  }
+  function simTick(k){
+    var L = sim.list, n = L.length, i, j, a, b, dx, dy, d, f;
+    /* 押し合い：近すぎる星ほど強く離れる */
+    for(i=0;i<n;i++){
+      a = L[i];
+      for(j=i+1;j<n;j++){
+        b = L[j];
+        dx = b.x-a.x; dy = b.y-a.y;
+        d = Math.sqrt(dx*dx+dy*dy);
+        if(d > 240) continue;
+        if(d < 0.01){ dx = hash01(a.id+b.id)-.5; dy = hash01(b.id+a.id)-.5; d = Math.sqrt(dx*dx+dy*dy)||1; }
+        f = Math.min(SIMC.repelMax, SIMC.repel/(d*d)) * k;
+        dx/=d; dy/=d;
+        a.vx -= dx*f; a.vy -= dy*f;
+        b.vx += dx*f; b.vy += dy*f;
+      }
+    }
+    /* 枝：長さを LINK に引き戻す。ここが「距離は変わらない」の芯 */
+    for(i=0;i<sim.edges.length;i++){
+      a = sim.edges[i][0]; b = sim.edges[i][1];
+      dx = b.x-a.x; dy = b.y-a.y;
+      d = Math.sqrt(dx*dx+dy*dy) || 0.01;
+      f = (d - LINK) * SIMC.spring * k * 0.5;
+      dx/=d; dy/=d;
+      a.vx += dx*f; a.vy += dy*f;
+      b.vx -= dx*f; b.vy -= dy*f;
+    }
+    /* 進める。中心と、手で置いた星と、いま掴んでいる星は動かさない */
+    for(i=0;i<n;i++){
+      a = L[i];
+      if(a.id==='self' || sim.pin[a.id] || (sim.drag && sim.drag===a.id)){
+        a.vx = 0; a.vy = 0;
+        if(a.id==='self'){ a.x = 0; a.y = 0; }
+        continue;
+      }
+      a.vx *= SIMC.damp; a.vy *= SIMC.damp;
+      a.x += a.vx; a.y += a.vy;
+    }
+  }
+  function simSettle(){                           /* 初期形を、決まった回数だけ解く */
+    var k = 1;
+    for(var t=0; t<SIMC.settle; t++){ simTick(k); k *= 0.992; }
+    sim.alpha = 0;
+  }
+  function simWake(v){                            /* 触られたら、また少し動きだす */
+    sim.alpha = Math.max(sim.alpha, v==null ? .5 : v);
+    if(!raf) raf = requestAnimationFrame(simStep);
+  }
+  function simStep(){
+    raf = 0;
+    if(!view || S.view!=='map'){ sim.alpha = 0; return; }
+    simTick(sim.alpha);
+    sim.alpha *= 0.94;
+    draw(); syncDom();
+    if(sim.alpha > SIMC.stop || sim.drag) raf = requestAnimationFrame(simStep);
+    else sim.alpha = 0;
+  }
+
   function layout(mode, list, tree){
     var byId={}; list.forEach(function(n){ byId[n.id]=n; n.depth=0; });
     var kids = tree.kids, cnt = {};
@@ -1487,8 +2062,8 @@ var Map3 = (function(){
     if(!G) G = Insight.build();
     /* lvl 0=年 1=月 2=週 3=出来事。ピンチで一段ずつ深くなる */
     var pool = G.nodes.filter(function(n){
-      if(mode==='likes')  return ['self','value','interest','wish','recommendation','tension','experiment','evidence'].indexOf(n.kind)>=0;
-      if(mode==='career') return ['self','value','strength','condition','tension','wish','turningPoint','experiment','evidence'].indexOf(n.kind)>=0;
+      if(mode==='likes')  return ['self','value','aesthetic','interest','wish','recommendation','tension','experiment','evidence'].indexOf(n.kind)>=0;
+      if(mode==='career') return ['self','value','strength','condition','friction','tension','wish','turningPoint','experiment','evidence'].indexOf(n.kind)>=0;
       if(n.kind==='chapter'){
         if(n.level==='year')  return true;
         if(n.level==='month') return lvl >= 1;
@@ -1498,13 +2073,34 @@ var Map3 = (function(){
       return true;
     });
     pool.forEach(function(n){ n.display = displayScore(n, mode); });
+    /* 一度に出す星の数を抑える。深く覗くほど増える。
+       全部を同時に出すと、線も名前も読めなくなるため。 */
+    (function trim(){
+      var CAPN = mode==='all' ? [16,22,30,999][lvl] : 26;
+      var keep = {}, rest = [];
+      pool.forEach(function(n){
+        if(n.kind==='self' || n.kind==='chapter') keep[n.id]=1; else rest.push(n);
+      });
+      rest.sort(function(a,b){ return b.display-a.display; });
+      rest.slice(0, Math.max(0, CAPN - Object.keys(keep).length)).forEach(function(n){ keep[n.id]=1; });
+      /* 残す星が参照している価値観は、線が切れないよう一緒に残す */
+      pool.forEach(function(n){
+        if(!keep[n.id]) return;
+        (n.relatedValueIds||[]).forEach(function(v){ keep[v]=1; });
+      });
+      pool = pool.filter(function(n){ return keep[n.id]; });
+    })();
     var byIdAll={}; pool.forEach(function(n){ byIdAll[n.id]=n; });
     var ranked = pool.slice().sort(function(a,b){ return b.display-a.display; });
     /* ラベルを出す顔ぶれ：ビューの主役を必ず1つずつ確保し、同じ種類が偏らないようにする */
-    var must = mode==='likes'  ? ['interest','value','wish','tension']
-             : mode==='career'? ['strength','condition','experiment','tension','value']
-                              : ['chapter','turningPoint','value','wish'];
-    var CAP = {tension:2, turningPoint:2, wish:2, condition:2, chapter:2, recommendation:1, experiment:1};
+    /* そのMapの主役は必ず1つずつ名前を出す。
+       プライベート＝価値観・美意識・惹かれるもの・葛藤／
+       キャリア＝強み・力の出る条件・モヤモヤ・願い・次の実験 */
+    var must = mode==='likes'  ? ['value','aesthetic','interest','tension','wish']
+             : mode==='career'? ['strength','condition','friction','experiment','wish']
+                              : ['chapter','turningPoint','value','tension','wish'];
+    var CAP = {tension:2, friction:2, aesthetic:2, interest:2, turningPoint:2, wish:2,
+               condition:2, chapter:2, recommendation:1, experiment:1};
     var labeled=[], used={}, seenK={};
     function take(n){
       if(!n || used[n.id] || n.kind==='evidence') return false;
@@ -1558,9 +2154,12 @@ var Map3 = (function(){
       if(byId['self']) byId['self'].branch = '#F3E6C8';
     })();
 
-    layout(mode, pool, tree);
-    var savedPos = ((S.cfg.pos||{})[mode]) || {};          /* 手で動かした星は、その位置を優先 */
-    pool.forEach(function(n){ var q=savedPos[n.id]; if(q){ n.x=q[0]; n.y=q[1]; } });
+    layout(mode, pool, tree);                              /* 放射ツリーを初期形に置く */
+    var savedPos = ((S.cfg.pos||{})[mode]) || {};          /* 手で置いた星は、そこに留める */
+    var pinned = {};
+    pool.forEach(function(n){ var q=savedPos[n.id]; if(q){ n.x=q[0]; n.y=q[1]; pinned[n.id]=1; } });
+    simBuild(pool, byIdAll, tree, pinned);
+    simSettle();                                           /* 力で解いて、有機的な形に落ち着かせる */
     return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet, tree:tree,
             ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
   }
@@ -1734,7 +2333,7 @@ var Map3 = (function(){
       el.style.display = show ? '' : 'none';
       if(!show) return;
       if(el.classList.contains('nhit')){
-        var d=Math.max(40, r*2+22);
+        var d=Math.max(30, r*2+16);
         el.style.width=d+'px'; el.style.height=d+'px';
         el.style.left=X+'px'; el.style.top=Y+'px';
       } else {
@@ -1806,40 +2405,31 @@ var Map3 = (function(){
       if(!ok) el.style.visibility='hidden';
     });
   }
-  /* その節と、そこから先に伸びている枝すべて（ドラッグでくっついてくる） */
-  function subtreeOf(n){
-    var out=[n]; if(!view || !view.tree) return out;
-    (function down(id){
-      (view.tree.kids[id]||[]).forEach(function(c){
-        var m=view.byId[c]; if(m){ out.push(m); down(c); }
-      });
-    })(n.id);
-    return out;
-  }
   function buildDom(){
     layer.innerHTML='';
-    view.nodes.forEach(function(n){
+    /* 大事な星ほどあとに置く＝重なったとき上に来て、必ず触れる */
+    view.nodes.slice().sort(function(a,b){ return (a.display||0)-(b.display||0); }).forEach(function(n){
       var hit=document.createElement('button');
       hit.className='nhit'; hit.dataset.id=n.id; hit.type='button';
       hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分')+'。ドラッグで動かせます');
       hit.onclick=function(ev){ ev.stopPropagation(); if(hit._sup){ hit._sup=false; return; } select(n); };
       hit.addEventListener('pointerdown', function(ev){
         ev.stopPropagation(); hit.setPointerCapture(ev.pointerId);
-        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId, kin:subtreeOf(n)};
+        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId};
+        sim.drag = n.id; simWake(.85);              /* 掴んだ星だけ固定し、まわりは追ってくる */
       });
       hit.addEventListener('pointermove', function(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
         var dx=(ev.clientX-nodeDrag.x)/cam.z, dy=(ev.clientY-nodeDrag.y)/cam.z;
         nodeDrag.moved += Math.abs(ev.clientX-nodeDrag.x)+Math.abs(ev.clientY-nodeDrag.y);
-        /* 枝ごと、くっついて動く */
-        nodeDrag.kin.forEach(function(m){ m.x += dx; m.y += dy; });
+        n.x += dx; n.y += dy;                       /* 掴んだ星は指のとおりに */
         nodeDrag.x=ev.clientX; nodeDrag.y=ev.clientY;
-        draw(); syncDom();
+        simWake(.85);                               /* ばねで、枝ぜんぶが有機的に追ってくる */
       });
       function endDrag(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
-        if(nodeDrag.moved>=8){ hit._sup=true; nodeDrag.kin.forEach(savePos); }
-        nodeDrag=null;
+        if(nodeDrag.moved>=8){ hit._sup=true; savePos(n); sim.pin[n.id]=1; }
+        sim.drag = null; nodeDrag=null; simWake(.55);   /* 離すと、まわりが静かに整い直す */
       }
       hit.addEventListener('pointerup', endDrag);
       hit.addEventListener('pointercancel', endDrag);
@@ -1906,10 +2496,36 @@ var Map3 = (function(){
     }
     h += '<h4>'+esc(n.label)+'</h4>';
     if(n.summary) h += '<p class="sum">'+esc(n.summary)+'</p>';
+    /* モヤモヤは4層で見せる。原因を能力に閉じず、環境との相性として置く。 */
+    if(n.kind==='friction' && n.layers){
+      h += '<div class="nd-sec nd-layers">'+
+        '<div class="ly"><b>起きたこと</b><span>'+esc(n.layers.happened||'')+'</span></div>'+
+        '<div class="ly"><b>期待していたこと</b><span>'+esc(n.layers.expected||'')+'</span></div>'+
+        '<div class="ly"><b>不足していた条件</b><span>'+esc(n.layers.lacked||'')+'</span></div>'+
+        '<div class="ly"><b>侵害された価値観</b><span>'+esc((n.layers.violated||[]).join('、'))+'</span></div>'+
+      '</div>';
+      if(n.fitNote) h += '<p class="nd-fit">'+esc(n.fitNote)+'</p>';
+    }
+    /* 葛藤は、どちらも消さずに並べる */
+    if(n.kind==='tension' && n.sides){
+      h += '<div class="nd-sec nd-sides"><span>'+esc(n.sides[0])+'</span><em>×</em><span>'+esc(n.sides[1])+'</span></div>';
+    }
     var st = n.stat||{n:(n.evidenceIds||[]).length, months:1, domains:1};
-    var why = n.tier==='identity' ? st.n+'件の記録に、'+st.months+'つの月をまたいで繰り返し現れています。'
-            : n.tier==='pattern'  ? st.n+'件の記録に共通して現れています。まだ仮説です。'
-            : '1件の記録から見えた芽です。「'+esc(n.label)+'」を大切にしている可能性があります。';
+    var mix = n.evidenceMix;
+    var why;
+    if(n.tier==='identity') why = st.n+'件の記録に、'+st.months+'つの月をまたいで繰り返し現れています。';
+    else if(n.tier==='pattern') why = st.n+'件の記録に共通して現れています。まだ仮説です。';
+    else why = '1件の記録から見えた芽です。「'+n.label+'」が大事になりつつある可能性があります。';
+    /* 何を根拠にそう言えるのかを、抽象語ではなく証拠の種類で具体的に添える */
+    if(mix){
+      var bits=[];
+      if(mix.choice)   bits.push('何かを選び直した記録が'+mix.choice+'件');
+      if(mix.outcome)  bits.push('それで結果が変わった記録が'+mix.outcome+'件');
+      if(mix.praised)  bits.push('人から反応があった記録が'+mix.praised+'件');
+      if(mix.violated) bits.push('侵されたときに痛んだ記録が'+mix.violated+'件');
+      if(mix.objects && mix.objects.length>=2) bits.push(mix.objects.slice(0,3).join('・')+'に共通して現れる');
+      if(bits.length) why += ' '+bits.slice(0,3).join('、')+'あります。';
+    }
     h += '<div class="nd-sec"><h5>なぜここにある？</h5><p>'+esc(why)+'</p></div>';
     var evs=(n.evidenceIds||[]).slice(0,5).map(evLine).join('');
     if(evs) h += '<div class="nd-sec"><h5>根拠になった記録</h5>'+evs+'</div>';
@@ -2036,7 +2652,7 @@ var Map3 = (function(){
       var k=Math.min(1,(performance.now()-t0)/650);
       intro = k<1 ? (1-Math.pow(1-k,3)) : 1;
       draw(); syncDom();
-      if(k<1) raf=requestAnimationFrame(step); else raf=0;
+      if(k<1) iraf=requestAnimationFrame(step); else iraf=0;
     })();
   }
   return {
@@ -2545,6 +3161,8 @@ function seedDemo(){
     {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(6,16), place:'清澄白河', people:[], tags:['展示','色']},
     {id:uid(),kind:'effort',body:'複雑な企画を図にしたら、みんなが動きやすくなった', occurred_at:d(6,18), place:'会社', people:['ミナ'], tags:['企画','言語化']},
     {id:uid(),kind:'hard',  body:'結果を急ぎ続ける働き方に、少し疲れた',                       occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
+    {id:uid(),kind:'hard',  body:'企画を急いで形にしろと言われると、自分の感覚が置いていかれる感じがする', occurred_at:d(6,30), place:'会社', people:[], tags:['余白']},
+    {id:uid(),kind:'hard',  body:'数字だけで評価されて、プロセスや顧客への貢献は見られなかったので納得できなかった', occurred_at:d(7,15), place:'会社', people:[], tags:['評価']},
     {id:uid(),kind:'hard',  body:'一日中問い合わせに対応したけれど、何もつくった感じがしなかった', occurred_at:d(7,2),  place:'会社', people:[], tags:['対応']},
     {id:uid(),kind:'moved', body:'水彩のにじみを眺めている時間が心地よかった',     occurred_at:d(7,7),  place:'家',   people:[], tags:['水彩','余白']},
     {id:uid(),kind:'effort',body:'今すぐ転職すると決めなくてもいいと思えた',       occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
