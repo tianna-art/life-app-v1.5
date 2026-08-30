@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>crincran ｜ 人生の目次</title>
+<meta name="description" content="好きなもの、仕事、人との出会い、心が動いた出来事をつなぎ、自分の輪郭を取り戻す人生編集アプリ。">
+<meta name="theme-color" content="#FBF0BE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="crincran">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;500;600&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FBF0BE; --bg-soft:#FDF6D6; --panel:#FFFBE9; --sheet:#FFFCF0;
+  --ink:#3E3226; --ink-soft:#6A5A46; --muted:#A5906A; --faint:#C4B189;
+  --line:#E6D8A6; --line-soft:#EFE4BC; --scrim:rgba(62,50,38,.34);
+  --accent:#C88A5C;
+  --k-moved:#C97B6B; --k-effort:#B5924C; --k-hard:#7C8DA6; --k-chose:#6E9885; --k-wish:#9B85AF;
+  --serif:"Shippori Mincho B1","Hiragino Mincho ProN",serif;
+  --sans:"Noto Sans JP",system-ui,-apple-system,sans-serif;
+  --maxw:520px;
+  --navh:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--ink);
+  line-height:1.9; letter-spacing:.02em; overscroll-behavior-y:none;
+}
+button,input,textarea,select{font:inherit;color:inherit;background:none;border:0;outline:none}
+button{cursor:pointer}
+::selection{background:rgba(200,138,92,.24)}
+
+/* ── shell ───────────────────────────────── */
+.app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center}
+.stage{position:relative;width:100%;max-width:var(--maxw);flex:1;min-height:0;display:flex;flex-direction:column}
+@media(min-width:560px){ body{background:#F4E9BE} .stage{background:var(--bg);box-shadow:0 0 0 1px var(--line-soft)} }
+
+/* ── header ──────────────────────────────── */
+.hd{
+  flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+  padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;
+  border-bottom:1px solid var(--line-soft); background:var(--bg); z-index:5;
+}
+.brand{text-decoration:none;font-family:var(--serif);font-weight:600;font-size:.82rem;line-height:1.05;letter-spacing:.02em;color:var(--ink);justify-self:start;text-align:left}
+.brand i{display:block;font-style:normal;padding-left:.5em}
+.hd-c{display:flex;align-items:center;gap:7px;font-family:var(--serif);font-size:1.02rem;letter-spacing:.06em;white-space:nowrap}
+.hd-c .yr{font-style:italic;color:var(--ink-soft)}
+.hd-c button{display:flex;align-items:center;gap:6px;padding:2px 4px;color:inherit}
+.chev{width:11px;height:11px;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px)}
+.hd-r{justify-self:end;font-size:.56rem;font-weight:700;letter-spacing:.18em;color:var(--muted);padding:6px 2px}
+
+/* ── scroll body ─────────────────────────── */
+.views{position:relative;flex:1;min-height:0}
+.view{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:22px 20px calc(var(--navh) + env(safe-area-inset-bottom) + 40px);display:none}
+.view.on{display:block}
+.view.flush{padding:0}
+
+/* ── bottom nav ──────────────────────────── */
+.nav{
+  position:absolute;left:0;right:0;bottom:0;z-index:6;
+  display:grid;grid-template-columns:repeat(3,1fr);
+  background:var(--sheet);border-top:1px solid var(--line-soft);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  height:var(--navh);font-family:var(--serif);font-size:1.02rem;letter-spacing:.04em;color:var(--faint);
+  transition:color .2s}
+.nav button .sq{width:26px;height:6px;opacity:0;transition:opacity .25s}
+.nav button.on{color:var(--ink)}
+.nav button.on .sq{opacity:1}
+.nav button i{font-style:italic}
+
+/* ── shared bits ─────────────────────────── */
+.eyebrow{font-size:.56rem;font-weight:700;letter-spacing:.24em;color:var(--faint);text-transform:uppercase}
+.sec{margin-top:34px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-bottom:12px;border-bottom:1px solid var(--line-soft)}
+.plus{width:26px;height:26px;position:relative;flex:none}
+.plus::before,.plus::after{content:"";position:absolute;background:var(--muted);left:50%;top:50%}
+.plus::before{width:13px;height:1.2px;transform:translate(-50%,-50%)}
+.plus::after{width:1.2px;height:13px;transform:translate(-50%,-50%)}
+.squig{display:block;margin:14px auto;width:44px;height:9px;opacity:.75}
+.hr{height:1px;background:var(--line-soft);margin:26px 0}
+.center{text-align:center}
+.mono-note{font-size:.72rem;color:var(--muted);line-height:1.8}
+.empty{padding:30px 0;text-align:center;color:var(--faint);font-size:.8rem;font-family:var(--serif)}
+
+/* title block */
+.titleblock{padding:14px 0 4px;text-align:center;position:relative}
+.titleblock h1{font-family:var(--serif);font-weight:600;font-size:clamp(1.25rem,5.6vw,1.55rem);
+  line-height:1.75;letter-spacing:.06em;color:var(--ink)}
+.titleblock h1 .ph{color:var(--faint)}
+.titleblock .pen{display:inline-block;margin-left:.4em;vertical-align:middle;opacity:.55}
+.arrowbtn{position:absolute;top:50%;transform:translateY(-50%);padding:10px;color:var(--muted)}
+.arrowbtn.l{left:-6px} .arrowbtn.r{right:-6px}
+.arrowbtn:disabled{opacity:.22}
+
+/* rows */
+.row{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:14px;
+  padding:16px 2px;border-bottom:1px solid var(--line-soft);text-align:left;width:100%}
+.row .d{font-family:var(--serif);font-size:.74rem;color:var(--accent);letter-spacing:.04em;white-space:nowrap}
+.row .t{font-family:var(--serif);font-size:.98rem;line-height:1.7;color:var(--ink)}
+.row .t em{font-style:normal;color:var(--muted)}
+.row .go{font-size:.9rem;color:var(--faint)}
+.row:active{background:var(--bg-soft)}
+.dotk{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.5em;vertical-align:middle}
+
+/* quick log */
+.quick{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+.quick button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 2px 10px;
+  border:1px solid var(--line-soft);border-radius:14px;background:var(--panel);transition:transform .12s,border-color .2s}
+.quick button:active{transform:scale(.95)}
+.quick .bl{width:9px;height:9px;border-radius:50%}
+.quick .lb{font-family:var(--serif);font-size:.62rem;letter-spacing:.02em;color:var(--ink-soft);line-height:1.3;text-align:center}
+
+/* chapter card */
+.chapter{background:var(--panel);border:1px solid var(--line-soft);border-radius:16px;padding:20px 18px;margin-top:16px}
+.chapter h3{font-family:var(--serif);font-size:.95rem;letter-spacing:.05em;margin-bottom:10px}
+.chapter .lbl{font-size:.6rem;letter-spacing:.16em;color:var(--faint);margin-top:16px;margin-bottom:4px;font-weight:700}
+.chapter p{font-family:var(--serif);font-size:.88rem;line-height:2.05;color:var(--ink-soft);letter-spacing:.03em}
+
+/* buttons */
+.btn{display:block;width:100%;text-align:center;font-family:var(--serif);font-size:.9rem;letter-spacing:.1em;
+  padding:15px;border-radius:999px;background:var(--ink);color:var(--bg);transition:opacity .2s}
+.btn:active{opacity:.78}
+.btn.ghost{background:none;color:var(--ink-soft);border:1px solid var(--line)}
+.btn.sm{padding:11px;font-size:.8rem}
+.btn:disabled{opacity:.4}
+.linkbtn{font-family:var(--serif);font-size:.8rem;color:var(--muted);letter-spacing:.08em;padding:8px}
+.linkbtn:active{color:var(--ink)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.chip{font-size:.7rem;letter-spacing:.04em;padding:7px 13px;border-radius:999px;border:1px solid var(--line);
+  color:var(--muted);background:var(--panel);transition:all .18s}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* sheet / modal */
+.scrim{position:fixed;inset:0;z-index:20;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,102%);z-index:21;
+  width:100%;max-width:var(--maxw);max-height:88vh;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--sheet);border-radius:22px 22px 0 0;border:1px solid var(--line-soft);border-bottom:0;
+  padding:10px 20px calc(env(safe-area-inset-bottom) + 26px);
+  transition:transform .34s cubic-bezier(.22,.8,.24,1)}
+.sheet.on{transform:translate(-50%,0)}
+.grip{width:38px;height:4px;border-radius:99px;background:var(--line);margin:6px auto 16px}
+.sheet h2{font-family:var(--serif);font-size:1.05rem;letter-spacing:.06em;text-align:center;margin-bottom:6px}
+.sheet .sub{text-align:center;font-size:.72rem;color:var(--muted);margin-bottom:18px}
+.field{margin-top:16px}
+.field label{display:block;font-size:.6rem;font-weight:700;letter-spacing:.16em;color:var(--faint);margin-bottom:7px}
+.field input,.field textarea,.field select{width:100%;background:var(--panel);border:1px solid var(--line-soft);
+  border-radius:12px;padding:13px 14px;font-family:var(--serif);font-size:.92rem;line-height:1.8;color:var(--ink)}
+.field textarea{min-height:104px;resize:vertical}
+.field input::placeholder,.field textarea::placeholder{color:var(--faint);font-family:var(--sans);font-size:.82rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet .actions{display:grid;gap:10px;margin-top:22px}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 22px);transform:translate(-50%,14px);
+  z-index:40;background:var(--ink);color:var(--bg);font-size:.78rem;letter-spacing:.06em;font-family:var(--serif);
+  padding:11px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ── MAP ─────────────────────────────────── */
+.maptabs{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--line-soft);background:var(--bg)}
+.maptabs button{padding:13px 4px 11px;font-family:var(--serif);font-size:.84rem;letter-spacing:.08em;color:var(--faint);position:relative}
+.maptabs button.on{color:var(--ink)}
+.maptabs button.on::after{content:"";position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:38%;height:1.5px;background:var(--accent);opacity:.8}
+.mapwrap{position:absolute;inset:0;display:flex;flex-direction:column}
+#gcv{flex:1;width:100%;display:block;touch-action:none;cursor:grab}
+#gcv.grabbing{cursor:grabbing}
+.maphint{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 12px);
+  text-align:center;font-size:.64rem;color:var(--faint);letter-spacing:.08em;pointer-events:none}
+.mapreset{position:absolute;right:16px;top:60px;z-index:3;border:1px solid var(--line);border-radius:999px;
+  background:var(--panel);font-size:.58rem;letter-spacing:.16em;font-weight:700;color:var(--muted);padding:7px 13px}
+.legend{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 34px);z-index:3;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;padding:0 16px;pointer-events:none;opacity:.85}
+.legend span{display:flex;align-items:center;gap:5px;font-size:.56rem;letter-spacing:.06em;color:var(--muted)}
+.legend i{width:6px;height:6px;border-radius:50%;display:block}
+
+/* node detail */
+.ndetail{position:absolute;left:12px;right:12px;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 12px);z-index:8;
+  background:var(--sheet);border:1px solid var(--line-soft);border-radius:16px;padding:16px 16px 14px;
+  transform:translateY(18px);opacity:0;pointer-events:none;transition:.26s;max-height:46vh;overflow-y:auto}
+.ndetail.on{transform:none;opacity:1;pointer-events:auto}
+.ndetail .k{font-size:.56rem;font-weight:700;letter-spacing:.2em;color:var(--faint)}
+.ndetail h4{font-family:var(--serif);font-size:1.02rem;letter-spacing:.05em;margin:6px 0 10px}
+.ndetail p{font-family:var(--serif);font-size:.84rem;line-height:1.95;color:var(--ink-soft)}
+.ndetail .why{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);font-size:.76rem;color:var(--muted);font-family:var(--sans)}
+.ndetail .x{position:absolute;right:10px;top:8px;padding:8px;color:var(--faint);font-size:1rem}
+
+/* ── LIST ────────────────────────────────── */
+.yearhead{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0 10px;border-bottom:1px solid var(--line)}
+.yearhead .y{font-family:var(--serif);font-style:italic;font-size:1.5rem;letter-spacing:.04em}
+.yearhead .n{font-size:.6rem;letter-spacing:.16em;color:var(--faint)}
+.mrow{display:grid;grid-template-columns:auto auto 1fr auto;align-items:baseline;gap:11px;width:100%;
+  padding:17px 2px;border-bottom:1px solid var(--line-soft);text-align:left;transition:background .2s}
+.mrow:active{background:var(--bg-soft)}
+.mrow .ch{color:var(--faint);font-size:.78rem;line-height:1;transition:transform .22s;display:inline-block;transform-origin:50% 55%}
+.mrow.open .ch{transform:rotate(90deg)}
+.mrow .m{font-family:var(--serif);font-size:.8rem;color:var(--muted);letter-spacing:.06em;white-space:nowrap}
+.mrow .mt{font-family:var(--serif);font-size:.96rem;color:var(--ink);letter-spacing:.03em;line-height:1.65}
+.mrow .mt.none{color:var(--faint)}
+.mrow .cnt{font-size:.58rem;letter-spacing:.12em;color:var(--faint);white-space:nowrap}
+.daygroup{border-left:1px solid var(--line-soft);margin:0 0 4px 8px;padding:6px 0 4px 15px}
+.yearsum{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:0 2px 12px;border-bottom:1px solid var(--line)}
+.yearsum .n{font-family:var(--serif);font-size:.78rem;color:var(--muted);letter-spacing:.04em}
+.yearsum .k{display:flex;gap:9px}
+.yearsum .k span{display:flex;align-items:center;gap:4px;font-size:.58rem;color:var(--faint)}
+.yearsum .k i{width:6px;height:6px;border-radius:50%;display:block}
+
+.filters{display:flex;gap:7px;overflow-x:auto;padding:4px 0 14px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filters .chip{flex:none}
+
+/* settings list */
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 2px;border-bottom:1px solid var(--line-soft)}
+.setrow .l{font-family:var(--serif);font-size:.9rem}
+.setrow .v{font-size:.72rem;color:var(--muted)}
+.badge{font-size:.58rem;letter-spacing:.12em;font-weight:700;padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.ok{color:var(--k-chose);border-color:var(--k-chose)}
+.badge.off{color:var(--faint)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+<div class="stage">
+
+  <!-- header -->
+  <header class="hd">
+    <a class="brand" href="#" onclick="return false"><span>cr'n</span><i>cran</i></a>
+    <div class="hd-c"><button id="periodBtn"><span id="periodLabel" class="yr">2026</span><span class="chev"></span></button></div>
+    <button class="hd-r" id="settingsBtn">SETTINGS</button>
+  </header>
+
+  <div class="views">
+
+    <!-- ══════════ LOG ══════════ -->
+    <section class="view on" id="v-log">
+      <p class="eyebrow center">MONTH TITLE</p>
+      <div class="titleblock">
+        <button class="arrowbtn l" id="mPrev">‹</button>
+        <h1 id="monthTitle"><span class="ph">まだタイトルがありません</span><span class="pen">✎</span></h1>
+        <button class="arrowbtn r" id="mNext">›</button>
+      </div>
+      <svg class="squig" viewBox="0 0 44 9" fill="none"><path d="M1 5.5C5 1 9 1 13 5.5S21 10 25 5.5 33 1 37 5.5 43 8 43 8" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg>
+
+      <div class="sec" style="margin-top:8px">
+        <div class="sec-h"><p class="eyebrow">QUICK LOG</p><p class="mono-note" id="todayLabel"></p></div>
+        <div class="quick" id="quickRow"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><p class="eyebrow">THIS MONTH'S CHAPTER</p><p class="mono-note" id="chapterMeta"></p></div>
+        <div id="chapterBox"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><p class="eyebrow">EVENTS</p><button class="plus" id="addEventBtn" aria-label="ログを追加"></button></div>
+        <div id="logList"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><p class="eyebrow">FUTURE MEMO</p><button class="plus" id="addFutureBtn" aria-label="Future Memoを追加"></button></div>
+        <div id="futureList"></div>
+      </div>
+
+      <div class="hr"></div>
+      <button class="btn" id="readMonthBtn">今月を読む</button>
+      <p class="mono-note center" style="margin-top:12px">カレンダーを見ながら3つの問いに答えると、<br>今月の章が生まれます。</p>
+    </section>
+
+    <!-- ══════════ MAP ══════════ -->
+    <section class="view flush" id="v-map">
+      <div class="mapwrap">
+        <div class="maptabs" id="mapTabs">
+          <button data-m="likes" class="on">好きなこと</button>
+          <button data-m="career">キャリア</button>
+          <button data-m="time">時系列</button>
+        </div>
+        <canvas id="gcv" role="img" aria-label="自分を中心に、好きなもの・仕事・出来事・価値観がつながる図。点に触れると詳細が開きます。"></canvas>
+      </div>
+      <div class="legend" id="mapLegend"></div>
+      <button class="mapreset" id="mapReset">RESET</button>
+      <p class="maphint" id="mapHint">点にふれると、つながりの理由がひらきます</p>
+      <div class="ndetail" id="nodeDetail"><button class="x" id="ndClose">×</button><div id="ndBody"></div></div>
+    </section>
+
+    <!-- ══════════ LIST ══════════ -->
+    <section class="view" id="v-list">
+      <p class="eyebrow center">YEAR TITLE</p>
+      <div class="titleblock">
+        <button class="arrowbtn l" id="yPrev">‹</button>
+        <h1 id="yearTitle"><span class="ph">まだタイトルがありません</span><span class="pen">✎</span></h1>
+        <button class="arrowbtn r" id="yNext">›</button>
+      </div>
+      <svg class="squig" viewBox="0 0 44 9" fill="none"><path d="M1 5.5C5 1 9 1 13 5.5S21 10 25 5.5 33 1 37 5.5 43 8 43 8" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg>
+      <div class="filters" id="listFilters"></div>
+      <div id="yearBody"></div>
+    </section>
+
+  </div>
+
+  <!-- bottom nav -->
+  <nav class="nav" id="nav">
+    <button data-v="log" class="on"><span>Log</span><svg class="sq" viewBox="0 0 26 6" fill="none"><path d="M1 3.5C3.5 1 6 1 8.5 3.5S13.5 6 16 3.5 21 1 25 4" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+    <button data-v="map"><span>Map</span><svg class="sq" viewBox="0 0 26 6" fill="none"><path d="M1 3.5C3.5 1 6 1 8.5 3.5S13.5 6 16 3.5 21 1 25 4" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+    <button data-v="list"><span>List</span><svg class="sq" viewBox="0 0 26 6" fill="none"><path d="M1 3.5C3.5 1 6 1 8.5 3.5S13.5 6 16 3.5 21 1 25 4" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+  </nav>
+
+</div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"><div class="grip"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   crincran — 人生編集アプリ  (single-file / no build step)
+   Log = 記録する / Map = 理解する / List = 記憶をたどる
+   ═══════════════════════════════════════════════════════════ */
+(function(){
+"use strict";
+
+/* ── 1. 定数 ───────────────────────────── */
+var KINDS = [
+  {id:'moved',  ja:'心が動いた', en:'MOVED',  v:'--k-moved'},
+  {id:'effort', ja:'頑張った',   en:'EFFORT', v:'--k-effort'},
+  {id:'hard',   ja:'つらかった', en:'HARD',   v:'--k-hard'},
+  {id:'chose',  ja:'選んだ',     en:'CHOSE',  v:'--k-chose'},
+  {id:'wish',   ja:'願った',     en:'WISH',   v:'--k-wish'}
+];
+var KIND = {}; KINDS.forEach(function(k){ KIND[k.id]=k; });
+var TONES = [
+  {id:'hold',  ja:'そっと受け止める'},
+  {id:'clear', ja:'まっすぐ整理する'},
+  {id:'story', ja:'物語として読む'}
+];
+var ANGLES = [
+  {id:'effort', ja:'頑張りを受け止めたい'},
+  {id:'self',   ja:'自分らしさを確かめたい'},
+  {id:'doubt',  ja:'迷いを整理したい'},
+  {id:'next',   ja:'次の方向を考えたい'}
+];
+var LS = 'crincran.v1';
+
+/* ── 2. ユーティリティ ─────────────────── */
+var $  = function(s,r){ return (r||document).querySelector(s); };
+var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function pad(n){ return n<10 ? '0'+n : ''+n; }
+function ymOf(iso){ return iso.slice(0,7); }
+function yearOf(iso){ return iso.slice(0,4); }
+function todayISO(d){ d = d||new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function fmtMD(iso){ return (+iso.slice(5,7))+'/'+(+iso.slice(8,10)); }
+function cssv(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function shift(ym, delta){
+  var y=+ym.slice(0,4), m=+ym.slice(5,7)-1+delta;
+  y += Math.floor(m/12); m = ((m%12)+12)%12;
+  return y+'-'+pad(m+1);
+}
+function toast(msg, ms){
+  var t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('on'); }, ms||2200);
+}
+
+/* ── 3. 状態 ──────────────────────────── */
+var S = {
+  logs:[],        // {id,kind,body,occurred_at,place,people[],tags[]}
+  months:{},      // 'YYYY-MM' -> {title, chapter:{...}, tone, angle}
+  years:{},       // 'YYYY'    -> {title}
+  futures:[],     // {id,body,mode,due,done_at}
+  cfg:{ supabaseUrl:'', supabaseKey:'', claudeKey:'', userKey:'', model:'claude-sonnet-4-5' },
+  ym: todayISO().slice(0,7),
+  year: todayISO().slice(0,4),
+  view: 'log',
+  mapMode: 'likes',
+  filter: 'all',
+  openYM: {}       // Listで開いている月
+};
+
+/* ── 4. 保存層（localStorage ＋ Supabase REST）─────────────
+   Supabase の URL / anon key が設定されていれば、
+   PostgREST 経由で読み書きし、常に localStorage にも複製する。
+   未設定なら完全にローカルだけで動く。            */
+var Store = (function(){
+  function local(){
+    try{ return JSON.parse(localStorage.getItem(LS)) || null; }catch(e){ return null; }
+  }
+  function saveLocal(){
+    try{
+      localStorage.setItem(LS, JSON.stringify({
+        logs:S.logs, months:S.months, years:S.years, futures:S.futures, cfg:S.cfg
+      }));
+    }catch(e){}
+  }
+  function on(){ return !!(S.cfg.supabaseUrl && S.cfg.supabaseKey && S.cfg.userKey); }
+  function url(path){ return S.cfg.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + path; }
+  function hd(extra){
+    var h = { 'apikey':S.cfg.supabaseKey, 'Content-Type':'application/json' };
+    /* 旧来の anon キー(JWT)は Authorization も必要。
+       新形式の sb_publishable_... は apikey だけで anon ロールとして通る。 */
+    if(/^eyJ/.test(S.cfg.supabaseKey)) h['Authorization'] = 'Bearer ' + S.cfg.supabaseKey;
+    if(extra) for(var k in extra) h[k]=extra[k];
+    return h;
+  }
+  function q(table, params){
+    return fetch(url(table+'?user_key=eq.'+encodeURIComponent(S.cfg.userKey)+(params?'&'+params:'')),
+      {headers:hd()}).then(function(r){ if(!r.ok) throw new Error(table+' '+r.status); return r.json(); });
+  }
+  function upsert(table, row){
+    if(!on()) { saveLocal(); return Promise.resolve(); }
+    row = Object.assign({user_key:S.cfg.userKey}, row);
+    return fetch(url(table), {method:'POST', headers:hd({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify(row)}).then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(t); }); });
+  }
+  function del(table, id){
+    if(!on()) { saveLocal(); return Promise.resolve(); }
+    return fetch(url(table+'?id=eq.'+encodeURIComponent(id)+'&user_key=eq.'+encodeURIComponent(S.cfg.userKey)),
+      {method:'DELETE', headers:hd()});
+  }
+  return {
+    on:on, saveLocal:saveLocal,
+    boot:function(){
+      var d = local();
+      if(d){
+        S.logs = d.logs||[]; S.months = d.months||{}; S.years = d.years||{};
+        S.futures = d.futures||[]; S.cfg = Object.assign(S.cfg, d.cfg||{});
+      }
+      if(!S.cfg.userKey) S.cfg.userKey = 'me-'+uid();
+    },
+    /* サーバとローカルを「足し合わせて」揃える。
+       どちらか一方が空でも、もう一方のデータを消さない。 */
+    pull:function(){
+      if(!on()) return Promise.resolve(false);
+      var mine = {logs:S.logs.slice(), futures:S.futures.slice(),
+                  months:Object.assign({},S.months), years:Object.assign({},S.years)};
+      return Promise.all([
+        q('logs','order=occurred_at.asc'), q('months',''), q('years',''), q('futures','')
+      ]).then(function(res){
+        var rLogs = (res[0]||[]).map(function(r){
+          return {id:r.id, kind:r.kind, body:r.body, occurred_at:r.occurred_at,
+                  place:r.place||'', people:r.people||[], tags:r.tags||[]};
+        });
+        var rFut = (res[3]||[]).map(function(r){
+          return {id:r.id, body:r.body, mode:r.mode, due:r.due, done_at:r.done_at};
+        });
+        var seen={}; rLogs.forEach(function(l){ seen[l.id]=1; });
+        var pushLogs = mine.logs.filter(function(l){ return !seen[l.id]; });
+        S.logs = rLogs.concat(pushLogs).sort(function(a,b){ return a.occurred_at<b.occurred_at?-1:1; });
+
+        var seenF={}; rFut.forEach(function(f){ seenF[f.id]=1; });
+        var pushFut = mine.futures.filter(function(f){ return !seenF[f.id]; });
+        S.futures = rFut.concat(pushFut);
+
+        S.months = {}; (res[1]||[]).forEach(function(r){
+          S.months[r.ym]={title:r.title, chapter:r.chapter, tone:r.tone, angle:r.angle}; });
+        var pushM=[]; Object.keys(mine.months).forEach(function(k){
+          if(!S.months[k] || (!S.months[k].title && mine.months[k].title)){ S.months[k]=mine.months[k]; pushM.push(k); } });
+
+        S.years = {}; (res[2]||[]).forEach(function(r){ S.years[r.year]={title:r.title}; });
+        var pushY=[]; Object.keys(mine.years).forEach(function(k){
+          if(!S.years[k] || (!S.years[k].title && mine.years[k].title)){ S.years[k]=mine.years[k]; pushY.push(k); } });
+
+        saveLocal();
+        var jobs = pushLogs.map(function(l){ return upsert('logs', l); })
+          .concat(pushFut.map(function(f){ return upsert('futures', f); }))
+          .concat(pushM.map(function(k){ var m=S.months[k];
+            return upsert('months',{id:S.cfg.userKey+':'+k, ym:k, title:m.title||null, chapter:m.chapter||null, tone:m.tone||null, angle:m.angle||null}); }))
+          .concat(pushY.map(function(k){
+            return upsert('years',{id:S.cfg.userKey+':'+k, year:k, title:(S.years[k]||{}).title||null}); }));
+        var pushed = jobs.length;
+        return Promise.all(jobs).catch(function(e){ console.warn('push', e); }).then(function(){ return pushed; });
+      });
+    },
+    putLog:function(l){ saveLocal(); return upsert('logs', l).catch(errSync); },
+    delLog:function(id){ saveLocal(); return del('logs', id).catch(errSync); },
+    putMonth:function(ym){ saveLocal(); var m=S.months[ym]||{};
+      return upsert('months', {id:S.cfg.userKey+':'+ym, ym:ym, title:m.title||null, chapter:m.chapter||null,
+        tone:m.tone||null, angle:m.angle||null}).catch(errSync); },
+    putYear:function(y){ saveLocal(); var v=S.years[y]||{};
+      return upsert('years', {id:S.cfg.userKey+':'+y, year:y, title:v.title||null}).catch(errSync); },
+    putFuture:function(f){ saveLocal(); return upsert('futures', f).catch(errSync); },
+    delFuture:function(id){ saveLocal(); return del('futures', id).catch(errSync); }
+  };
+  function errSync(e){ console.warn('sync', e); toast('同期に失敗しました（端末には保存済み）'); }
+})();
+
+/* ── 5. シート（ボトムモーダル）────────── */
+var Sheet = (function(){
+  var el=$('#sheet'), sc=$('#scrim'), body=$('#sheetBody'), openFlag=false;
+  function open(html, after){
+    body.innerHTML = html; el.classList.add('on'); sc.classList.add('on'); openFlag=true;
+    if(after) after(body);
+  }
+  function close(){ el.classList.remove('on'); sc.classList.remove('on'); openFlag=false; }
+  sc.addEventListener('click', close);
+  return {open:open, close:close, isOpen:function(){ return openFlag; }, body:function(){ return body; }};
+})();
+
+/* ── 6. LOG 画面 ─────────────────────────── */
+function logsOfMonth(ym){
+  return S.logs.filter(function(l){ return ymOf(l.occurred_at)===ym; })
+               .sort(function(a,b){ return a.occurred_at<b.occurred_at?-1:1; });
+}
+function renderQuick(){
+  var w=$('#quickRow'); w.innerHTML='';
+  KINDS.forEach(function(k){
+    var b=document.createElement('button');
+    b.innerHTML = '<span class="bl" style="background:'+cssv(k.v)+'"></span><span class="lb">'+k.ja.replace('が','が<br>')+'</span>';
+    b.onclick = function(){ openLogSheet({kind:k.id}); };
+    w.appendChild(b);
+  });
+  $('#todayLabel').textContent = (new Date()).getMonth()+1 + '/' + (new Date()).getDate() + ' 今日';
+}
+function renderMonthTitle(){
+  var m = S.months[S.ym]||{};
+  var h = $('#monthTitle');
+  h.innerHTML = (m.title ? esc(m.title) : '<span class="ph">まだタイトルがありません</span>') + '<span class="pen">✎</span>';
+  h.onclick = function(){ editText('MONTH TITLE', S.ym+' の章に、名前をつける', m.title||'', function(v){
+    S.months[S.ym] = Object.assign(S.months[S.ym]||{}, {title:v});
+    Store.putMonth(S.ym); renderLog(); renderList();
+  }); };
+  $('#periodLabel').innerHTML = '<span class="yr">'+S.ym.slice(0,4)+'</span>&nbsp;&nbsp;'+(+S.ym.slice(5,7))+'月';
+}
+function renderChapter(){
+  var m = S.months[S.ym]||{}, box=$('#chapterBox'), meta=$('#chapterMeta');
+  if(!m.chapter){
+    box.innerHTML = '<p class="empty">まだ今月の章はありません</p>';
+    meta.textContent = ''; return;
+  }
+  var c = m.chapter;
+  meta.textContent = (TONES.filter(function(t){return t.id===m.tone;})[0]||{ja:''}).ja + ' で振り返った章';
+  var parts = [
+    ['この月に残したいこと', c.summary],
+    ['心が向いていたもの',   c.attention],
+    ['使っていた強み',       c.strength],
+    ['守ろうとしていた価値観', c.value],
+    ['まだ解けていない葛藤', c.tension],
+    ['過去とのつながり',     c.link],
+    ['次の自分へ',           c.forward]
+  ].filter(function(p){ return p[1]; });
+  box.innerHTML = '<div class="chapter">' + parts.map(function(p){
+      return '<p class="lbl">'+esc(p[0])+'</p><p>'+esc(p[1])+'</p>';
+    }).join('') +
+    '</div><div style="display:flex;justify-content:center;gap:6px;margin-top:10px">'+
+    '<button class="linkbtn" id="reReadBtn">もう一度、AIと振り返る</button></div>';
+  $('#reReadBtn').onclick = startMonthlyRead;
+}
+function renderLogList(){
+  var list = logsOfMonth(S.ym), w=$('#logList');
+  if(!list.length){ w.innerHTML='<p class="empty">この月のログはまだありません</p>'; return; }
+  w.innerHTML = list.map(function(l){
+    return '<button class="row" data-id="'+l.id+'">'+
+      '<span class="d">'+fmtMD(l.occurred_at)+'</span>'+
+      '<span class="t"><span class="dotk" style="background:'+cssv(KIND[l.kind].v)+'"></span>'+esc(l.body)+'</span>'+
+      '<span class="go"></span></button>';
+  }).join('');
+  $$('.row', w).forEach(function(b){
+    b.onclick = function(){ openLogSheet(S.logs.filter(function(x){return x.id===b.dataset.id;})[0]); };
+  });
+}
+function renderFuture(){
+  var w=$('#futureList');
+  var open = S.futures.filter(function(f){ return !f.done_at; });
+  if(!open.length){ w.innerHTML='<p class="empty">叶えたいことを、ここに置いておけます</p>'; return; }
+  var order = {exact:0, by:1, after:2, anytime:3};
+  open.sort(function(a,b){
+    var d = (order[a.mode]||9)-(order[b.mode]||9); if(d) return d;
+    return (a.due||'9999')<(b.due||'9999')?-1:1;
+  });
+  w.innerHTML = open.map(function(f){
+    var dd = f.due ? (yearOf(f.due)===todayISO().slice(0,4) ? fmtMD(f.due) : f.due.slice(2,4)+'/'+fmtMD(f.due)) : '';
+    var when = f.mode==='anytime' ? 'いつか'
+             : f.mode==='by' ? dd+' まで'
+             : f.mode==='after' ? dd+' 以降' : dd;
+    return '<button class="row" data-id="'+f.id+'"><span class="d">'+esc(when)+'</span>'+
+      '<span class="t">'+esc(f.body)+'</span><span class="go">○</span></button>';
+  }).join('');
+  $$('.row', w).forEach(function(b){
+    b.onclick = function(){ openFutureSheet(S.futures.filter(function(x){return x.id===b.dataset.id;})[0]); };
+  });
+}
+function renderLog(){ renderMonthTitle(); renderQuick(); renderChapter(); renderLogList(); renderFuture(); }
+
+/* ── 7. 入力シート ───────────────────────── */
+function editText(eyebrow, sub, value, done){
+  Sheet.open(
+    '<h2>'+esc(sub)+'</h2><p class="sub">'+esc(eyebrow)+'</p>'+
+    '<div class="field"><textarea id="_t" style="min-height:74px" placeholder="ひとことでも大丈夫です">'+esc(value)+'</textarea></div>'+
+    '<div class="actions"><button class="btn" id="_ok">保存する</button>'+
+    '<button class="btn ghost sm" id="_ng">やめる</button></div>',
+    function(b){
+      b.querySelector('#_t').focus();
+      b.querySelector('#_ok').onclick=function(){ done(b.querySelector('#_t').value.trim()); Sheet.close(); };
+      b.querySelector('#_ng').onclick=Sheet.close;
+    });
+}
+function openLogSheet(seed){
+  var isNew = !seed || !seed.id;
+  var l = Object.assign({id:uid(), kind:'moved', body:'', occurred_at:todayISO(), place:'', people:[], tags:[]}, seed||{});
+  Sheet.open(
+    '<h2>'+(isNew?'いまを、残す':'ログを編集')+'</h2><p class="sub">日時と場所は自動で入ります</p>'+
+    '<div class="chips" id="_kinds"></div>'+
+    '<div class="field"><label>できごと</label><textarea id="_b" placeholder="一文でも、単語でも。">'+esc(l.body)+'</textarea></div>'+
+    '<div class="two">'+
+      '<div class="field"><label>日付</label><input type="date" id="_d" value="'+l.occurred_at+'"></div>'+
+      '<div class="field"><label>場所</label><input id="_p" value="'+esc(l.place)+'" placeholder="任意"></div>'+
+    '</div>'+
+    '<div class="two">'+
+      '<div class="field"><label>人</label><input id="_pe" value="'+esc((l.people||[]).join(', '))+'" placeholder="カンマ区切り"></div>'+
+      '<div class="field"><label>タグ</label><input id="_tg" value="'+esc((l.tags||[]).join(', '))+'" placeholder="音楽, 展示 など"></div>'+
+    '</div>'+
+    '<div class="actions"><button class="btn" id="_ok">保存する</button>'+
+    (isNew?'':'<button class="btn ghost sm" id="_del">このログを削除</button>')+
+    '<button class="btn ghost sm" id="_ng">やめる</button></div>',
+    function(b){
+      var kw=b.querySelector('#_kinds');
+      KINDS.forEach(function(k){
+        var c=document.createElement('button'); c.className='chip'+(k.id===l.kind?' on':'');
+        c.textContent=k.ja;
+        c.onclick=function(){ l.kind=k.id; $$('.chip',kw).forEach(function(x){x.classList.remove('on');}); c.classList.add('on'); };
+        kw.appendChild(c);
+      });
+      b.querySelector('#_b').focus();
+      b.querySelector('#_ok').onclick=function(){
+        var body=b.querySelector('#_b').value.trim();
+        if(!body){ toast('できごとを書いてください'); return; }
+        l.body=body; l.occurred_at=b.querySelector('#_d').value||todayISO();
+        l.place=b.querySelector('#_p').value.trim();
+        l.people=splitList(b.querySelector('#_pe').value);
+        l.tags=splitList(b.querySelector('#_tg').value);
+        var i=S.logs.map(function(x){return x.id;}).indexOf(l.id);
+        if(i<0) S.logs.push(l); else S.logs[i]=l;
+        Store.putLog(l); Sheet.close(); S.ym=ymOf(l.occurred_at); renderAll(); toast('残しました');
+      };
+      if(b.querySelector('#_del')) b.querySelector('#_del').onclick=function(){
+        S.logs = S.logs.filter(function(x){return x.id!==l.id;});
+        Store.delLog(l.id); Sheet.close(); renderAll(); toast('削除しました');
+      };
+      b.querySelector('#_ng').onclick=Sheet.close;
+    });
+}
+function splitList(s){
+  return String(s||'').split(/[,、]/).map(function(x){return x.trim();}).filter(Boolean);
+}
+function openFutureSheet(seed){
+  var isNew = !seed || !seed.id;
+  var f = Object.assign({id:uid(), body:'', mode:'anytime', due:null, done_at:null}, seed||{});
+  var MODES=[['exact','その日に'],['by','締め切り'],['after','以降'],['anytime','いつか']];
+  Sheet.open(
+    '<h2>'+(isNew?'Future Memo':'Future Memo を編集')+'</h2><p class="sub">叶えたいこと・試したい小さな一歩</p>'+
+    '<div class="field"><label>のこすこと</label><textarea id="_b" style="min-height:80px">'+esc(f.body)+'</textarea></div>'+
+    '<div class="chips" id="_modes"></div>'+
+    '<div class="field" id="_dw"><label>日付</label><input type="date" id="_d" value="'+(f.due||todayISO())+'"></div>'+
+    '<div class="actions"><button class="btn" id="_ok">保存する</button>'+
+    (isNew?'':'<button class="btn ghost sm" id="_done">'+(f.done_at?'完了をとりけす':'叶ったことにする')+'</button>'+
+             '<button class="btn ghost sm" id="_del">削除する</button>')+
+    '<button class="btn ghost sm" id="_ng">やめる</button></div>',
+    function(b){
+      var mw=b.querySelector('#_modes');
+      function syncDate(){ b.querySelector('#_dw').style.display = f.mode==='anytime'?'none':''; }
+      MODES.forEach(function(m){
+        var c=document.createElement('button'); c.className='chip'+(m[0]===f.mode?' on':''); c.textContent=m[1];
+        c.onclick=function(){ f.mode=m[0]; $$('.chip',mw).forEach(function(x){x.classList.remove('on');}); c.classList.add('on'); syncDate(); };
+        mw.appendChild(c);
+      });
+      syncDate();
+      b.querySelector('#_ok').onclick=function(){
+        var body=b.querySelector('#_b').value.trim();
+        if(!body){ toast('内容を書いてください'); return; }
+        f.body=body; f.due = f.mode==='anytime' ? null : (b.querySelector('#_d').value||todayISO());
+        var i=S.futures.map(function(x){return x.id;}).indexOf(f.id);
+        if(i<0) S.futures.push(f); else S.futures[i]=f;
+        Store.putFuture(f); Sheet.close(); renderAll(); toast('置いておきました');
+      };
+      if(b.querySelector('#_done')) b.querySelector('#_done').onclick=function(){
+        f.done_at = f.done_at ? null : todayISO();
+        var i=S.futures.map(function(x){return x.id;}).indexOf(f.id); S.futures[i]=f;
+        Store.putFuture(f); Sheet.close(); renderAll();
+        toast(f.done_at?'叶いました。ログにも入ります':'完了をとりけしました');
+      };
+      if(b.querySelector('#_del')) b.querySelector('#_del').onclick=function(){
+        S.futures=S.futures.filter(function(x){return x.id!==f.id;});
+        Store.delFuture(f.id); Sheet.close(); renderAll();
+      };
+      b.querySelector('#_ng').onclick=Sheet.close;
+    });
+}
+
+/* ── 8. MAP：グラフのデータ生成 ───────────
+   ログ本文・タグ・人・場所から、
+   ノード（点）とエッジ（線）を組み立てる。
+   価値観は「繰り返し・領域をまたぐ・感情の強さ」で仮説を立てる。 */
+var VALUE_DICT = [
+  {v:'自由',   words:['自由','ひとり','自分で決め','余白','マイペース','旅','散歩']},
+  {v:'創造',   words:['つく','作','描','書','デザイン','企画','試作','アイデア','制作']},
+  {v:'安心',   words:['安心','落ち着','家','実家','休','眠','ほっと','穏やか']},
+  {v:'誠実さ', words:['正直','誠実','嘘','ちゃんと','約束','責任']},
+  {v:'つながり',words:['友','家族','会','話','一緒','チーム','仲間','紹介','面談','相談']},
+  {v:'探究',   words:['調べ','学','読','本','研究','なぜ','知り','わか']},
+  {v:'美しさ', words:['美','きれい','絵','写真','music','音楽','展示','ギャラリー','色','光','花']},
+  {v:'貢献',   words:['助','支え','役に立','届け','伝え','教え']},
+  {v:'挑戦',   words:['挑戦','初めて','転職','応募','発表','踏み出','怖','勇気']},
+  {v:'余白',   words:['余白','ゆっくり','急がなくて','間','待']}
+];
+var STRENGTH_DICT = [
+  {v:'複雑なことを、人が分かる形に翻訳する', words:['説明','資料','整理','まとめ','翻訳','言語化','図']},
+  {v:'違う領域の人をつなぎ、企画として形にする', words:['企画','声をかけ','つなぎ','紹介','チーム','巻き込']},
+  {v:'まだ言葉になっていないものを見つける',   words:['違和感','なんとなく','気づ','ひっかか','感じ']},
+  {v:'世界観と実行計画を往復する',             words:['計画','設計','スケジュール','世界観','コンセプト']}
+];
+function hits(text, words){ var n=0; words.forEach(function(w){ if(text.indexOf(w)>=0) n++; }); return n; }
+
+function buildGraph(mode){
+  var nodes=[], links=[], by={};
+  function add(id, o){ if(by[id]) return by[id]; o.id=id; nodes.push(o); by[id]=o; return o; }
+  function link(a,b,kind,label){ if(by[a]&&by[b]) links.push({s:a,t:b,kind:kind||'rel',label:label||''}); }
+  add('self', {label:'', kind:'self', r:13, pin:true});
+
+  var logs = S.logs.slice();
+  if(mode==='time'){
+    var years={};
+    logs.forEach(function(l){ (years[yearOf(l.occurred_at)] = years[yearOf(l.occurred_at)]||[]).push(l); });
+    Object.keys(years).sort().forEach(function(y){
+      var yt = (S.years[y]||{}).title || (y+'年');
+      add('y:'+y, {label:y, sub:yt, kind:'year', r:10});
+      link('self','y:'+y,'tree');
+      var months={};
+      years[y].forEach(function(l){ (months[ymOf(l.occurred_at)] = months[ymOf(l.occurred_at)]||[]).push(l); });
+      Object.keys(months).sort().forEach(function(ym){
+        var mt = (S.months[ym]||{}).title || (+ym.slice(5,7))+'月';
+        add('m:'+ym, {label:(+ym.slice(5,7))+'月', sub:mt, kind:'month', r:7.5});
+        link('y:'+y,'m:'+ym,'tree');
+        months[ym].forEach(function(l){
+          add('l:'+l.id, {label:l.body, kind:'log', k:l.kind, r:4.4, log:l});
+          link('m:'+ym,'l:'+l.id,'tree');
+        });
+      });
+    });
+    S.futures.filter(function(f){ return !f.done_at; }).forEach(function(f){
+      add('f:'+f.id, {label:f.body, kind:'future', r:5});
+      link('self','f:'+f.id,'wish');
+    });
+  } else {
+    var themes = mode==='likes'
+      ? [['t:like','好き','moved'],['t:place','場所','place'],['t:people','人','person']]
+      : [['t:work','仕事','effort'],['t:hard','消耗','hard'],['t:choice','選んだ','chose'],['t:people','人','person']];
+    themes.forEach(function(t){ add(t[0], {label:t[1], kind:'theme', r:9}); link('self',t[0],'tree'); });
+
+    var pool = mode==='likes'
+      ? logs.filter(function(l){ return l.kind==='moved'||l.kind==='wish'; })
+      : logs.filter(function(l){ return l.kind!=='moved'; });
+    if(!pool.length) pool = logs;
+
+    var tagCount={}, tagLogs={};
+    pool.forEach(function(l){
+      (l.tags||[]).forEach(function(tg){ tagCount[tg]=(tagCount[tg]||0)+1; (tagLogs[tg]=tagLogs[tg]||[]).push(l); });
+    });
+    Object.keys(tagCount).forEach(function(tg){
+      var host = mode==='likes' ? 't:like' : 't:work';
+      add('tg:'+tg, {label:tg, kind:'tag', r:5+Math.min(tagCount[tg],6)*0.8, n:tagCount[tg], logs:tagLogs[tg]});
+      link(host,'tg:'+tg,'tree');
+    });
+    pool.forEach(function(l){
+      var host = mode==='likes' ? 't:like'
+               : l.kind==='hard' ? 't:hard' : l.kind==='chose' ? 't:choice' : 't:work';
+      add('l:'+l.id, {label:l.body, kind:'log', k:l.kind, r:4.2, log:l});
+      var parented=false;
+      (l.tags||[]).forEach(function(tg){ if(!parented){ link('tg:'+tg,'l:'+l.id,'tree'); parented=true; } });
+      if(!parented) link(host,'l:'+l.id,'tree');
+      (l.people||[]).forEach(function(p){
+        add('p:'+p, {label:p, kind:'person', r:6});
+        link('t:people','p:'+p,'tree'); link('p:'+p,'l:'+l.id,'ref','この人といた時間');
+      });
+      if(mode==='likes' && l.place){
+        add('pl:'+l.place, {label:l.place, kind:'place', r:5.4});
+        link('t:place','pl:'+l.place,'tree'); link('pl:'+l.place,'l:'+l.id,'ref','この場所での出来事');
+      }
+    });
+
+    /* 価値観・強みの仮説：本文とタグを合わせて判定する */
+    var dict = mode==='likes' ? VALUE_DICT : VALUE_DICT.concat(STRENGTH_DICT);
+    dict.forEach(function(d){
+      var matched=[];
+      pool.forEach(function(l){
+        var text = l.body + ' ' + (l.tags||[]).join(' ');
+        if(hits(text, d.words) > 0) matched.push(l);
+      });
+      if(matched.length < 2) return;
+      var isStrength = STRENGTH_DICT.indexOf(d) >= 0;
+      add('v:'+d.v, {label:d.v, kind:isStrength?'strength':'value', r:7+Math.min(matched.length,7)*0.55,
+                     n:matched.length, logs:matched});
+      link('self','v:'+d.v,'deep');
+      matched.slice(0,8).forEach(function(l){ link('v:'+d.v,'l:'+l.id,'ref', isStrength?'ここで力を使っていた':'ここに現れていた'); });
+    });
+  }
+  return {nodes:nodes, links:links, by:by};
+}
+
+/* ── 9. MAP：キャンバス描画とシミュレーション ── */
+var Map3 = (function(){
+  var cv, ctx, W=0, H=0, dpr=1, G={nodes:[],links:[]}, byId={};
+  var cam={x:0,y:0,z:1}, raf=0, alpha=1, hot=null, sel=null, drag=null, pointers={}, pinch=null;
+  var COL={};
+  function readColors(){
+    COL = {ink:cssv('--ink'), muted:cssv('--muted'), faint:cssv('--faint'), line:cssv('--line'),
+      accent:cssv('--accent'), bg:cssv('--bg'),
+      self:cssv('--ink'), theme:cssv('--accent'), value:'#9B85AF', strength:'#6E9885',
+      tag:'#B5924C', person:'#C97B6B', place:'#7C8DA6', year:cssv('--accent'), month:cssv('--muted'),
+      future:'#9B85AF', log:cssv('--faint')};
+    KINDS.forEach(function(k){ COL['k_'+k.id]=cssv(k.v); });
+  }
+  function colorOf(n){
+    if(n.kind==='log') return COL['k_'+(n.k||'moved')] || COL.log;
+    return COL[n.kind] || COL.muted;
+  }
+  function resize(){
+    if(!cv) return;
+    dpr = Math.min(window.devicePixelRatio||1, 2);
+    var r = cv.getBoundingClientRect();
+    W = r.width; H = r.height;
+    cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    alpha = Math.max(alpha, .5); fitAt=Date.now()+500; kick();
+  }
+  function seed(){
+    var deg={}; G.links.forEach(function(l){ deg[l.s]=(deg[l.s]||0)+1; deg[l.t]=(deg[l.t]||0)+1; });
+    var kids={}, seen={};
+    G.links.forEach(function(l){ if(l.kind!=='ref'){ (kids[l.s]=kids[l.s]||[]).push(l.t); } });
+    var RAD=[130,86,54,38];
+    (function place(id,x,y,ang,spread,d){
+      var n=byId[id]; if(!n||seen[id]) return; seen[id]=1;
+      n.x=x; n.y=y; n.vx=n.vy=0;
+      var ks=(kids[id]||[]), r=RAD[Math.min(d,RAD.length-1)];
+      var sub=Math.min(spread/Math.max(ks.length,1)*1.5, 2.1);
+      ks.forEach(function(c,i){
+        var a = ks.length===1 ? ang : ang - spread/2 + spread*(i+0.5)/ks.length;
+        place(c, x+Math.cos(a)*r, y+Math.sin(a)*r, a, sub, d+1);
+      });
+    })('self',0,0,-Math.PI/2,Math.PI*2,0);
+    G.nodes.forEach(function(n){
+      if(n.x===undefined){ var a=Math.random()*6.28; n.x=Math.cos(a)*180; n.y=Math.sin(a)*180; n.vx=n.vy=0; }
+    });
+  }
+  function build(mode){
+    var g = buildGraph(mode);
+    G = {nodes:g.nodes, links:g.links}; byId = g.by;
+    G.links.forEach(function(l){
+      l.len = l.kind==='ref' ? 96 : l.kind==='deep' ? 150 : l.kind==='wish' ? 130 : (byId[l.s]&&byId[l.s].kind==='self' ? 130 : 74);
+    });
+    seed(); sel=null; hideDetail();
+    cam={x:0,y:0,z:1}; alpha=1; fitAt=Date.now()+900; kick();
+  }
+  function step(){
+    var ns=G.nodes, i, j, n, m;
+    for(i=0;i<ns.length;i++){ n=ns[i];
+      for(j=i+1;j<ns.length;j++){ m=ns[j];
+        var dx=m.x-n.x, dy=m.y-n.y, d2=dx*dx+dy*dy;
+        if(d2<1e-6){ dx=Math.random()-0.5; dy=Math.random()-0.5; d2=1; }
+        if(d2>90000) continue;
+        var d=Math.sqrt(d2), f=(1400*(n.r/6)*(m.r/6))/d2;
+        f=Math.min(f,26); var ux=dx/d, uy=dy/d;
+        n.vx-=ux*f; n.vy-=uy*f; m.vx+=ux*f; m.vy+=uy*f;
+      }
+    }
+    G.links.forEach(function(l){
+      var a=byId[l.s], b=byId[l.t]; if(!a||!b) return;
+      var dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||1;
+      var k = l.kind==='ref' ? 0.012 : 0.05;
+      var f=(d-l.len)*k, ux=dx/d, uy=dy/d;
+      a.vx+=ux*f; a.vy+=uy*f; b.vx-=ux*f; b.vy-=uy*f;
+    });
+    ns.forEach(function(n){
+      n.vx += -n.x*0.0018; n.vy += -n.y*0.0018;
+      if(n.pin){ n.x=0; n.y=0; n.vx=n.vy=0; return; }
+      if(drag && drag.node===n){ n.vx=n.vy=0; return; }
+      n.vx*=0.86; n.vy*=0.86;
+      n.x+=n.vx*alpha; n.y+=n.vy*alpha;
+    });
+    alpha *= 0.994; if(alpha<0.06) alpha=0.06;
+  }
+  function toScreen(n){ return {x:W/2 + (n.x+cam.x)*cam.z, y:H/2 + (n.y+cam.y)*cam.z}; }
+  /* 全体が画面におさまるようにカメラを合わせる */
+  function fit(pad){
+    if(!G.nodes.length || !W || !H) return;
+    var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    G.nodes.forEach(function(n){
+      var lw = (n.label && n.r>=5) ? Math.min(n.label.length,10)*3 : 0;  /* ラベルのはみ出しぶん */
+      x0=Math.min(x0,n.x-n.r-lw); x1=Math.max(x1,n.x+n.r+lw);
+      y0=Math.min(y0,n.y-n.r); y1=Math.max(y1,n.y+n.r+22);
+    });
+    var m = pad===undefined ? 16 : pad;
+    var gw=Math.max(x1-x0,1), gh=Math.max(y1-y0,1);
+    var top=26, bottom=88;                    /* タブと凡例のぶんを空ける */
+    var z = Math.min((W-m*2)/gw, (H-top-bottom)/gh);
+    cam.z = Math.max(0.3, Math.min(2.0, z));
+    cam.x = -(x0+x1)/2;
+    cam.y = -(y0+y1)/2 + (top-bottom)/2/cam.z;
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    var showLabel = cam.z > 0.75;
+    G.links.forEach(function(l){
+      var a=byId[l.s], b=byId[l.t]; if(!a||!b) return;
+      var A=toScreen(a), B=toScreen(b);
+      var lit = sel && (l.s===sel.id||l.t===sel.id);
+      ctx.beginPath(); ctx.moveTo(A.x,A.y);
+      if(l.kind==='ref'||l.kind==='deep'){
+        var mx=(A.x+B.x)/2, my=(A.y+B.y)/2, ox=(B.y-A.y)*0.12, oy=-(B.x-A.x)*0.12;
+        ctx.quadraticCurveTo(mx+ox,my+oy,B.x,B.y);
+      } else ctx.lineTo(B.x,B.y);
+      ctx.strokeStyle = lit ? COL.accent : COL.line;
+      ctx.globalAlpha = lit ? 0.85 : (l.kind==='ref'?0.30:0.5);
+      ctx.lineWidth = lit ? 1.4 : 0.8;
+      ctx.stroke(); ctx.globalAlpha=1;
+    });
+    G.nodes.forEach(function(n){
+      var P=toScreen(n), r=Math.max(n.r*cam.z, 1.6);
+      var lit = sel===n || hot===n;
+      var near = sel && G.links.some(function(l){ return (l.s===sel.id&&l.t===n.id)||(l.t===sel.id&&l.s===n.id); });
+      ctx.globalAlpha = sel ? (lit||near ? 1 : 0.34) : 1;
+      if(n.kind==='self'){
+        var g=ctx.createRadialGradient(P.x,P.y,0,P.x,P.y,r*3.4);
+        g.addColorStop(0,'rgba(200,138,92,.32)'); g.addColorStop(1,'rgba(200,138,92,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(P.x,P.y,r*3.4,0,6.284); ctx.fill();
+        ctx.strokeStyle=COL.ink; ctx.lineWidth=1; ctx.globalAlpha=.5;
+        ctx.beginPath(); ctx.arc(P.x,P.y,r*1.5,0,6.284); ctx.stroke(); ctx.globalAlpha=1;
+      }
+      ctx.beginPath(); ctx.arc(P.x,P.y,r,0,6.284);
+      ctx.fillStyle=colorOf(n); ctx.fill();
+      if(lit){ ctx.strokeStyle=COL.ink; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(P.x,P.y,r+4,0,6.284); ctx.stroke(); }
+      var big = n.kind==='self'||n.kind==='theme'||n.kind==='value'||n.kind==='strength'||n.kind==='year'||n.kind==='month';
+      if(n.label && (big || (showLabel && n.r>=5) || lit)){
+        var lim = (n.kind==='log'||n.kind==='future') ? 11 : 14;
+        var txt = n.label.length>lim ? n.label.slice(0,lim)+'…' : n.label;
+        ctx.font = (big?'500 ':'400 ') + Math.max(10, Math.min(13, 9+n.r*0.35)) + 'px "Shippori Mincho B1", serif';
+        ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillStyle = big ? COL.ink : COL.muted;
+        ctx.globalAlpha *= big?1:0.9;
+        ctx.fillText(txt, P.x, P.y + r + 5);
+      }
+      ctx.globalAlpha=1;
+    });
+  }
+  var fitAt=0;
+  function loop(){
+    step();
+    if(fitAt && Date.now()>fitAt && !drag){ fit(); fitAt=0; }
+    draw();
+    raf = alpha>0.061 || drag || fitAt ? requestAnimationFrame(loop) : 0;
+    if(!raf) draw();
+  }
+  function kick(){ if(!raf) raf=requestAnimationFrame(loop); }
+  function pick(px,py){
+    var best=null, bd=22*22;
+    G.nodes.forEach(function(n){
+      var P=toScreen(n), dx=P.x-px, dy=P.y-py, d=dx*dx+dy*dy;
+      var rr=Math.max(n.r*cam.z,8)+10;
+      if(d<rr*rr && d<bd){ bd=d; best=n; }
+    });
+    return best;
+  }
+  /* 詳細パネル */
+  function showDetail(n){
+    var el=$('#nodeDetail'), b=$('#ndBody');
+    var kindJa={self:'CENTER',theme:'カテゴリ',value:'価値観の仮説',strength:'強みの仮説',tag:'くり返し現れるもの',
+      person:'人',place:'場所',log:'ログ',month:'月',year:'年',future:'FUTURE MEMO'}[n.kind]||'';
+    var html='<p class="k">'+esc(kindJa)+'</p>';
+    if(n.kind==='log'){
+      var l=n.log;
+      html += '<h4>'+esc(l.body)+'</h4><p>'+fmtMD(l.occurred_at)+'　'+esc(KIND[l.kind].ja)+
+              (l.place?'　'+esc(l.place):'')+'</p>';
+      if((l.people||[]).length) html += '<p class="why">この時いた人：'+esc(l.people.join('、'))+'</p>';
+      if((l.tags||[]).length) html += '<p class="why">タグ：'+esc(l.tags.join('、'))+'</p>';
+    } else if(n.kind==='value'||n.kind==='strength'){
+      html += '<h4>'+esc(n.label)+'</h4>';
+      html += '<p>'+esc(valueSentence(n))+'</p>';
+      html += '<p class="why">'+n.n+'件のログに、くり返し現れています。<br>'+
+        (n.logs||[]).slice(0,3).map(function(l){ return '・'+esc(l.body); }).join('<br>')+'</p>';
+    } else if(n.kind==='tag'){
+      html += '<h4>'+esc(n.label)+'</h4><p>'+n.n+'回、記録に登場しています。</p>';
+      html += '<p class="why">'+(n.logs||[]).slice(0,4).map(function(l){ return fmtMD(l.occurred_at)+'　'+esc(l.body); }).join('<br>')+'</p>';
+    } else if(n.kind==='month'||n.kind==='year'){
+      html += '<h4>'+esc(n.sub||n.label)+'</h4><p>'+esc(n.label)+'</p>';
+    } else if(n.kind==='self'){
+      html += '<h4>わたし</h4><p>ここから、好きなもの・仕事・人・時間がのびています。</p>';
+    } else {
+      html += '<h4>'+esc(n.label)+'</h4>';
+      var rel = G.links.filter(function(l){ return l.s===n.id||l.t===n.id; }).length;
+      html += '<p>'+rel+'本のつながりを持っています。</p>';
+    }
+    b.innerHTML = html; el.classList.add('on');
+  }
+  function hideDetail(){ $('#nodeDetail').classList.remove('on'); }
+  function valueSentence(n){
+    var s = {
+      '自由':'決められた形をなぞるより、自分で選べる余地を大切にしている。',
+      '創造':'受け取るだけでなく、自分の手で形にすることに心が動いている。',
+      '安心':'頑張ることと同じくらい、戻れる場所を守ろうとしている。',
+      '誠実さ':'うまくやることより、自分に嘘をつかないことを選んでいる。',
+      'つながり':'ひとりで完結させず、人との間で確かめながら進んでいる。',
+      '探究':'すぐに答えを出すより、分からなさを持ち続けることを選んでいる。',
+      '美しさ':'意味より先に、感覚が動いたものを信じている。',
+      '貢献':'自分のためだけでない理由があるとき、力が出ている。',
+      '挑戦':'こわさがある方を、それでも選び直している。',
+      '余白':'埋めることより、空けておくことに価値を置いている。'
+    }[n.label];
+    return s || (n.kind==='strength' ? 'この動きが、違う場面でくり返し現れています。' : 'くり返し現れている、あなたの傾向です。');
+  }
+  /* 入力 */
+  function bind(){
+    cv.addEventListener('pointerdown', function(e){
+      cv.setPointerCapture(e.pointerId);
+      pointers[e.pointerId]={x:e.clientX,y:e.clientY};
+      var ids=Object.keys(pointers);
+      if(ids.length===2){
+        var a=pointers[ids[0]], b=pointers[ids[1]];
+        pinch={d:Math.hypot(a.x-b.x,a.y-b.y), z:cam.z}; drag=null; return;
+      }
+      var r=cv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
+      var n=pick(px,py);
+      drag={node:n, px:px, py:py, moved:0, id:e.pointerId};
+      cv.classList.add('grabbing'); alpha=Math.max(alpha,.55); kick();
+    });
+    cv.addEventListener('pointermove', function(e){
+      if(pointers[e.pointerId]) pointers[e.pointerId]={x:e.clientX,y:e.clientY};
+      var ids=Object.keys(pointers);
+      if(pinch && ids.length===2){
+        var a=pointers[ids[0]], b=pointers[ids[1]];
+        var d=Math.hypot(a.x-b.x,a.y-b.y);
+        cam.z = Math.max(0.32, Math.min(3.2, pinch.z * d/pinch.d));
+        kick(); return;
+      }
+      var r=cv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
+      if(!drag){ hot=pick(px,py); cv.style.cursor = hot?'pointer':'grab'; kick(); return; }
+      var dx=px-drag.px, dy=py-drag.py;
+      drag.moved += Math.abs(dx)+Math.abs(dy);
+      if(drag.node && drag.node.kind!=='self'){
+        drag.node.x += dx/cam.z; drag.node.y += dy/cam.z;
+      } else {
+        cam.x += dx/cam.z; cam.y += dy/cam.z;
+      }
+      drag.px=px; drag.py=py; alpha=Math.max(alpha,.4); kick();
+    });
+    function up(e){
+      delete pointers[e.pointerId];
+      if(Object.keys(pointers).length<2) pinch=null;
+      cv.classList.remove('grabbing');
+      if(drag && drag.id===e.pointerId){
+        if(drag.moved<8){
+          if(drag.node){ sel = (sel===drag.node)?null:drag.node; sel?showDetail(sel):hideDetail(); }
+          else { sel=null; hideDetail(); }
+        }
+        drag=null; alpha=Math.max(alpha,.3); kick();
+      }
+    }
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', function(e){
+      e.preventDefault();
+      cam.z = Math.max(0.32, Math.min(3.2, cam.z * (e.deltaY<0?1.1:0.9))); kick();
+    }, {passive:false});
+  }
+  return {
+    init:function(){
+      cv=$('#gcv'); if(!cv||!cv.getContext) return; ctx=cv.getContext('2d');
+      readColors(); bind();
+      window.addEventListener('resize', resize);
+      $('#mapReset').onclick=function(){ sel=null; hideDetail(); seed(); alpha=1; fitAt=Date.now()+900; kick(); };
+      $('#ndClose').onclick=function(){ sel=null; hideDetail(); kick(); };
+    },
+    show:function(mode){ readColors(); build(mode); setTimeout(resize,0); },
+    resize:resize
+  };
+})();
+
+/* ── 10. LIST 画面 ───────────────────────── */
+var FILTERS = [['all','すべて']].concat(KINDS.map(function(k){ return [k.id,k.ja]; })).concat([['future','叶ったこと']]);
+function renderFilters(){
+  var w=$('#listFilters'); w.innerHTML='';
+  FILTERS.forEach(function(f){
+    var b=document.createElement('button'); b.className='chip'+(S.filter===f[0]?' on':''); b.textContent=f[1];
+    b.onclick=function(){ S.filter=f[0]; renderList(); };
+    w.appendChild(b);
+  });
+}
+function renderYearTitle(){
+  var y=S.years[S.year]||{}, h=$('#yearTitle');
+  h.innerHTML = (y.title? esc(y.title) : '<span class="ph">まだタイトルがありません</span>')+'<span class="pen">✎</span>';
+  h.onclick=function(){ editText('YEAR TITLE', S.year+'年に、名前をつける', y.title||'', function(v){
+    S.years[S.year]=Object.assign(S.years[S.year]||{},{title:v}); Store.putYear(S.year); renderList();
+  }); };
+  var yrs = allYears();
+  $('#yPrev').disabled = yrs.indexOf(S.year)<=0;
+  $('#yNext').disabled = yrs.indexOf(S.year)>=yrs.length-1;
+}
+function allYears(){
+  var set={}; S.logs.forEach(function(l){ set[yearOf(l.occurred_at)]=1; });
+  Object.keys(S.years).forEach(function(y){ set[y]=1; });
+  set[todayISO().slice(0,4)]=1; set[S.year]=1;
+  return Object.keys(set).sort();
+}
+function renderList(){
+  renderYearTitle(); renderFilters();
+  var w=$('#yearBody');
+  var doneF = S.futures.filter(function(f){ return f.done_at && yearOf(f.done_at)===S.year; });
+
+  /* 「叶ったこと」だけは年をまたいだ一覧にする */
+  if(S.filter==='future'){
+    w.innerHTML = '<div class="daygroup" style="margin-top:16px">' + (doneF.length
+      ? doneF.sort(function(a,b){return a.done_at<b.done_at?-1:1;}).map(function(f){
+          return '<button class="row" data-t="fut" data-id="'+f.id+'"><span class="d">'+fmtMD(f.done_at)+'</span>'+
+                 '<span class="t">'+esc(f.body)+'</span><span class="go">✓</span></button>'; }).join('')
+      : '<p class="empty">この年に叶ったことは、まだありません</p>') + '</div>';
+    bindListRows(w); return;
+  }
+
+  /* 年のサマリー：件数と、種類ごとの内訳 */
+  var yearLogs = S.logs.filter(function(l){ return yearOf(l.occurred_at)===S.year; });
+  var cnt={}; yearLogs.forEach(function(l){ cnt[l.kind]=(cnt[l.kind]||0)+1; });
+  var html = '<div class="yearsum"><span class="n">'+yearLogs.length+'件のログ・'+
+    doneF.length+'件が叶いました</span><span class="k">'+
+    KINDS.filter(function(k){ return cnt[k.id]; }).map(function(k){
+      return '<span><i style="background:'+cssv(k.v)+'"></i>'+cnt[k.id]+'</span>'; }).join('')+
+    '</span></div>';
+
+  /* 12ヶ月ぶんの目次。行をタップするとその月がひらく */
+  for(var mo=1; mo<=12; mo++){
+    var ym = S.year+'-'+pad(mo);
+    var mt = (S.months[ym]||{}).title;
+    var rows = logsOfMonth(ym).filter(function(l){ return S.filter==='all' || l.kind===S.filter; });
+    var fut  = (S.filter==='all') ? doneF.filter(function(f){ return ymOf(f.done_at)===ym; }) : [];
+    var n = rows.length + fut.length;
+    var open = !!S.openYM[ym];
+    html += '<button class="mrow'+(open?' open':'')+'" data-ym="'+ym+'">'+
+      '<span class="ch">›</span><span class="m">'+mo+'月</span>'+
+      '<span class="mt'+(mt?'':' none')+'">'+(mt? esc(mt) : '—')+'</span>'+
+      '<span class="cnt">'+(n? n : '')+'</span></button>';
+    if(!open) continue;
+    html += '<div class="daygroup">';
+    if(!n) html += '<p class="empty" style="padding:8px 0">記録はありません</p>';
+    rows.forEach(function(l){
+      html += '<button class="row" data-t="log" data-id="'+l.id+'"><span class="d">'+fmtMD(l.occurred_at)+'</span>'+
+        '<span class="t"><span class="dotk" style="background:'+cssv(KIND[l.kind].v)+'"></span>'+esc(l.body)+
+        ((l.tags||[]).length?' <em>'+esc(l.tags.join(' / '))+'</em>':'')+'</span><span class="go">›</span></button>';
+    });
+    fut.forEach(function(f){
+      html += '<button class="row" data-t="fut" data-id="'+f.id+'"><span class="d">'+fmtMD(f.done_at)+'</span>'+
+        '<span class="t"><span class="dotk" style="background:'+cssv('--k-wish')+'"></span>'+esc(f.body)+' <em>叶った</em></span>'+
+        '<span class="go">✓</span></button>';
+    });
+    html += '<button class="linkbtn" data-go="'+ym+'" style="padding-left:0">この月を Log でひらく →</button></div>';
+  }
+  w.innerHTML = html;
+
+  $$('.mrow', w).forEach(function(b){
+    b.onclick=function(){ S.openYM[b.dataset.ym] = !S.openYM[b.dataset.ym]; renderList(); };
+  });
+  $$('[data-go]', w).forEach(function(b){
+    b.onclick=function(e){ e.stopPropagation(); S.ym=b.dataset.go; setView('log'); };
+  });
+  bindListRows(w);
+}
+function bindListRows(w){
+  $$('.row', w).forEach(function(b){
+    b.onclick=function(e){
+      e.stopPropagation();
+      if(b.dataset.t==='log') openLogSheet(S.logs.filter(function(x){return x.id===b.dataset.id;})[0]);
+      else openFutureSheet(S.futures.filter(function(x){return x.id===b.dataset.id;})[0]);
+    };
+  });
+}
+
+/* ── 11. 「今月を読む」 ─────────────────────
+   角度 → 3問 → トーン → テーマ3案 → Monthly Chapter
+   Claude API キーがあれば実際に生成し、無ければ手元のルールで下書きを作る。 */
+var flow = null;
+function startMonthlyRead(){
+  var ls = logsOfMonth(S.ym);
+  if(!ls.length){ toast('まず、今月のログを残してみてください'); return; }
+  flow = {angle:null, answers:['','',''], tone:null, titles:[], title:null};
+  stepAngle();
+}
+function stepAngle(){
+  Sheet.open('<h2>どの角度から振り返りますか</h2><p class="sub">'+(+S.ym.slice(5,7))+'月を読む</p><div class="chips" id="_a"></div>',
+    function(b){
+      var w=b.querySelector('#_a');
+      ANGLES.forEach(function(a){
+        var c=document.createElement('button'); c.className='chip'; c.textContent=a.ja;
+        c.style.width='100%'; c.style.textAlign='left'; c.style.padding='14px 16px'; c.style.fontFamily='var(--serif)';
+        c.onclick=function(){ flow.angle=a.id; stepQuestions(); };
+        w.appendChild(c);
+      });
+    });
+}
+function stepQuestions(){
+  var qs = [
+    '今月、特に心や時間を使った出来事は何でしたか？',
+    'その中で、自分らしい選択や強い違和感が表れた場面はありましたか？',
+    '今月から未来へ、残したいこと・変えたいこと・叶えたいことは何ですか？'
+  ];
+  var ls = logsOfMonth(S.ym);
+  Sheet.open('<h2>3つの問い</h2><p class="sub">カレンダーを見ながら、思い出せる範囲で</p>'+
+    '<div style="max-height:120px;overflow:auto;border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px;background:var(--panel)">'+
+      ls.map(function(l){ return '<div style="font-family:var(--serif);font-size:.78rem;color:var(--ink-soft);line-height:1.9">'+
+        fmtMD(l.occurred_at)+'　'+esc(l.body)+'</div>'; }).join('')+'</div>'+
+    qs.map(function(q,i){ return '<div class="field"><label>Q'+(i+1)+'</label>'+
+      '<div style="font-family:var(--serif);font-size:.84rem;color:var(--ink-soft);margin-bottom:8px">'+esc(q)+'</div>'+
+      '<textarea id="_q'+i+'" style="min-height:72px" placeholder="空欄のままでも大丈夫です">'+esc(flow.answers[i])+'</textarea></div>'; }).join('')+
+    '<div class="actions"><button class="btn" id="_next">次へ</button></div>',
+    function(b){
+      b.querySelector('#_next').onclick=function(){
+        for(var i=0;i<3;i++) flow.answers[i]=b.querySelector('#_q'+i).value.trim();
+        stepTone();
+      };
+    });
+}
+function stepTone(){
+  Sheet.open('<h2>どんな文章で読みますか</h2><p class="sub">TONE</p><div class="chips" id="_t"></div>',
+    function(b){
+      var w=b.querySelector('#_t');
+      TONES.forEach(function(t){
+        var c=document.createElement('button'); c.className='chip'; c.textContent=t.ja;
+        c.style.width='100%'; c.style.textAlign='left'; c.style.padding='14px 16px'; c.style.fontFamily='var(--serif)';
+        c.onclick=function(){ flow.tone=t.id; stepGenerate(); };
+        w.appendChild(c);
+      });
+    });
+}
+function stepGenerate(){
+  Sheet.open('<h2>今月を読んでいます</h2><p class="sub">少しお待ちください</p>'+
+    '<div class="center" style="padding:26px 0"><svg class="squig" style="width:80px;height:16px" viewBox="0 0 44 9" fill="none">'+
+    '<path d="M1 5.5C5 1 9 1 13 5.5S21 10 25 5.5 33 1 37 5.5 43 8 43 8" stroke="#C88A5C" stroke-width="1.1" stroke-linecap="round"/></svg></div>');
+  generateChapter().then(function(res){
+    flow.titles = res.titles; flow.chapter = res.chapter; stepTitle();
+  }).catch(function(e){
+    console.error(e);
+    Sheet.open('<h2>生成できませんでした</h2><p class="sub">'+esc(String(e.message||e)).slice(0,180)+'</p>'+
+      '<div class="actions"><button class="btn ghost sm" id="_c">閉じる</button></div>',
+      function(b){ b.querySelector('#_c').onclick=Sheet.close; });
+  });
+}
+function stepTitle(){
+  Sheet.open('<h2>今月のタイトル</h2><p class="sub">しっくりくるものを選んでください</p><div class="chips" id="_t"></div>'+
+    '<div class="actions"><button class="btn ghost sm" id="_own">自分で書く</button></div>',
+    function(b){
+      var w=b.querySelector('#_t');
+      flow.titles.forEach(function(t){
+        var c=document.createElement('button'); c.className='chip'; c.textContent=t;
+        c.style.width='100%'; c.style.textAlign='left'; c.style.padding='15px 16px';
+        c.style.fontFamily='var(--serif)'; c.style.fontSize='.92rem';
+        c.onclick=function(){ commitChapter(t); };
+        w.appendChild(c);
+      });
+      b.querySelector('#_own').onclick=function(){
+        editText('MONTH TITLE','今月に、名前をつける','',function(v){ commitChapter(v||flow.titles[0]); });
+      };
+    });
+}
+function commitChapter(title){
+  S.months[S.ym] = Object.assign(S.months[S.ym]||{}, {
+    title:title, chapter:flow.chapter, tone:flow.tone, angle:flow.angle
+  });
+  Store.putMonth(S.ym); Sheet.close(); renderAll(); toast('今月の章ができました');
+}
+
+/* ── 12. 生成ロジック（Claude API ／ ローカル下書き）── */
+function monthContext(){
+  var ls = logsOfMonth(S.ym);
+  return {
+    ym:S.ym,
+    logs: ls.map(function(l){ return {date:l.occurred_at, kind:KIND[l.kind].ja, body:l.body,
+      place:l.place||'', people:l.people||[], tags:l.tags||[]}; }),
+    answers: flow.answers,
+    angle: (ANGLES.filter(function(a){return a.id===flow.angle;})[0]||{}).ja,
+    tone:  (TONES.filter(function(t){return t.id===flow.tone;})[0]||{}).ja,
+    past_months: Object.keys(S.months).filter(function(k){ return k<S.ym && S.months[k].title; })
+                  .sort().slice(-6).map(function(k){ return {ym:k, title:S.months[k].title}; }),
+    open_wishes: S.futures.filter(function(f){ return !f.done_at; }).map(function(f){ return f.body; })
+  };
+}
+var SYS = [
+ 'あなたは「crincran」という人生編集アプリの編集者です。',
+ 'ユーザーの記録（証拠）だけを根拠に、その人の月の章を書きます。',
+ '断定・診断・アドバイス・励ましの押し売りをしません。コーチングもしません。',
+ '強みは一般名詞ではなく、その人固有の「動詞」で書きます。',
+ '葛藤は欠点ではなく「価値観の緊張」として書きます。',
+ '出力は必ず JSON のみ。前置きも説明も付けません。'
+].join('\n');
+function userPrompt(ctx){
+  return [
+    '# 今月のログ（'+ctx.ym+'）', JSON.stringify(ctx.logs, null, 0),
+    '# 本人の答え', 'Q1 心や時間を使った出来事: '+(ctx.answers[0]||'（未記入）'),
+    'Q2 自分らしい選択・違和感: '+(ctx.answers[1]||'（未記入）'),
+    'Q3 未来へ残したいこと: '+(ctx.answers[2]||'（未記入）'),
+    '# 振り返る角度', ctx.angle||'', '# 文章のトーン', ctx.tone||'',
+    '# 過去の月次テーマ', JSON.stringify(ctx.past_months),
+    '# まだ叶っていない願い', JSON.stringify(ctx.open_wishes),
+    '',
+    '次の JSON を返してください。日本語。各項目は1〜3文。',
+    '{"titles":["案1","案2","案3"],"chapter":{"summary":"","attention":"","strength":"","value":"","tension":"","link":"","forward":""}}',
+    'titles は体言止めまたは短い一文の、月のタイトル3案。',
+    'summary=この月に残したいこと / attention=心が向いていたもの / strength=使っていた強み（固有の動詞で） /',
+    'value=守ろうとしていた価値観 / tension=まだ解けていない葛藤（価値観の緊張として） /',
+    'link=過去の記録とのつながり（無ければ空文字） / forward=次の自分へ、一文。'
+  ].join('\n');
+}
+function generateChapter(){
+  var ctx = monthContext();
+  if(!S.cfg.claudeKey) return Promise.resolve(localDraft(ctx));
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':S.cfg.claudeKey,
+             'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({ model:S.cfg.model||'claude-sonnet-4-5', max_tokens:1600,
+      system:SYS, messages:[{role:'user', content:userPrompt(ctx)}] })
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error('Claude API '+r.status+' '+t.slice(0,160)); });
+    return r.json();
+  }).then(function(j){
+    var txt = (j.content||[]).map(function(c){ return c.text||''; }).join('');
+    var m = txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('JSONを読み取れませんでした');
+    var out = JSON.parse(m[0]);
+    if(!out.titles || !out.chapter) throw new Error('形式が想定と異なります');
+    return out;
+  });
+}
+/* APIキーが無いときの下書き（ルールベース） */
+function localDraft(ctx){
+  var ls = ctx.logs, cnt={};
+  ls.forEach(function(l){ cnt[l.kind]=(cnt[l.kind]||0)+1; });
+  var tags={}; ls.forEach(function(l){ l.tags.forEach(function(t){ tags[t]=(tags[t]||0)+1; }); });
+  var topTags = Object.keys(tags).sort(function(a,b){ return tags[b]-tags[a]; }).slice(0,3);
+  var people={}; ls.forEach(function(l){ l.people.forEach(function(p){ people[p]=(people[p]||0)+1; }); });
+  var topPeople = Object.keys(people).sort(function(a,b){ return people[b]-people[a]; }).slice(0,2);
+  var main = ctx.answers[0] || (ls[0]&&ls[0].body) || 'この月のできごと';
+  var lead = topTags[0] || main;
+  var titles = [
+    lead+'に、時間を使った月',
+    (ctx.answers[1]? ctx.answers[1].slice(0,14) : (cnt['選んだ']? '選び直した' : '手を動かしていた'))+'月',
+    (topPeople[0]? topPeople[0]+'と過ごした月' : '静かに続けていた月')
+  ];
+  return {titles:titles, chapter:{
+    summary: main + '。' + (cnt['頑張った']? cnt['頑張った']+'回、頑張ったと書いています。':'') +
+             (cnt['つらかった']? cnt['つらかった']+'回、つらさも残しています。':''),
+    attention: topTags.length ? topTags.join('・')+' に、くり返し心が向いていました。' : '記録から見ると、日々の小さな出来事に目が向いていました。',
+    strength: cnt['選んだ'] ? '迷いながらも、自分で選び直す動きが出ていました。' : 'まだ言葉になっていないものを、書きとめる動きが続いています。',
+    value: ctx.answers[1] || '手放したくないものを、静かに守っていました。',
+    tension: (cnt['つらかった']&&cnt['頑張った']) ? '守りたい安定と、進みたい気持ちが同時にありました。' : '',
+    link: ctx.past_months.length ? '前の月「'+ctx.past_months[ctx.past_months.length-1].title+'」から、線がつながっています。' : '',
+    forward: ctx.answers[2] || '答えが出ないままでも、それでいい月だったと思う。'
+  }};
+}
+
+/* ── 13. 設定 ───────────────────────────── */
+function openSettings(){
+  Sheet.open(
+    '<h2>設定</h2><p class="sub">キーはこの端末のブラウザにだけ保存されます</p>'+
+    '<div class="field"><label>SUPABASE URL</label><input id="_su" placeholder="https://xxxx.supabase.co" value="'+esc(S.cfg.supabaseUrl)+'"></div>'+
+    '<div class="field"><label>SUPABASE ANON KEY</label><input id="_sk" placeholder="sb_publishable_... または eyJhbGciOi..." value="'+esc(S.cfg.supabaseKey)+'"></div>'+
+    '<div class="field"><label>あなたのキー（同期用の合言葉）</label><input id="_uk" value="'+esc(S.cfg.userKey)+'"></div>'+
+    '<div class="hr"></div>'+
+    '<div class="field"><label>CLAUDE API KEY（任意）</label><input id="_ck" placeholder="sk-ant-..." value="'+esc(S.cfg.claudeKey)+'"></div>'+
+    '<div class="field"><label>MODEL</label><input id="_md" value="'+esc(S.cfg.model)+'"></div>'+
+    '<p class="mono-note" style="margin-top:10px">未入力でも動きます。その場合「今月を読む」は手元のルールで下書きを作ります。</p>'+
+    '<div class="hr"></div>'+
+    '<div class="setrow"><span class="l">データ</span><span class="v">'+S.logs.length+'件のログ</span></div>'+
+    '<div class="actions">'+
+      '<button class="btn" id="_save">保存して同期</button>'+
+      '<button class="btn ghost sm" id="_seed">サンプルデータを入れる</button>'+
+      '<button class="btn ghost sm" id="_exp">JSONで書き出す</button>'+
+      '<button class="btn ghost sm" id="_imp">JSONを読み込む</button>'+
+      '<button class="btn ghost sm" id="_ng">閉じる</button>'+
+    '</div>',
+    function(b){
+      b.querySelector('#_save').onclick=function(){
+        S.cfg.supabaseUrl=b.querySelector('#_su').value.trim();
+        S.cfg.supabaseKey=b.querySelector('#_sk').value.trim();
+        S.cfg.userKey    =b.querySelector('#_uk').value.trim()||S.cfg.userKey;
+        S.cfg.claudeKey  =b.querySelector('#_ck').value.trim();
+        S.cfg.model      =b.querySelector('#_md').value.trim()||'claude-sonnet-4-5';
+        Store.saveLocal();
+        if(Store.on()){
+          Store.pull().then(function(n){ renderAll();
+              toast(n ? '同期しました（'+n+'件をアップロード）' : '同期しました'); })
+            .catch(function(e){ toast('接続できませんでした：'+String(e.message||e).slice(0,60)); });
+        } else toast('保存しました（この端末のみ）');
+        Sheet.close();
+      };
+      b.querySelector('#_seed').onclick=function(){ seedDemo(); Sheet.close(); };
+      b.querySelector('#_exp').onclick=function(){
+        var blob=new Blob([JSON.stringify({logs:S.logs,months:S.months,years:S.years,futures:S.futures},null,2)],{type:'application/json'});
+        var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+        a.download='crincran-'+todayISO()+'.json'; a.click();
+      };
+      b.querySelector('#_imp').onclick=function(){
+        var i=document.createElement('input'); i.type='file'; i.accept='.json,application/json';
+        i.onchange=function(){
+          var f=i.files[0]; if(!f) return; var rd=new FileReader();
+          rd.onload=function(){
+            try{
+              var d=JSON.parse(rd.result);
+              S.logs=d.logs||[]; S.months=d.months||{}; S.years=d.years||{}; S.futures=d.futures||[];
+              Store.saveLocal(); Sheet.close(); renderAll(); toast('読み込みました');
+            }catch(e){ toast('読み込めませんでした'); }
+          };
+          rd.readAsText(f);
+        };
+        i.click();
+      };
+      b.querySelector('#_ng').onclick=Sheet.close;
+    });
+}
+
+/* ── 14. 期間ピッカー ───────────────────── */
+function openPeriod(){
+  if(S.view==='list'){
+    var ys=allYears();
+    Sheet.open('<h2>年をえらぶ</h2><div class="chips" id="_y"></div>', function(b){
+      var w=b.querySelector('#_y');
+      ys.forEach(function(y){
+        var c=document.createElement('button'); c.className='chip'+(y===S.year?' on':'');
+        c.textContent=y; c.style.fontFamily='var(--serif)';
+        c.onclick=function(){ S.year=y; Sheet.close(); renderList(); };
+        w.appendChild(c);
+      });
+    });
+    return;
+  }
+  var yms={}; S.logs.forEach(function(l){ yms[ymOf(l.occurred_at)]=1; });
+  Object.keys(S.months).forEach(function(k){ yms[k]=1; }); yms[todayISO().slice(0,7)]=1;
+  var list=Object.keys(yms).sort().reverse();
+  Sheet.open('<h2>月をえらぶ</h2><div class="chips" id="_m"></div>', function(b){
+    var w=b.querySelector('#_m');
+    list.forEach(function(ym){
+      var c=document.createElement('button'); c.className='chip'+(ym===S.ym?' on':'');
+      c.textContent=ym.slice(0,4)+'.'+ym.slice(5,7)+((S.months[ym]||{}).title?'　'+S.months[ym].title:'');
+      c.style.fontFamily='var(--serif)'; c.style.width='100%'; c.style.textAlign='left';
+      c.onclick=function(){ S.ym=ym; Sheet.close(); renderLog(); };
+      w.appendChild(c);
+    });
+  });
+}
+
+/* ── 15. 画面切り替え ───────────────────── */
+function setView(v){
+  S.view=v;
+  $$('.view').forEach(function(el){ el.classList.toggle('on', el.id==='v-'+v); });
+  $$('#nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v===v); });
+  $('#periodBtn').style.visibility = (v==='map') ? 'hidden' : 'visible';
+  if(v==='map') Map3.show(S.mapMode);
+  if(v==='list') renderList();
+  if(v==='log') renderLog();
+}
+function renderAll(){ renderLog(); renderList(); if(S.view==='map') Map3.show(S.mapMode); }
+
+/* ── 16. サンプルデータ ─────────────────── */
+function seedDemo(){
+  var Y = todayISO().slice(0,4);
+  var d = function(m,day){ return Y+'-'+pad(m)+'-'+pad(day); };
+  var now = new Date(), cm = now.getMonth()+1;
+  var m1 = Math.max(1, cm-2), m2 = Math.max(1, cm-1), m3 = cm;
+  S.logs = [
+    {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(m1,16), place:'清澄白河', people:[], tags:['アート','色']},
+    {id:uid(),kind:'moved', body:'雨の音だけ聴いて何もしない時間をつくった',       occurred_at:d(m1,19), place:'家',       people:[], tags:['余白','音']},
+    {id:uid(),kind:'effort',body:'企画書を最後まで自分の言葉で書き直した',         occurred_at:d(m1,24), place:'会社',     people:['ミナ'], tags:['企画','言語化']},
+    {id:uid(),kind:'hard',  body:'評価面談で、うまく説明できなかった',             occurred_at:d(m1,27), place:'会社',     people:['部長'], tags:['キャリア']},
+    {id:uid(),kind:'moved', body:'友達の展示を見て、つくる側に戻りたくなった',     occurred_at:d(m2,3),  place:'代官山',   people:['ユキ'], tags:['アート','制作']},
+    {id:uid(),kind:'chose', body:'週末の予定を断って、ひとりで美術館に行った',     occurred_at:d(m2,9),  place:'上野',     people:[], tags:['自由','アート']},
+    {id:uid(),kind:'effort',body:'はじめて自分の作品を人に見せた',                 occurred_at:d(m2,15), place:'カフェ',   people:['ユキ'], tags:['制作','勇気']},
+    {id:uid(),kind:'hard',  body:'好きなことが仕事にならない気がして落ち込んだ',   occurred_at:d(m2,21), place:'家',       people:[], tags:['キャリア','違和感']},
+    {id:uid(),kind:'wish',  body:'来年、小さな展示をひらきたい',                   occurred_at:d(m2,22), place:'',         people:[], tags:['制作']},
+    {id:uid(),kind:'moved', body:'「急がなくていい」と言われて肩の力が抜けた',     occurred_at:d(m3,6),  place:'',         people:['ミナ'], tags:['余白','言葉']},
+    {id:uid(),kind:'effort',body:'キャリア面談に行って、選択肢を並べた',           occurred_at:d(m3,12), place:'渋谷',     people:['カウンセラー'], tags:['キャリア']},
+    {id:uid(),kind:'chose', body:'転職はまだ決めない、と決めた',                   occurred_at:d(m3,13), place:'',         people:[], tags:['キャリア','自由']},
+    {id:uid(),kind:'moved', body:'企画書の余白に波線を描いていた',                 occurred_at:d(m3,20), place:'会社',     people:[], tags:['制作','余白']}
+  ];
+  S.months = {};
+  S.months[Y+'-'+pad(m1)] = {title:'知らない青に、立ち止まった'};
+  S.months[Y+'-'+pad(m2)] = {title:'つくる側に、戻りたくなった'};
+  S.years = {}; S.years[Y] = {title:'答えを決めず、自分の道を選び始めた年'};
+  S.futures = [
+    {id:uid(), body:'小さな展示をひらく',           mode:'by',      due:(+Y+1)+'-06-30', done_at:null},
+    {id:uid(), body:'週に一度、手を動かす時間をとる', mode:'anytime', due:null,            done_at:null},
+    {id:uid(), body:'作品を人に見せる',              mode:'anytime', due:null,            done_at:d(m2,15)}
+  ];
+  S.ym = Y+'-'+pad(m3); S.year = Y;
+  Store.saveLocal();
+  if(Store.on()){
+    Promise.all(S.logs.map(function(l){ return Store.putLog(l); })
+      .concat(S.futures.map(function(f){ return Store.putFuture(f); }))
+      .concat(Object.keys(S.months).map(function(k){ return Store.putMonth(k); }))
+      .concat([Store.putYear(Y)])).then(function(){ toast('サンプルを同期しました'); });
+  }
+  renderAll(); toast('サンプルデータを入れました');
+}
+
+/* ── 17. 起動 ───────────────────────────── */
+function boot(){
+  Store.boot();
+  $$('#nav button').forEach(function(b){ b.onclick=function(){ setView(b.dataset.v); }; });
+  $$('#mapTabs button').forEach(function(b){
+    b.onclick=function(){
+      S.mapMode=b.dataset.m;
+      $$('#mapTabs button').forEach(function(x){ x.classList.toggle('on', x===b); });
+      Map3.show(S.mapMode);
+    };
+  });
+  $('#settingsBtn').onclick=openSettings;
+  $('#periodBtn').onclick=openPeriod;
+  $('#addEventBtn').onclick=function(){ openLogSheet({occurred_at: S.ym+'-'+pad(Math.min(new Date().getDate(),28))}); };
+  $('#addFutureBtn').onclick=function(){ openFutureSheet(); };
+  $('#readMonthBtn').onclick=startMonthlyRead;
+  $('#mPrev').onclick=function(){ S.ym=shift(S.ym,-1); renderLog(); };
+  $('#mNext').onclick=function(){ S.ym=shift(S.ym, 1); renderLog(); };
+  $('#yPrev').onclick=function(){ var y=allYears(), i=y.indexOf(S.year); if(i>0){ S.year=y[i-1]; renderList(); } };
+  $('#yNext').onclick=function(){ var y=allYears(), i=y.indexOf(S.year); if(i<y.length-1){ S.year=y[i+1]; renderList(); } };
+  Map3.init();
+  var lg=$('#mapLegend');
+  lg.innerHTML = KINDS.map(function(k){ return '<span><i style="background:'+cssv(k.v)+'"></i>'+k.ja+'</span>'; }).join('');
+  S.openYM[todayISO().slice(0,7)] = true;   /* 今月は最初からひらいておく */
+  if(!S.logs.length && !Store.on()) seedDemo();   /* 同期設定済みならサンプルは入れない */
+  renderAll(); setView('log');
+  if(Store.on()) Store.pull().then(function(){ renderAll(); }).catch(function(){});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+</body>
+</html>
+
