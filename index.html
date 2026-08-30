@@ -201,15 +201,33 @@ button{cursor:pointer}
 .yearhead{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0 10px;border-bottom:1px solid var(--line)}
 .yearhead .y{font-family:var(--serif);font-style:italic;font-size:1.5rem;letter-spacing:.04em}
 .yearhead .n{font-size:.6rem;letter-spacing:.16em;color:var(--faint)}
-.mrow{display:grid;grid-template-columns:auto auto 1fr auto;align-items:baseline;gap:11px;width:100%;
-  padding:17px 2px;border-bottom:1px solid var(--line-soft);text-align:left;transition:background .2s}
-.mrow:active{background:var(--bg-soft)}
-.mrow .ch{color:var(--faint);font-size:.78rem;line-height:1;transition:transform .22s;display:inline-block;transform-origin:50% 55%}
-.mrow.open .ch{transform:rotate(90deg)}
-.mrow .m{font-family:var(--serif);font-size:.8rem;color:var(--muted);letter-spacing:.06em;white-space:nowrap}
-.mrow .mt{font-family:var(--serif);font-size:.96rem;color:var(--ink);letter-spacing:.03em;line-height:1.65}
-.mrow .mt.none{color:var(--faint)}
-.mrow .cnt{font-size:.58rem;letter-spacing:.12em;color:var(--faint);white-space:nowrap}
+/* ── LIST：スクラップブックの life path ── */
+.path{position:relative;margin:14px 0 0}
+.path > svg{position:absolute;left:0;top:0;pointer-events:none}
+.stop{position:absolute;transform:translate(-50%,-50%);z-index:3;text-align:left}
+.tag{position:relative;display:block;text-align:left;padding:10px 12px 11px;background:var(--panel);
+  border:1px solid var(--line-soft);box-shadow:0 1px 2px rgba(62,50,38,.05);width:100%}
+.tag::before{content:"";position:absolute;left:50%;top:-8px;width:46px;height:15px;
+  transform:translateX(-50%) rotate(-2.5deg);background:rgba(200,138,92,.14);
+  border-left:1px dashed rgba(200,138,92,.3);border-right:1px dashed rgba(200,138,92,.3)}
+.tag .mn{display:block;font-size:.54rem;font-weight:700;letter-spacing:.22em;color:var(--faint)}
+.tag .tt{display:block;font-family:var(--serif);font-size:.8rem;line-height:1.65;color:var(--ink);margin-top:4px}
+.tag .tt.none{color:var(--faint);font-style:italic}
+.tag .kd{display:flex;gap:4px;margin-top:8px;align-items:center}
+.tag .kd i{width:5px;height:5px;border-radius:50%;display:block}
+.tag .kd b{font-weight:400;font-size:.54rem;letter-spacing:.12em;color:var(--faint);margin-left:2px}
+.tag:active{background:var(--bg-soft)}
+.node{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--bg);
+  border:1.5px solid var(--accent);transform:translate(-50%,-50%);z-index:2}
+.node.on{background:var(--accent)}
+.node.sm{width:7px;height:7px;border-width:1px;opacity:.5}
+.cap{position:absolute;transform:translate(-50%,-50%) rotate(-1.5deg);z-index:5;background:var(--ink);
+  color:var(--bg);font-size:.5rem;font-weight:700;letter-spacing:.2em;padding:5px 11px}
+.cap.round{border-radius:50%;width:76px;height:76px;transform:translate(-50%,-50%) rotate(-2deg);display:flex;align-items:center;justify-content:center;
+  text-align:center;font-family:var(--serif);font-weight:400;font-size:.7rem;letter-spacing:.08em;
+  line-height:1.5;padding:0}
+.quote{text-align:center;font-family:var(--serif);font-style:italic;color:var(--muted);
+  font-size:.82rem;line-height:2;margin-top:26px;letter-spacing:.04em}
 .daygroup{border-left:1px solid var(--line-soft);margin:0 0 4px 8px;padding:6px 0 4px 15px}
 .yearsum{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:0 2px 12px;border-bottom:1px solid var(--line)}
@@ -217,7 +235,6 @@ button{cursor:pointer}
 .yearsum .k{display:flex;gap:9px}
 .yearsum .k span{display:flex;align-items:center;gap:4px;font-size:.58rem;color:var(--faint)}
 .yearsum .k i{width:6px;height:6px;border-radius:50%;display:block}
-
 .filters{display:flex;gap:7px;overflow-x:auto;padding:4px 0 14px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
 .filters .chip{flex:none}
@@ -535,7 +552,13 @@ function renderMonthTitle(){
     S.months[S.ym] = Object.assign(S.months[S.ym]||{}, {title:v});
     Store.putMonth(S.ym); renderLog(); renderList();
   }); };
-  $('#periodLabel').innerHTML = '<span class="yr">'+S.ym.slice(0,4)+'</span>&nbsp;&nbsp;'+(+S.ym.slice(5,7))+'月';
+  renderPeriodLabel();
+}
+function renderPeriodLabel(){
+  var el=$('#periodLabel'); if(!el) return;
+  el.innerHTML = (S.view==='list')
+    ? '<span class="yr">'+S.year+'</span>'
+    : '<span class="yr">'+S.ym.slice(0,4)+'</span>&nbsp;&nbsp;'+(+S.ym.slice(5,7))+'月';
 }
 function renderChapter(){
   var m = S.months[S.ym]||{}, box=$('#chapterBox'), meta=$('#chapterMeta');
@@ -1115,12 +1138,21 @@ function allYears(){
   set[todayISO().slice(0,4)]=1; set[S.year]=1;
   return Object.keys(set).sort();
 }
+function monthStats(ym){
+  var rows = logsOfMonth(ym).filter(function(l){ return S.filter==='all' || l.kind===S.filter; });
+  var fut  = (S.filter==='all')
+    ? S.futures.filter(function(f){ return f.done_at && ymOf(f.done_at)===ym; }) : [];
+  var kinds = {}; rows.forEach(function(l){ kinds[l.kind]=1; });
+  return {rows:rows, fut:fut, n:rows.length+fut.length,
+          kinds:KINDS.filter(function(k){ return kinds[k.id]; })};
+}
 function renderList(){
-  renderYearTitle(); renderFilters();
+  renderYearTitle(); renderFilters(); renderPeriodLabel();
   var w=$('#yearBody');
-  var doneF = S.futures.filter(function(f){ return f.done_at && yearOf(f.done_at)===S.year; });
+  var W = w.clientWidth;
+  if(!W) return;                       /* 非表示のときは setView 側で描き直す */
 
-  /* 「叶ったこと」だけは年をまたいだ一覧にする */
+  var doneF = S.futures.filter(function(f){ return f.done_at && yearOf(f.done_at)===S.year; });
   if(S.filter==='future'){
     w.innerHTML = '<div class="daygroup" style="margin-top:16px">' + (doneF.length
       ? doneF.sort(function(a,b){return a.done_at<b.done_at?-1:1;}).map(function(f){
@@ -1130,51 +1162,108 @@ function renderList(){
     bindListRows(w); return;
   }
 
-  /* 年のサマリー：件数と、種類ごとの内訳 */
+  /* 年のサマリー */
   var yearLogs = S.logs.filter(function(l){ return yearOf(l.occurred_at)===S.year; });
   var cnt={}; yearLogs.forEach(function(l){ cnt[l.kind]=(cnt[l.kind]||0)+1; });
-  var html = '<div class="yearsum"><span class="n">'+yearLogs.length+'件のログ・'+
+  var head = '<div class="yearsum"><span class="n">'+yearLogs.length+'件のログ・'+
     doneF.length+'件が叶いました</span><span class="k">'+
     KINDS.filter(function(k){ return cnt[k.id]; }).map(function(k){
       return '<span><i style="background:'+cssv(k.v)+'"></i>'+cnt[k.id]+'</span>'; }).join('')+
     '</span></div>';
 
-  /* 12ヶ月ぶんの目次。行をタップするとその月がひらく */
+  /* ── 道のかたちを決める ───────────────
+     左右に振れながら下りていく蛇行。節目のある月にだけ札を貼る。 */
+  var xL = Math.round(W*0.32), xR = Math.round(W*0.68);
+  var tw = Math.min(148, Math.round(W*0.43));
+  var yStart = 24, y = 96;
+  var pts = [];
   for(var mo=1; mo<=12; mo++){
-    var ym = S.year+'-'+pad(mo);
-    var mt = (S.months[ym]||{}).title;
-    var rows = logsOfMonth(ym).filter(function(l){ return S.filter==='all' || l.kind===S.filter; });
-    var fut  = (S.filter==='all') ? doneF.filter(function(f){ return ymOf(f.done_at)===ym; }) : [];
-    var n = rows.length + fut.length;
-    var open = !!S.openYM[ym];
-    html += '<button class="mrow'+(open?' open':'')+'" data-ym="'+ym+'">'+
-      '<span class="ch">›</span><span class="m">'+mo+'月</span>'+
-      '<span class="mt'+(mt?'':' none')+'">'+(mt? esc(mt) : '—')+'</span>'+
-      '<span class="cnt">'+(n? n : '')+'</span></button>';
-    if(!open) continue;
-    html += '<div class="daygroup">';
-    if(!n) html += '<p class="empty" style="padding:8px 0">記録はありません</p>';
-    rows.forEach(function(l){
-      html += '<button class="row" data-t="log" data-id="'+l.id+'"><span class="d">'+fmtMD(l.occurred_at)+'</span>'+
-        '<span class="t"><span class="dotk" style="background:'+cssv(KIND[l.kind].v)+'"></span>'+esc(l.body)+
-        ((l.tags||[]).length?' <em>'+esc(l.tags.join(' / '))+'</em>':'')+'</span><span class="go">›</span></button>';
-    });
-    fut.forEach(function(f){
-      html += '<button class="row" data-t="fut" data-id="'+f.id+'"><span class="d">'+fmtMD(f.done_at)+'</span>'+
-        '<span class="t"><span class="dotk" style="background:'+cssv('--k-wish')+'"></span>'+esc(f.body)+' <em>叶った</em></span>'+
-        '<span class="go">✓</span></button>';
-    });
-    html += '<button class="linkbtn" data-go="'+ym+'" style="padding-left:0">この月を Log でひらく →</button></div>';
+    var ym0 = S.year+'-'+pad(mo);
+    var st0 = monthStats(ym0), mt0 = (S.months[ym0]||{}).title;
+    var has = !!(st0.n || mt0);
+    pts.push({ym:ym0, mo:mo, x:(mo%2? xL : xR), y:y, has:has, st:st0, mt:mt0});
+    y += has ? 132 : 60;          /* 節目のある月は広く、無い月は詰める */
   }
-  w.innerHTML = html;
+  var last = pts[pts.length-1];
+  var yEnd = last.y + (last.has ? 118 : 84), H = yEnd + 70;
 
-  $$('.mrow', w).forEach(function(b){
-    b.onclick=function(){ S.openYM[b.dataset.ym] = !S.openYM[b.dataset.ym]; renderList(); };
+  var d = 'M '+xL+' '+yStart;
+  var prev = {x:xL, y:yStart};
+  pts.concat([{x:last.x, y:yEnd}]).forEach(function(pt){
+    var k = Math.max((pt.y-prev.y)*0.55, 18);
+    d += ' C '+prev.x+' '+(prev.y+k)+', '+pt.x+' '+(pt.y-k)+', '+pt.x+' '+pt.y;
+    prev = pt;
   });
-  $$('[data-go]', w).forEach(function(b){
-    b.onclick=function(e){ e.stopPropagation(); S.ym=b.dataset.go; setView('log'); };
+
+  var svg = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" fill="none">'+
+    '<path d="'+d+'" stroke="#E7D7A8" stroke-width="15" stroke-linecap="round"/>'+
+    '<path d="'+d+'" stroke="#DFCB94" stroke-width="15" stroke-linecap="round" opacity=".5"'+
+      ' stroke-dasharray="0.1 21" stroke-linejoin="round"/>'+
+    '<path d="'+d+'" stroke="'+cssv('--bg')+'" stroke-width="16" stroke-dasharray="2.5 20"/>'+
+    '<g fill="'+cssv('--faint')+'" opacity=".55" font-size="9">'+
+      '<text x="'+(W*0.06)+'" y="'+Math.round(H*0.22)+'">✦</text>'+
+      '<text x="'+(W*0.93)+'" y="'+Math.round(H*0.52)+'">✦</text>'+
+      '<text x="'+(W*0.05)+'" y="'+Math.round(H*0.78)+'">✦</text>'+
+    '</g></svg>';
+
+  var html = '<div class="path" style="height:'+H+'px">'+svg+
+    '<span class="cap" style="left:'+xL+'px;top:'+yStart+'px">START</span>';
+
+  pts.forEach(function(pt){
+    if(!pt.has){
+      html += '<span class="node sm" style="left:'+pt.x+'px;top:'+pt.y+'px"></span>';
+      return;
+    }
+    /* 札は道の外側へ寄せる。左右で交互になるので札どうしは重ならない。 */
+    var tx = pt.x < W/2 ? (tw/2 + 5) : (W - tw/2 - 5);
+    html += '<span class="stop" style="left:'+tx+'px;top:'+pt.y+'px;width:'+tw+'px">'+
+      '<button class="tag" data-ym="'+pt.ym+'" style="transform:rotate('+(pt.mo%2? -1.3 : 1.3)+'deg)">'+
+        '<span class="mn">'+pt.mo+' 月</span>'+
+        '<span class="tt'+(pt.mt?'':' none')+'">'+(pt.mt? esc(pt.mt) : 'まだ名前がありません')+'</span>'+
+        (pt.st.n ? '<span class="kd">'+pt.st.kinds.map(function(k){
+            return '<i style="background:'+cssv(k.v)+'"></i>'; }).join('')+
+            '<b>'+pt.st.n+'</b></span>' : '')+
+      '</button></span>';
+    html += '<span class="node'+(pt.st.n?' on':'')+'" style="left:'+pt.x+'px;top:'+pt.y+'px"></span>';
   });
-  bindListRows(w);
+
+  html += '<span class="cap round" style="left:'+last.x+'px;top:'+yEnd+'px">NEXT<br>CHAPTER</span></div>'+
+    '<p class="quote">collect moments,<br>not things　♡</p>';
+
+  w.innerHTML = head + html;
+  $$('.tag', w).forEach(function(b){ b.onclick=function(){ openMonthSheet(b.dataset.ym); }; });
+}
+
+/* ひとつの月をひらく */
+function openMonthSheet(ym){
+  var m = S.months[ym]||{}, st = monthStats(ym);
+  var body = '<h2>'+(m.title? esc(m.title) : '—')+'</h2>'+
+    '<p class="sub">'+ym.slice(0,4)+'年 '+(+ym.slice(5,7))+'月</p>'+
+    '<div class="daygroup" style="margin:4px 0 0">';
+  if(!st.n) body += '<p class="empty" style="padding:10px 0">記録はありません</p>';
+  st.rows.forEach(function(l){
+    body += '<button class="row" data-t="log" data-id="'+l.id+'"><span class="d">'+fmtMD(l.occurred_at)+'</span>'+
+      '<span class="t"><span class="dotk" style="background:'+cssv(KIND[l.kind].v)+'"></span>'+esc(l.body)+
+      ((l.tags||[]).length?' <em>'+esc(l.tags.join(' / '))+'</em>':'')+'</span><span class="go">›</span></button>';
+  });
+  st.fut.forEach(function(f){
+    body += '<button class="row" data-t="fut" data-id="'+f.id+'"><span class="d">'+fmtMD(f.done_at)+'</span>'+
+      '<span class="t"><span class="dotk" style="background:'+cssv('--k-wish')+'"></span>'+esc(f.body)+' <em>叶った</em></span>'+
+      '<span class="go">✓</span></button>';
+  });
+  body += '</div><div class="actions">'+
+    '<button class="btn sm" id="_go">この月を Log でひらく</button>'+
+    '<button class="btn ghost sm" id="_ti">月のタイトルをつける</button>'+
+    '<button class="btn ghost sm" id="_cl">閉じる</button></div>';
+  Sheet.open(body, function(b){
+    bindListRows(b);
+    b.querySelector('#_go').onclick=function(){ Sheet.close(); S.ym=ym; setView('log'); };
+    b.querySelector('#_ti').onclick=function(){
+      editText('MONTH TITLE', (+ym.slice(5,7))+'月に、名前をつける', m.title||'', function(v){
+        S.months[ym]=Object.assign(S.months[ym]||{},{title:v}); Store.putMonth(ym); renderAll(); });
+    };
+    b.querySelector('#_cl').onclick=Sheet.close;
+  });
 }
 function bindListRows(w){
   $$('.row', w).forEach(function(b){
@@ -1463,8 +1552,9 @@ function setView(v){
   $$('.view').forEach(function(el){ el.classList.toggle('on', el.id==='v-'+v); });
   $$('#nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v===v); });
   $('#periodBtn').style.visibility = (v==='map') ? 'hidden' : 'visible';
+  renderPeriodLabel();
   if(v==='map') Map3.show(S.mapMode);
-  if(v==='list') renderList();
+  if(v==='list'){ renderList(); requestAnimationFrame(renderList); }
   if(v==='log') renderLog();
 }
 function renderAll(){ renderLog(); renderList(); if(S.view==='map') Map3.show(S.mapMode); }
@@ -1543,4 +1633,3 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 </script>
 </body>
 </html>
-
