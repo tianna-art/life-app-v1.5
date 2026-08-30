@@ -113,7 +113,7 @@ button{cursor:pointer}
 .dotk{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.5em;vertical-align:middle}
 
 /* quick log */
-.quick{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
 .quick button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 2px 10px;
   border:1px solid var(--line-soft);border-radius:14px;background:var(--panel);transition:transform .12s,border-color .2s}
 .quick button:active{transform:scale(.95)}
@@ -436,13 +436,19 @@ button{cursor:pointer}
 "use strict";
 
 /* ── 1. 定数 ───────────────────────────── */
+/* 入力カテゴリは3つだけ。分析結果のカテゴリとは分ける。
+   保存する値は既存データと同じ moved / effort / hard。
+   旧データの chose / wish は表示のうえでこの3つへ寄せる。 */
 var KINDS = [
-  {id:'moved',  ja:'心が動いた', en:'MOVED',  v:'--k-moved'},
-  {id:'effort', ja:'頑張った',   en:'EFFORT', v:'--k-effort'},
-  {id:'hard',   ja:'つらかった', en:'HARD',   v:'--k-hard'},
-  {id:'chose',  ja:'選んだ',     en:'CHOSE',  v:'--k-chose'},
-  {id:'wish',   ja:'願った',     en:'WISH',   v:'--k-wish'}
+  {id:'moved',  ja:'心が動いた',   en:'MOVED',  v:'--k-moved',
+   hint:'好き・うれしい・感動・違和感・嫉妬・憧れ'},
+  {id:'effort', ja:'力を使った',   en:'EFFORT', v:'--k-effort',
+   hint:'仕事・創作・勉強・誰かを助けたこと。うまくいったかは問わない'},
+  {id:'hard',   ja:'引っかかった', en:'SNAG',   v:'--k-hard',
+   hint:'つらさ・怒り・疲れ・満たされなさ・うまくいかなかったこと'}
 ];
+var LEGACY_KIND = {chose:'effort', wish:'moved'};
+function kindOf(l){ var k=(l&&l.kind)||'moved'; return LEGACY_KIND[k] || k; }
 var KIND = {}; KINDS.forEach(function(k){ KIND[k.id]=k; });
 var TONES = [
   {id:'hold',  ja:'そっと受け止める'},
@@ -477,6 +483,43 @@ function shift(ym, delta){
 function toast(msg, ms){
   var t=$('#toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('on'); }, ms||2200);
+}
+
+/* ── 2b. おまかせ判定と表記ゆれの統合 ───────
+   ユーザーには「起きたことを一文」だけ求める。
+   カテゴリを選ばなければ、本文から3つのどれかへ自動で寄せる。 */
+var AUTO_NEG = ['疲れ','つら','しんど','消耗','空虚','もやもや','うまくいかな','できなかった','言えなかった',
+  '違和感','怒','悔','焦','不安','嫌','ばかり','だけで終わ','虚し','無駄','手応えがな','意味がな','つまらな'];
+/* 「何も◯◯しなかった」のような、不足を言い表す形も引っかかったに寄せる */
+var AUTO_NEG_RE = [/何も[^。]{0,12}(な|ず)/, /(感じ|手応え|実感)が[^。]{0,4}しなかった/, /残らな/];
+var AUTO_ACT = ['つくった','作った','書いた','描いた','まとめ','整理','設計','企画','担当','構成','編集',
+  '対応','伝えた','提案','相談','面談','決めた','選んだ','始めた','完成','発表','手伝','助け','進めた','考え'];
+var AUTO_MOV = ['心が','惹か','よかった','嬉し','美し','好き','감','感動','ぐっと','立ち止ま','見と','心地',
+  '気になっ','憧れ','うらやま','沁み','刺さ','静か','ほっと'];
+function autoKind(text){
+  var t = String(text||'');
+  var score = {moved:0, effort:0, hard:0};
+  AUTO_NEG.forEach(function(w){ if(t.indexOf(w)>=0) score.hard += 2; });
+  AUTO_NEG_RE.forEach(function(re){ if(re.test(t)) score.hard += 2.5; });
+  AUTO_ACT.forEach(function(w){ if(t.indexOf(w)>=0) score.effort += 1; });
+  AUTO_MOV.forEach(function(w){ if(t.indexOf(w)>=0) score.moved += 1.4; });
+  var best='moved', bv=-1;
+  ['hard','effort','moved'].forEach(function(k){ if(score[k]>bv){ bv=score[k]; best=k; } });
+  return bv<=0 ? 'moved' : best;
+}
+/* 同じものを別ノードにしないための言い換え統合 */
+var ALIAS = {
+  'ChatGPT':'AI対話','Claude':'AI対話','生成AI':'AI対話','AIとの壁打ち':'AI対話','AIと話した':'AI対話',
+  '美術館':'展示','ギャラリー':'展示','個展':'展示','作品展':'展示',
+  '水彩画':'水彩','絵画':'絵','ドローイング':'絵',
+  '打ち合わせ':'会議','ミーティング':'会議','MTG':'会議',
+  '企画書':'企画','提案書':'企画'
+};
+function canon(x){ x=String(x||'').trim(); return ALIAS[x] || x; }
+function canonList(arr){
+  var out=[], seen={};
+  (arr||[]).forEach(function(x){ var c=canon(x); if(c && !seen[c]){ seen[c]=1; out.push(c); } });
+  return out;
 }
 
 /* ── 3. 状態 ──────────────────────────── */
@@ -543,6 +586,7 @@ var Store = (function(){
         S.futures = d.futures||[]; S.cfg = Object.assign(S.cfg, d.cfg||{});
       }
       if(!S.cfg.userKey) S.cfg.userKey = 'me-'+uid();
+      if(dedupeInMemory()) saveLocal();      /* 重複は読み込み時点で落としておく */
     },
     /* サーバとローカルを「足し合わせて」揃える。
        どちらか一方が空でも、もう一方のデータを消さない。 */
@@ -577,6 +621,7 @@ var Store = (function(){
         var pushY=[]; Object.keys(mine.years).forEach(function(k){
           if(!S.years[k] || (!S.years[k].title && mine.years[k].title)){ S.years[k]=mine.years[k]; pushY.push(k); } });
 
+        dedupeInMemory();
         saveLocal();
         var jobs = pushLogs.map(function(l){ return upsert('logs', l); })
           .concat(pushFut.map(function(f){ return upsert('futures', f); }))
@@ -601,6 +646,24 @@ var Store = (function(){
   function errSync(e){ console.warn('sync', e); toast('同期に失敗しました（端末には保存済み）'); }
 })();
 
+/* 同じ内容の記録は一度きりにする。読み込み・同期のたびに通す。 */
+function dedupeInMemory(){
+  var seen={}, out=[], removed=0;
+  S.logs.slice().sort(function(a,b){ return a.id<b.id?-1:1; }).forEach(function(l){
+    var k=kindOf(l)+'|'+l.occurred_at+'|'+String(l.body||'').trim();
+    if(seen[k]){ removed++; return; } seen[k]=1; out.push(l);
+  });
+  S.logs = out.sort(function(a,b){ return a.occurred_at<b.occurred_at?-1:1; });
+  var fs={}, fo=[], fr=0;
+  S.futures.slice().sort(function(a,b){ return a.id<b.id?-1:1; }).forEach(function(f){
+    var k=String(f.body||'').trim()+'|'+(f.mode||'')+'|'+(f.due||'')+'|'+(f.done_at||'');
+    if(fs[k]){ fr++; return; } fs[k]=1; fo.push(f);
+  });
+  S.futures = fo;
+  S.dupCount = removed + fr;
+  return S.dupCount;
+}
+
 /* ── 5. シート（ボトムモーダル）────────── */
 var Sheet = (function(){
   var el=$('#sheet'), sc=$('#scrim'), body=$('#sheetBody'), openFlag=false;
@@ -620,10 +683,14 @@ function logsOfMonth(ym){
 }
 function renderQuick(){
   var w=$('#quickRow'); w.innerHTML='';
-  KINDS.forEach(function(k){
+  KINDS.concat([{id:'auto', ja:'おまかせ', v:'--muted', hint:'アプリが3つのどれかに寄せます'}])
+   .forEach(function(k){
     var b=document.createElement('button');
-    b.innerHTML = '<span class="bl" style="background:'+cssv(k.v)+'"></span><span class="lb">'+k.ja.replace('が','が<br>')+'</span>';
-    b.onclick = function(){ openLogSheet({kind:k.id}); };
+    b.type='button';
+    b.setAttribute('aria-label', k.ja + (k.hint? '：'+k.hint : ''));
+    b.innerHTML = '<span class="bl" style="background:'+cssv(k.v)+'"></span>'+
+                  '<span class="lb">'+k.ja.replace(/(が|を|っ)/, '$1<br>')+'</span>';
+    b.onclick = function(){ openLogSheet({kind: k.id==='auto' ? null : k.id}); };
     w.appendChild(b);
   });
   $('#todayLabel').textContent = (new Date()).getMonth()+1 + '/' + (new Date()).getDate() + ' 今日';
@@ -674,7 +741,7 @@ function renderLogList(){
   w.innerHTML = list.map(function(l){
     return '<button class="row" data-id="'+l.id+'">'+
       '<span class="d">'+fmtMD(l.occurred_at)+'</span>'+
-      '<span class="t"><span class="dotk" style="background:'+cssv(KIND[l.kind].v)+'"></span>'+esc(l.body)+'</span>'+
+      '<span class="t"><span class="dotk" style="background:'+cssv(KIND[kindOf(l)].v)+'"></span>'+esc(l.body)+'</span>'+
       '<span class="go"></span></button>';
   }).join('');
   $$('.row', w).forEach(function(b){
@@ -719,11 +786,11 @@ function editText(eyebrow, sub, value, done){
 }
 function openLogSheet(seed){
   var isNew = !seed || !seed.id;
-  var l = Object.assign({id:uid(), kind:'moved', body:'', occurred_at:todayISO(), place:'', people:[], tags:[]}, seed||{});
+  var l = Object.assign({id:uid(), kind:null, body:'', occurred_at:todayISO(), place:'', people:[], tags:[]}, seed||{});
   Sheet.open(
-    '<h2>'+(isNew?'いまを、残す':'ログを編集')+'</h2><p class="sub">日時と場所は自動で入ります</p>'+
+    '<h2>'+(isNew?'今日、何が残った？':'ログを編集')+'</h2><p class="sub">一文でかまいません。分類は「おまかせ」でも大丈夫です</p>'+
     '<div class="chips" id="_kinds"></div>'+
-    '<div class="field"><label>できごと</label><textarea id="_b" placeholder="一文でも、単語でも。">'+esc(l.body)+'</textarea></div>'+
+    '<div class="field"><label>できごと</label><textarea id="_b" placeholder="起きたことを、そのまま一文で。">'+esc(l.body)+'</textarea></div>'+
     '<div class="two">'+
       '<div class="field"><label>日付</label><input type="date" id="_d" value="'+l.occurred_at+'"></div>'+
       '<div class="field"><label>場所</label><input id="_p" value="'+esc(l.place)+'" placeholder="任意"></div>'+
@@ -737,8 +804,9 @@ function openLogSheet(seed){
     '<button class="btn ghost sm" id="_ng">やめる</button></div>',
     function(b){
       var kw=b.querySelector('#_kinds');
-      KINDS.forEach(function(k){
-        var c=document.createElement('button'); c.className='chip'+(k.id===l.kind?' on':'');
+      KINDS.concat([{id:null, ja:'おまかせ'}]).forEach(function(k){
+        var c=document.createElement('button');
+        c.type='button'; c.className='chip'+(k.id===l.kind?' on':'');
         c.textContent=k.ja;
         c.onclick=function(){ l.kind=k.id; $$('.chip',kw).forEach(function(x){x.classList.remove('on');}); c.classList.add('on'); };
         kw.appendChild(c);
@@ -748,9 +816,10 @@ function openLogSheet(seed){
         var body=b.querySelector('#_b').value.trim();
         if(!body){ toast('できごとを書いてください'); return; }
         l.body=body; l.occurred_at=b.querySelector('#_d').value||todayISO();
+        if(!l.kind) l.kind = autoKind(body);          /* おまかせ：本文から寄せる */
         l.place=b.querySelector('#_p').value.trim();
-        l.people=splitList(b.querySelector('#_pe').value);
-        l.tags=splitList(b.querySelector('#_tg').value);
+        l.people=canonList(splitList(b.querySelector('#_pe').value));
+        l.tags=canonList(splitList(b.querySelector('#_tg').value));
         var i=S.logs.map(function(x){return x.id;}).indexOf(l.id);
         if(i<0) S.logs.push(l); else S.logs[i]=l;
         Store.putLog(l); Sheet.close(); S.ym=ymOf(l.occurred_at); renderAll(); toast('残しました');
@@ -832,13 +901,13 @@ var MAPC = {
 var MAPCOL = {
   self:'#F3E6C8', value:'#D8B56A', interest:'#E58A8A', strength:'#9587DE',
   condition:'#6D9BC3', tension:'#C76F87', wish:'#68CBC4', turningPoint:'#5FA9A0',
-  chapter:'#A9B0C5', evidence:'#697792', recommendation:'#68CBC4'
+  chapter:'#A9B0C5', evidence:'#697792', recommendation:'#68CBC4', experiment:'#68CBC4'
 };
 var KINDJA = {
   self:'いまの自分', value:'大切にしている価値観', interest:'惹かれるもの',
   strength:'繰り返し現れる強み', condition:'力の出る／消耗する条件', tension:'いま抱えている葛藤',
   wish:'続いている願い', turningPoint:'人生の転機', chapter:'人生の章',
-  evidence:'根拠となった出来事', recommendation:'次に広げられそうなこと'
+  evidence:'根拠となった出来事', recommendation:'次に広げられそうなこと', experiment:'次に試せる小さな実験'
 };
 
 /* ── 辞書。ラベルは一般名詞ではなく、意味の分かる言葉にする ── */
@@ -941,34 +1010,76 @@ function monthsBetween(a,b){                     /* 'YYYY-MM' の差 */
   return (+b.slice(0,4)-(+a.slice(0,4)))*12 + (+b.slice(5,7)-(+a.slice(5,7)));
 }
 
-/* ── ログ → 共通形式（後方互換アダプター）── */
+/* ── ログ → 共通形式（後方互換アダプター）──
+   ユーザーは一文を残すだけ。ここで事実・感情・裁量・不足を裏側で分解する。
+   AI の構造化出力に差し替えるときは、この関数の戻り値の形だけ合わせればよい。 */
+var VERB_LEX = [
+  {v:'構成する',   w:['構成','流れを','組み立て','設計','企画']},
+  {v:'編集する',   w:['編集','まとめ','整理','書き直','整え']},
+  {v:'翻訳する',   w:['図に','説明','言語化','伝え','分かる形','動きやすく']},
+  {v:'つくる',     w:['つく','作','描','制作','試作','完成']},
+  {v:'つなぐ',     w:['紹介','声をかけ','巻き込','つなぎ','一緒に']},
+  {v:'選び直す',   w:['決めた','選んだ','断っ','やめ','決めない']},
+  {v:'受けとめる', w:['聞い','受け止め','支え','寄り添']},
+  {v:'対応する',   w:['対応','問い合わせ','依頼','調整','返信']}
+];
+var NEED_LEX = [
+  {n:'創造',   w:['つくった感じがしな','何も残ら','作れな','消化','ルーティン','単調']},
+  {n:'完結感', w:['終わらな','細切れ','中途半端','途切れ','散らか']},
+  {n:'意味',   w:['意味が','虚し','空虚','何のため','納得できな']},
+  {n:'余白',   w:['急ぎ','詰まっ','休めな','余裕がな','時間がな']},
+  {n:'裁量',   w:['言われた','指示','決められ','任されな','勝手に決め']}
+];
+var CHOICE_W = ['決めた','決めない','選んだ','選び直','断っ','やめた','とどまる','進むと','行くと決め'];
+var WISH_W   = ['したい','たい。','いつか','来年','叶え','ひらきたい','なりたかった','なりたい','続けたい','試したい'];
+function hitAny(t, ws){ for(var i=0;i<ws.length;i++){ if(t.indexOf(ws[i])>=0) return true; } return false; }
 function toLogEntry(l){
   if(l.entry) return l.entry;                    /* 既に構造化済みならそのまま使う */
+  var k = kindOf(l);
   var text = (l.body||'') + ' ' + (l.tags||[]).join(' ') + ' ' + (l.place||'');
-  var et = {moved:'moved', effort:'effort', hard:'pain', chose:'choice', wish:'wish'}[l.kind] || 'moved';
-  var val = {moved:.7, effort:.3, pain:-.7, choice:.2, wish:.5}[et];
-  var ag  = {choice:.9, effort:.7, wish:.6, moved:.3, pain:.2}[et];
-  var strong = ['泣','怖','勇気','嬉','悔','疲れ','違和感','肩の力','心が','決め'];
+  var et = {moved:'moved', effort:'effort', hard:'pain'}[k] || 'moved';
+  var isChoice = hitAny(text, CHOICE_W) || l.kind==='chose';
+  var isWish   = hitAny(text, WISH_W)   || l.kind==='wish';
+  var val = {moved:.7, effort:.3, pain:-.7}[et];
+  var strong = ['泣','怖','勇気','嬉','悔','疲れ','違和感','肩の力','心が','決め','惹か','立ち止ま'];
   var bump = 0; strong.forEach(function(x){ if(text.indexOf(x)>=0) bump += .08; });
   var ids = function(dict){ return dict.filter(function(d){ return lexHits(d,text)>0; }).map(function(d){ return d.id; }); };
   var conds = LEX.conditions.filter(function(d){ return lexHits(d,text)>0; });
-  var energy = 'neutral';
-  if(conds.some(function(c){ return c.energy==='drain'; }) || et==='pain') energy='drain';
-  else if(conds.some(function(c){ return c.energy==='gain'; }) || et==='moved' || et==='choice') energy='gain';
+  var drain = conds.some(function(c){ return c.energy==='drain'; }) || et==='pain';
+  var gain  = conds.some(function(c){ return c.energy==='gain'; })  || et==='moved' || isChoice;
+  var energy = drain ? 'drain' : (gain ? 'gain' : 'neutral');
   var dom = 'life';
-  if(/仕事|会社|企画|面談|転職|キャリア|評価|職|プロジェクト|資料|上司|部長/.test(text)) dom='career';
+  if(/仕事|会社|企画|面談|転職|キャリア|評価|職|プロジェクト|資料|上司|部長|問い合わせ|依頼/.test(text)) dom='career';
   else if((l.people||[]).length) dom='relationship';
   else if(ids(LEX.interests).length || et==='moved') dom='likes';
+  /* 裁量と創作の余地。自分で決めた記述があれば高く、依頼・指示なら低く。 */
+  var autonomy = isChoice ? .9 : et==='effort' ? .65 : et==='pain' ? .25 : .4;
+  if(/言われ|指示|依頼|問い合わせ|対応/.test(text)) autonomy = Math.min(autonomy, .25);
+  if(/自分で|自分の言葉|勝手に|自主/.test(text)) autonomy = Math.max(autonomy, .85);
+  var creative = /つく|作|描|企画|設計|構成|物語|デザイン|制作/.test(text) ? .8
+               : /対応|調整|返信|処理/.test(text) ? .15 : .4;
+  var verbs = VERB_LEX.filter(function(d){ return hitAny(text, d.w); }).map(function(d){ return d.v; });
+  var needs = et==='pain' ? NEED_LEX.filter(function(d){ return hitAny(text, d.w); }).map(function(d){ return d.n; }) : [];
+  var social = (l.people||[]).length ? '人と一緒'
+             : /依頼|問い合わせ|言われ|指示/.test(text) ? '他者からの依頼' : 'ひとり';
+  var inten = Math.max(.15, Math.min(1, Math.abs(val)*0.8 + bump));
   return {
     id:l.id, occurredAt: l.undated ? null : l.occurred_at, rawText:l.body||'', eventType:et, domain:dom,
-    entities:(l.tags||[]).concat(l.people||[]).concat(l.place?[l.place]:[]),
-    emotionalValence:val,
-    emotionalIntensity: Math.max(.15, Math.min(1, Math.abs(val)*0.8 + bump)),
-    agency:ag, energy:energy,
+    isChoice:isChoice, isWish:isWish,
+    action: verbs, objects: canonList(l.tags||[]),
+    entities: canonList((l.tags||[]).concat(l.people||[]).concat(l.place?[l.place]:[])),
+    people: canonList(l.people||[]),
+    emotionalValence:val, arousal: inten, emotionalIntensity: inten,
+    agency: autonomy, autonomy: autonomy, creativeControl: creative,
+    energy:energy, energyDelta: energy==='gain' ? .6 : energy==='drain' ? -.7 : 0,
+    socialContext: social,
     candidateValues: ids(LEX.values), candidateStrengths: ids(LEX.strengths),
     candidateInterests: ids(LEX.interests), candidateConditions: conds.map(function(c){ return c.id; }),
-    tensions: [], wishes: et==='wish' ? [l.body] : [],
-    importance: l.importance||0, userConfirmed: !!l.userConfirmed
+    strengthVerbs: verbs, missingNeeds: needs,
+    tensions: [], wishes: isWish ? [l.body] : [],
+    futureIntent: isWish ? l.body : null,
+    importance: l.importance||0, userConfirmed: !!l.userConfirmed,
+    confidence: Math.min(1, .45 + verbs.length*0.12 + (l.tags||[]).length*0.06)
   };
 }
 /* Future Memo も証拠として扱う（未来側の記録） */
@@ -980,7 +1091,10 @@ function futureEntry(f){
     domain:'life', entities:[], emotionalValence:.5, emotionalIntensity:.5, agency:.6,
     energy:'gain', candidateValues:ids(LEX.values), candidateStrengths:[],
     candidateInterests:ids(LEX.interests), candidateConditions:[],
-    tensions:[], wishes:[text], importance:0, userConfirmed:false, isFuture:true, due:f.due, doneAt:f.done_at
+    tensions:[], wishes:[text], importance:0, userConfirmed:false, isFuture:true, isWish:true, isChoice:false,
+    action:[], objects:[], people:[], arousal:.5, autonomy:.6, creativeControl:.5,
+    energyDelta:.6, socialContext:'ひとり', strengthVerbs:[], missingNeeds:[],
+    futureIntent:text, confidence:.6, due:f.due, doneAt:f.done_at
   };
 }
 
@@ -1005,7 +1119,7 @@ var Insight = (function(){
       if(e.occurredAt){ var m=e.occurredAt.slice(0,7); months[m]=1;
         if(!minM||m<minM) minM=m; if(!maxM||m>maxM) maxM=m; }
       domains[e.domain]=1;
-      if(e.eventType==='choice'||e.agency>=.8) choice++;
+      if(e.isChoice||e.agency>=.8) choice++;
       if(e.agency>=.6) effort++;
       emo += e.emotionalIntensity;
     });
@@ -1087,7 +1201,7 @@ var Insight = (function(){
     /* 願い（過去から続いているもの・Future Memo）*/
     order.forEach(function(id){
       var e = entries[id];
-      if(e.eventType!=='wish') return;
+      if(!(e.isWish || e.isFuture)) return;
       var n = add(mk('wish','w:'+id, e.rawText,
         e.isFuture ? '未来へ置いた願い。いまの記録と線でつながっています。'
                    : '過去に書いた願い。いまの記録の中に、まだ現れています。', [id]));
@@ -1096,7 +1210,7 @@ var Insight = (function(){
       if(!n.isFuture && (e.candidateValues||[]).length){
         var echo = order.filter(function(oid){
           var o = entries[oid];
-          if(oid===id || o.eventType==='wish') return false;
+          if(oid===id || o.isWish) return false;
           return (o.candidateValues||[]).some(function(v){ return e.candidateValues.indexOf(v)>=0; });
         });
         if(echo.length >= 2){
@@ -1115,7 +1229,7 @@ var Insight = (function(){
     /* 転機：選択のうち、主体性と感情が強いもの */
     order.forEach(function(id){
       var e = entries[id];
-      if(e.eventType!=='choice') return;
+      if(!e.isChoice) return;
       var w = e.agency*.6 + e.emotionalIntensity*.4;
       if(w < .55) return;
       var n = add(mk('turningPoint','t:'+id, e.rawText, '方向を選び直した場面です。', [id]));
@@ -1166,6 +1280,23 @@ var Insight = (function(){
       n.identity=.35; n.confidence=.5; n.tier='seed'; n.relatedValueIds=hit.filter(function(t){ return byId[t].kind==='value'; });
     });
 
+    /* 次の小さな実験：強み仮説 × 活力条件 × 最近の関心 から、検証できる一歩を作る。
+       「次の正解」ではなく「次に検証すること」を返す。 */
+    var topS = nodes.filter(function(n){ return n.kind==='strength'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
+    var topC = nodes.filter(function(n){ return n.kind==='condition' && n.energy==='gain'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
+    var topI = nodes.filter(function(n){ return n.kind==='interest'; }).sort(function(a,b){ return b.identity-a.identity; })[0];
+    if(topS && topC){
+      var evs2=[];
+      [topS, topC, topI].forEach(function(x){ if(x) (x.evidenceIds||[]).slice(0,2).forEach(function(e){ if(evs2.indexOf(e)<0) evs2.push(e); }); });
+      var n2 = add(mk('experiment','x_next', '「'+topS.label+'」を、小さく試す',
+        topC.label + '状態で、' + (topI? '「'+topI.label+'」に近いテーマで' : '身近なテーマで') +
+        '、5人以下の小さな企画を1つだけ設計してみる。うまくいくかではなく、力が出るかを確かめる実験です。', evs2));
+      n2.identity=.5; n2.confidence=.55; n2.tier='seed';
+      n2.relatedValueIds = (topS.relatedValueIds||[]).slice(0,2);
+      n2.firstSeenAt = topS.lastSeenAt; n2.lastSeenAt = topS.lastSeenAt;
+      n2.confirmed = fbGet('x_next')>0;
+    }
+
     self.summary = '';
     self.identity = 1; self.confidence = 1; self.tier='identity';
 
@@ -1176,9 +1307,9 @@ var Insight = (function(){
 
 /* ── ビューごとの選抜とスコア ── */
 function viewFit(n, mode){
-  if(mode==='likes')  return ({interest:1, value:.85, wish:.6, recommendation:.7, tension:.45, evidence:.3, self:1, strength:.2, condition:.2, turningPoint:.3, chapter:.15})[n.kind]||.2;
-  if(mode==='career') return ({strength:1, condition:.9, tension:.8, value:.7, wish:.5, turningPoint:.6, evidence:.3, self:1, interest:.25, chapter:.15, recommendation:.2})[n.kind]||.2;
-  return ({chapter:1, turningPoint:.95, value:.8, wish:.7, tension:.6, evidence:.5, self:1, interest:.4, strength:.4, condition:.35, recommendation:.2})[n.kind]||.2;
+  if(mode==='likes')  return ({interest:1, value:.85, wish:.6, recommendation:.7, tension:.45, evidence:.3, self:1, strength:.2, condition:.2, turningPoint:.3, chapter:.15, experiment:.3})[n.kind]||.2;
+  if(mode==='career') return ({strength:1, condition:.9, experiment:.88, tension:.8, value:.7, wish:.5, turningPoint:.6, evidence:.3, self:1, interest:.25, chapter:.15, recommendation:.2})[n.kind]||.2;
+  return ({chapter:1, turningPoint:.95, value:.8, wish:.7, tension:.6, evidence:.5, self:1, interest:.4, strength:.4, condition:.35, recommendation:.2, experiment:.45})[n.kind]||.2;
 }
 function currentness(n){
   if(!n.lastSeenAt) return .4;
@@ -1203,6 +1334,7 @@ function displayScore(n, mode){
 var Map3 = (function(){
   var stage, cv, ctx, layer, W=0, H=0, dpr=1;
   var G=null, view=null, cam={x:0,y:0,z:1}, sel=null, chip=null, raf=0, intro=0, built=false;
+  var nodeDrag=null;
   var stars=[], nebula=[];
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1308,8 +1440,8 @@ var Map3 = (function(){
     if(!G) G = Insight.build();
     var z = cam.z;
     var pool = G.nodes.filter(function(n){
-      if(mode==='likes')  return ['self','value','interest','wish','recommendation','tension','evidence'].indexOf(n.kind)>=0;
-      if(mode==='career') return ['self','value','strength','condition','tension','wish','turningPoint','evidence'].indexOf(n.kind)>=0;
+      if(mode==='likes')  return ['self','value','interest','wish','recommendation','tension','experiment','evidence'].indexOf(n.kind)>=0;
+      if(mode==='career') return ['self','value','strength','condition','tension','wish','turningPoint','experiment','evidence'].indexOf(n.kind)>=0;
       if(n.kind==='chapter') return z < MAPC.ZOOM.month ? (z < MAPC.ZOOM.year ? n.level==='year' : true) : true;
       if(n.kind==='evidence') return z >= MAPC.ZOOM.month;
       return true;
@@ -1319,9 +1451,9 @@ var Map3 = (function(){
     var ranked = pool.slice().sort(function(a,b){ return b.display-a.display; });
     /* ラベルを出す顔ぶれ：ビューの主役を必ず1つずつ確保し、同じ種類が偏らないようにする */
     var must = mode==='likes'  ? ['interest','value','wish','tension']
-             : mode==='career'? ['strength','condition','tension','value']
+             : mode==='career'? ['strength','condition','experiment','tension','value']
                               : ['chapter','turningPoint','value','wish'];
-    var CAP = {tension:2, turningPoint:2, wish:2, condition:2, chapter:2, recommendation:1};
+    var CAP = {tension:2, turningPoint:2, wish:2, condition:2, chapter:2, recommendation:1, experiment:1};
     var labeled=[], used={}, seenK={};
     function take(n){
       if(!n || used[n.id] || n.kind==='evidence') return false;
@@ -1373,6 +1505,8 @@ var Map3 = (function(){
     });
 
     layout(mode, pool, labelSet);
+    var savedPos = ((S.cfg.pos||{})[mode]) || {};          /* 手で動かした星は、その位置を優先 */
+    pool.forEach(function(n){ var q=savedPos[n.id]; if(q){ n.x=q[0]; n.y=q[1]; } });
     return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet,
             ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
   }
@@ -1557,17 +1691,44 @@ var Map3 = (function(){
     view.nodes.forEach(function(n){
       var hit=document.createElement('button');
       hit.className='nhit'; hit.dataset.id=n.id; hit.type='button';
-      hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分'));
-      hit.onclick=function(ev){ ev.stopPropagation(); select(n); };
+      hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分')+'。ドラッグで動かせます');
+      hit.onclick=function(ev){ ev.stopPropagation(); if(hit._sup){ hit._sup=false; return; } select(n); };
+      hit.addEventListener('pointerdown', function(ev){
+        ev.stopPropagation(); hit.setPointerCapture(ev.pointerId);
+        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId};
+      });
+      hit.addEventListener('pointermove', function(ev){
+        if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
+        var dx=ev.clientX-nodeDrag.x, dy=ev.clientY-nodeDrag.y;
+        nodeDrag.moved += Math.abs(dx)+Math.abs(dy);
+        n.x += dx/cam.z; n.y += dy/cam.z;
+        nodeDrag.x=ev.clientX; nodeDrag.y=ev.clientY;
+        draw(); syncDom();
+      });
+      function endDrag(ev){
+        if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
+        if(nodeDrag.moved>=8){ hit._sup=true; savePos(n); }
+        nodeDrag=null;
+      }
+      hit.addEventListener('pointerup', endDrag);
+      hit.addEventListener('pointercancel', endDrag);
       layer.appendChild(hit);
       var lb=document.createElement('div');
       lb.className='nlabel'; lb.dataset.id=n.id; lb.setAttribute('aria-hidden','true');
       lb.innerHTML = '<span class="mk">'+esc(({value:'VALUE',interest:'LIKES',strength:'STRENGTH',
         condition:'CONDITION',tension:'TENSION',wish:'WISH',turningPoint:'TURNING',chapter:'CHAPTER',
-        recommendation:'NEXT',self:'NOW',evidence:''})[n.kind]||'')+'</span>'+
+        recommendation:'NEXT',experiment:'EXPERIMENT',self:'NOW',evidence:''})[n.kind]||'')+'</span>'+
         '<span class="lb">'+esc(n.label||'いまの自分')+'</span>';
       layer.appendChild(lb);
     });
+  }
+
+  /* 動かした位置を覚えておく（次に開いても同じ場所） */
+  function savePos(n){
+    S.cfg.pos = S.cfg.pos || {};
+    S.cfg.pos[S.mapMode] = S.cfg.pos[S.mapMode] || {};
+    S.cfg.pos[S.mapMode][n.id] = [Math.round(n.x), Math.round(n.y)];
+    Store.saveLocal();
   }
 
   /* ---- 選択と詳細カード ---- */
@@ -1575,7 +1736,9 @@ var Map3 = (function(){
   function hideCard(){ $('#nodeDetail').classList.remove('on'); }
   function evLine(id){
     var e = G.entries[id]; if(!e) return '';
-    var kindJa = ({moved:'心が動いた',effort:'頑張った',pain:'つらかった',choice:'選んだ',wish:'願った'})[e.eventType]||'';
+    var kindJa = ({moved:'心が動いた',effort:'力を使った',pain:'引っかかった'})[e.eventType]||'';
+    if(e.isChoice) kindJa += '・選んだ';
+    if(e.isWish)   kindJa += '・願った';
     var d = e.occurredAt ? fmtMD(e.occurredAt) : '時期不明';
     return '<div class="nd-ev"><span class="d">'+esc(d)+'</span><span class="t">'+esc(e.rawText)+
            '<em>'+esc(kindJa)+'</em></span></div>';
@@ -1718,7 +1881,11 @@ var Map3 = (function(){
       if(!cv||!cv.getContext) return;
       ctx=cv.getContext('2d'); seedSky(); bind();
       window.addEventListener('resize', resize);
-      $('#mapReset').onclick=function(){ sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1}; rebuild(); };
+      $('#mapReset').onclick=function(){
+        sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1};
+        if(S.cfg.pos) delete S.cfg.pos[S.mapMode];     /* 手で動かした位置も戻す */
+        Store.saveLocal(); rebuild();
+      };
       $('#ndClose').onclick=function(){ sel=null; hideCard(); draw(); syncDom(); };
     },
     show:function(mode){
@@ -1771,7 +1938,7 @@ function allYears(){
 function monthStats(ym){
   var rows = logsOfMonth(ym);
   var fut  = S.futures.filter(function(f){ return f.done_at && ymOf(f.done_at)===ym; });
-  var kinds = {}; rows.forEach(function(l){ kinds[l.kind]=1; });
+  var kinds = {}; rows.forEach(function(l){ kinds[kindOf(l)]=1; });
   return {rows:rows, fut:fut, n:rows.length+fut.length,
           kinds:KINDS.filter(function(k){ return kinds[k.id]; })};
 }
@@ -1785,7 +1952,7 @@ function renderList(){
 
   var yearLogs = S.logs.filter(function(l){ return yearOf(l.occurred_at)===S.year; });
   var doneF = S.futures.filter(function(f){ return f.done_at && yearOf(f.done_at)===S.year; });
-  var cnt={}; yearLogs.forEach(function(l){ cnt[l.kind]=(cnt[l.kind]||0)+1; });
+  var cnt={}; yearLogs.forEach(function(l){ var k=kindOf(l); cnt[k]=(cnt[k]||0)+1; });
   var head = '<div class="yearsum"><span class="n">'+yearLogs.length+'件のログ・'+
     doneF.length+'件が叶いました</span><span class="k">'+
     KINDS.filter(function(k){ return cnt[k.id]; }).map(function(k){
@@ -1848,7 +2015,7 @@ function renderList(){
       (pt.open ? '<div class="evs">'+ (pt.st.n
         ? pt.st.rows.map(function(l){
             return '<button class="ev" data-t="log" data-id="'+l.id+'"><span class="d">'+fmtMD(l.occurred_at)+
-              '</span><span class="t"><i class="k" style="background:'+cssv(KIND[l.kind].v)+'"></i>'+
+              '</span><span class="t"><i class="k" style="background:'+cssv(KIND[kindOf(l)].v)+'"></i>'+
               esc(l.body)+'</span></button>'; }).join('')
           + pt.st.fut.map(function(f){
             return '<button class="ev" data-t="fut" data-id="'+f.id+'"><span class="d">'+fmtMD(f.done_at)+
@@ -1991,7 +2158,7 @@ function monthContext(){
   var ls = logsOfMonth(S.ym);
   return {
     ym:S.ym,
-    logs: ls.map(function(l){ return {date:l.occurred_at, kind:KIND[l.kind].ja, body:l.body,
+    logs: ls.map(function(l){ return {date:l.occurred_at, kind:KIND[kindOf(l)].ja, body:l.body,
       place:l.place||'', people:l.people||[], tags:l.tags||[]}; }),
     answers: flow.answers,
     angle: (ANGLES.filter(function(a){return a.id===flow.angle;})[0]||{}).ja,
@@ -2050,7 +2217,7 @@ function generateChapter(){
 /* APIキーが無いときの下書き（ルールベース） */
 function localDraft(ctx){
   var ls = ctx.logs, cnt={};
-  ls.forEach(function(l){ cnt[l.kind]=(cnt[l.kind]||0)+1; });
+  ls.forEach(function(l){ var k=kindOf(l); cnt[k]=(cnt[k]||0)+1; });
   var tags={}; ls.forEach(function(l){ l.tags.forEach(function(t){ tags[t]=(tags[t]||0)+1; }); });
   var topTags = Object.keys(tags).sort(function(a,b){ return tags[b]-tags[a]; }).slice(0,3);
   var people={}; ls.forEach(function(l){ l.people.forEach(function(p){ people[p]=(people[p]||0)+1; }); });
@@ -2086,7 +2253,8 @@ function openSettings(){
     '<div class="field"><label>MODEL</label><input id="_md" value="'+esc(S.cfg.model)+'"></div>'+
     '<p class="mono-note" style="margin-top:10px">未入力でも動きます。その場合「今月を読む」は手元のルールで下書きを作ります。</p>'+
     '<div class="hr"></div>'+
-    '<div class="setrow"><span class="l">データ</span><span class="v">'+S.logs.length+'件のログ</span></div>'+
+    '<div class="setrow"><span class="l">データ</span><span class="v">'+S.logs.length+'件のログ'+
+      (S.dupCount? '（重複'+S.dupCount+'件は自動で除外中）':'')+'</span></div>'+
     '<div class="actions">'+
       '<button class="btn" id="_save">保存して同期</button>'+
       '<button class="btn ghost sm" id="_dedupe">重複しているログを掃除する</button>'+
@@ -2140,7 +2308,7 @@ function openSettings(){
 function dedupeLogs(){
   var seen={}, dup=[];
   S.logs.slice().sort(function(a,b){ return a.id<b.id?-1:1; }).forEach(function(l){
-    var k=l.kind+'|'+l.occurred_at+'|'+l.body;
+    var k=kindOf(l)+'|'+l.occurred_at+'|'+l.body;
     if(seen[k]) dup.push(l); else seen[k]=1;
   });
   var fs={}, fdup=[];
@@ -2209,15 +2377,16 @@ function seedDemo(){
   var Y = todayISO().slice(0,4);
   var d = function(m,day){ return Y+'-'+pad(m)+'-'+pad(day); };
   S.logs = [
-    {id:uid(),kind:'wish',  body:'小さい頃、絵や物語をつくる人になりたかった', occurred_at:d(1,1), place:'', people:[], tags:['創作','物語'], undated:true},
+    {id:uid(),kind:'moved', body:'小さい頃、絵や物語をつくる人になりたかった', occurred_at:d(1,1), place:'', people:[], tags:['創作','物語'], undated:true},
     {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(6,16), place:'清澄白河', people:[], tags:['展示','色']},
     {id:uid(),kind:'effort',body:'複雑な企画を図にしたら、みんなが動きやすくなった', occurred_at:d(6,18), place:'会社', people:['ミナ'], tags:['企画','言語化']},
-    {id:uid(),kind:'hard',  body:'結果を急ぎ続ける働き方に、少し疲れた',           occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
+    {id:uid(),kind:'hard',  body:'結果を急ぎ続ける働き方に、少し疲れた',                       occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
+    {id:uid(),kind:'hard',  body:'一日中問い合わせに対応したけれど、何もつくった感じがしなかった', occurred_at:d(7,2),  place:'会社', people:[], tags:['対応']},
     {id:uid(),kind:'moved', body:'水彩のにじみを眺めている時間が心地よかった',     occurred_at:d(7,7),  place:'家',   people:[], tags:['水彩','余白']},
-    {id:uid(),kind:'chose', body:'今すぐ転職すると決めなくてもいいと思えた',       occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
+    {id:uid(),kind:'effort',body:'今すぐ転職すると決めなくてもいいと思えた',       occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
     {id:uid(),kind:'moved', body:'「急がなくていい」と言われて肩の力が抜けた',     occurred_at:d(8,6),  place:'',     people:['ミナ'], tags:['余白','言葉']},
     {id:uid(),kind:'effort',body:'キャリア面談に行って、選択肢を並べた',           occurred_at:d(8,12), place:'渋谷', people:['カウンセラー'], tags:['キャリア']},
-    {id:uid(),kind:'chose', body:'転職はまだ決めない、と決めた',                   occurred_at:d(8,13), place:'',     people:[], tags:['キャリア','自由']},
+    {id:uid(),kind:'effort',body:'転職はまだ決めない、と決めた',                   occurred_at:d(8,13), place:'',     people:[], tags:['キャリア','自由']},
     {id:uid(),kind:'moved', body:'企画書の余白に波線を描いていた',                 occurred_at:d(8,20), place:'会社', people:[], tags:['制作','余白']}
   ];
   S.months = {};
