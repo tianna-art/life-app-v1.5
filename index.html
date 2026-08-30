@@ -169,33 +169,86 @@ button{cursor:pointer}
   padding:11px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
-/* ── MAP ─────────────────────────────────── */
-.maptabs{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--line-soft);background:var(--bg)}
-.maptabs button{padding:13px 4px 11px;font-family:var(--serif);font-size:.84rem;letter-spacing:.08em;color:var(--faint);position:relative}
-.maptabs button.on{color:var(--ink)}
-.maptabs button.on::after{content:"";position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:38%;height:1.5px;background:var(--accent);opacity:.8}
+/* ── MAP：宇宙 ───────────────────────────── */
+#v-map{background:#070916}
 .mapwrap{position:absolute;inset:0;display:flex;flex-direction:column}
-#gcv{flex:1;width:100%;display:block;touch-action:none;cursor:grab}
-#gcv.grabbing{cursor:grabbing}
-.maphint{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 12px);
-  text-align:center;font-size:.64rem;color:var(--faint);letter-spacing:.08em;pointer-events:none}
-.mapreset{position:absolute;right:16px;top:60px;z-index:3;border:1px solid var(--line);border-radius:999px;
-  background:var(--panel);font-size:.58rem;letter-spacing:.16em;font-weight:700;color:var(--muted);padding:7px 13px}
-.legend{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 34px);z-index:3;
-  display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;padding:0 16px;pointer-events:none;opacity:.85}
-.legend span{display:flex;align-items:center;gap:5px;font-size:.56rem;letter-spacing:.06em;color:var(--muted)}
-.legend i{width:6px;height:6px;border-radius:50%;display:block}
+.maptabs{flex:none;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(7,9,22,.92);
+  border-bottom:1px solid rgba(169,176,197,.16);position:relative;z-index:8}
+.maptabs button{padding:14px 4px 12px;font-family:var(--serif);font-size:.84rem;letter-spacing:.08em;
+  color:#868FA9;position:relative}
+.maptabs button.on{color:#F7F1E6}
+.maptabs button.on::after{content:"";position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);
+  width:36%;height:1.5px;background:#D8B56A}
+.maptabs button:focus-visible{outline:2px solid #D8B56A;outline-offset:-3px}
 
-/* node detail */
-.ndetail{position:absolute;left:12px;right:12px;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 12px);z-index:8;
-  background:var(--sheet);border:1px solid var(--line-soft);border-radius:16px;padding:16px 16px 14px;
-  transform:translateY(18px);opacity:0;pointer-events:none;transition:.26s;max-height:46vh;overflow-y:auto}
+.mapstage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;cursor:grab}
+.mapstage.grabbing{cursor:grabbing}
+#gcv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.maplayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+
+/* 価値観チップ */
+.vchips{position:absolute;left:0;right:0;top:42px;z-index:7;display:flex;gap:6px;justify-content:center;
+  flex-wrap:wrap;padding:12px 14px 0;pointer-events:none}
+.vchip{pointer-events:auto;font-family:var(--serif);font-size:.68rem;letter-spacing:.1em;color:#E9E0CB;
+  background:rgba(216,181,106,.12);border:1px solid rgba(216,181,106,.42);border-radius:999px;
+  padding:6px 13px;display:inline-flex;align-items:center;gap:7px;line-height:1}
+.vchip b{font-weight:400;font-size:.56rem;color:#D8B56A;letter-spacing:.04em}
+.vchip.on{background:#D8B56A;color:#12162B;border-color:#D8B56A}
+.vchip.on b{color:#12162B}
+.vchip:focus-visible{outline:2px solid #D8B56A;outline-offset:2px}
+
+/* 今見えていること */
+.mapsum{position:absolute;left:0;right:0;top:90px;z-index:6;padding:0 26px;text-align:center;
+  font-family:var(--serif);font-size:.78rem;line-height:1.95;color:#CBD1E0;letter-spacing:.03em;
+  pointer-events:none;text-shadow:0 1px 12px rgba(7,9,22,.95)}
+
+/* ノードのラベルと当たり判定 */
+.nlabel{position:absolute;pointer-events:auto;transform:translate(-50%,0);background:none;
+  font-family:var(--serif);text-align:center;line-height:1.5;letter-spacing:.03em;color:#F7F1E6;
+  padding:2px 4px;max-width:136px;text-shadow:0 1px 9px rgba(7,9,22,.98),0 0 3px rgba(7,9,22,.9)}
+.nlabel .mk{display:block;font-size:.48rem;letter-spacing:.18em;color:#9AA3BC;margin-bottom:3px}
+.nlabel .lb{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nlabel.dim{opacity:.22}
+.nlabel:focus-visible{outline:2px solid #D8B56A;outline-offset:2px;border-radius:6px}
+.nhit{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);border-radius:50%;background:none}
+.nhit:focus-visible{outline:2px solid #D8B56A;outline-offset:1px}
+
+/* 操作まわり */
+.mapreset{position:absolute;right:12px;top:8px;z-index:10;border:1px solid rgba(169,176,197,.35);
+  border-radius:999px;background:rgba(12,16,36,.85);font-family:var(--serif);font-size:.66rem;
+  letter-spacing:.06em;color:#CBD1E0;padding:7px 13px}
+.mapreset:focus-visible{outline:2px solid #D8B56A;outline-offset:2px}
+.maphint{position:absolute;left:0;right:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 6px);
+  text-align:center;font-size:.56rem;color:#7B84A0;letter-spacing:.06em;pointer-events:none;padding:0 14px;z-index:5}
+.mapempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 44px;
+  text-align:center;font-family:var(--serif);font-size:.9rem;line-height:2.1;color:#A9B0C5;z-index:5}
+
+/* 詳細カード＝夜空でひらく紙 */
+.ndetail{position:absolute;left:10px;right:10px;bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 8px);
+  z-index:9;background:#FBF7EA;border-radius:14px;padding:16px 16px 14px;
+  box-shadow:0 14px 44px rgba(0,0,0,.55);transform:translateY(16px);opacity:0;pointer-events:none;
+  transition:opacity .22s ease,transform .22s ease;max-height:54vh;overflow-y:auto;overscroll-behavior:contain}
 .ndetail.on{transform:none;opacity:1;pointer-events:auto}
-.ndetail .k{font-size:.56rem;font-weight:700;letter-spacing:.2em;color:var(--faint)}
-.ndetail h4{font-family:var(--serif);font-size:1.02rem;letter-spacing:.05em;margin:6px 0 10px}
-.ndetail p{font-family:var(--serif);font-size:.84rem;line-height:1.95;color:var(--ink-soft)}
-.ndetail .why{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);font-size:.76rem;color:var(--muted);font-family:var(--sans)}
-.ndetail .x{position:absolute;right:10px;top:8px;padding:8px;color:var(--faint);font-size:1rem}
+.ndetail .x{position:absolute;right:6px;top:4px;padding:10px 12px;color:#A8926A;font-size:1.1rem;line-height:1}
+.ndetail .x:focus-visible{outline:2px solid #C88A5C;outline-offset:-2px}
+.nd-k{font-size:.54rem;font-weight:700;letter-spacing:.2em;color:#B09A6E;display:flex;align-items:center;gap:7px}
+.nd-k i{width:7px;height:7px;border-radius:50%;display:block}
+.ndetail h4{font-family:var(--serif);font-size:1rem;line-height:1.6;letter-spacing:.04em;margin:7px 34px 9px 0;color:#3B3025}
+.ndetail p.sum{font-family:var(--serif);font-size:.83rem;line-height:2;color:#5B4B37}
+.nd-sec{margin-top:13px;padding-top:11px;border-top:1px solid rgba(160,138,96,.28)}
+.nd-sec h5{font-size:.54rem;font-weight:700;letter-spacing:.18em;color:#B09A6E;margin-bottom:7px}
+.nd-sec p{font-family:var(--serif);font-size:.78rem;line-height:1.9;color:#5B4B37}
+.nd-ev{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline;padding:6px 0;text-align:left;width:100%}
+.nd-ev + .nd-ev{border-top:1px solid rgba(160,138,96,.14)}
+.nd-ev .d{font-family:var(--serif);font-size:.6rem;color:#B98D62;white-space:nowrap}
+.nd-ev .t{font-family:var(--serif);font-size:.75rem;line-height:1.75;color:#4A3C2C}
+.nd-ev .t em{font-style:normal;color:#A8926A;font-size:.62rem;letter-spacing:.06em;margin-left:.4em}
+.nd-meta{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:.62rem;color:#A8926A;letter-spacing:.04em}
+.nd-fb{display:flex;gap:8px;margin-top:14px}
+.nd-fb button{flex:1;font-family:var(--serif);font-size:.76rem;letter-spacing:.06em;padding:11px 4px;
+  border-radius:999px;border:1px solid rgba(160,138,96,.42);color:#5B4B37}
+.nd-fb button.on{background:#3B3025;color:#FBF7EA;border-color:#3B3025}
+.nd-fb button:focus-visible{outline:2px solid #C88A5C;outline-offset:2px}
 
 /* ── LIST ────────────────────────────────── */
 .yearhead{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0 10px;border-bottom:1px solid var(--line)}
@@ -324,19 +377,25 @@ button{cursor:pointer}
     </section>
 
     <!-- ══════════ MAP ══════════ -->
-    <section class="view flush" id="v-map">
+    <section class="view flush" id="v-map" aria-label="Map：わたしを構成する星座">
       <div class="mapwrap">
-        <div class="maptabs" id="mapTabs">
-          <button data-m="likes" class="on">好きなこと</button>
-          <button data-m="career">キャリア</button>
-          <button data-m="time">時系列</button>
+        <div class="maptabs" id="mapTabs" role="tablist" aria-label="Mapの見かた">
+          <button data-m="likes"  role="tab" aria-selected="false">好きなこと</button>
+          <button data-m="career" role="tab" aria-selected="false">キャリア</button>
+          <button data-m="all"    role="tab" aria-selected="true" class="on">全て</button>
         </div>
-        <canvas id="gcv" role="img" aria-label="自分を中心に、好きなもの・仕事・出来事・価値観がつながる図。点に触れると詳細が開きます。"></canvas>
+        <div class="mapstage" id="mapStage">
+          <canvas id="gcv" aria-hidden="true"></canvas>
+          <div class="maplayer" id="mapLayer"></div>
+          <div class="vchips" id="vchips" role="group" aria-label="いま強く現れている価値観"></div>
+          <p class="mapsum" id="mapSum"></p>
+          <button class="mapreset" id="mapReset">全体を見る</button>
+          <p class="maphint" id="mapHint"></p>
+        </div>
       </div>
-      <div class="legend" id="mapLegend"></div>
-      <button class="mapreset" id="mapReset">RESET</button>
-      <p class="maphint" id="mapHint">点にふれると、つながりの理由がひらきます</p>
-      <div class="ndetail" id="nodeDetail"><button class="x" id="ndClose">×</button><div id="ndBody"></div></div>
+      <div class="ndetail" id="nodeDetail" role="dialog" aria-modal="false" aria-label="星の詳細">
+        <button class="x" id="ndClose" aria-label="閉じる">×</button><div id="ndBody"></div>
+      </div>
     </section>
 
     <!-- ══════════ LIST ══════════ -->
@@ -406,7 +465,7 @@ function pad(n){ return n<10 ? '0'+n : ''+n; }
 function ymOf(iso){ return iso.slice(0,7); }
 function yearOf(iso){ return iso.slice(0,4); }
 function todayISO(d){ d = d||new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-function fmtMD(iso){ return (+iso.slice(5,7))+'/'+(+iso.slice(8,10)); }
+function fmtMD(iso){ if(!iso) return '時期不明'; return (+iso.slice(5,7))+'/'+(+iso.slice(8,10)); }
 function cssv(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -426,11 +485,11 @@ var S = {
   months:{},      // 'YYYY-MM' -> {title, chapter:{...}, tone, angle}
   years:{},       // 'YYYY'    -> {title}
   futures:[],     // {id,body,mode,due,done_at}
-  cfg:{ supabaseUrl:'', supabaseKey:'', claudeKey:'', userKey:'', model:'claude-sonnet-4-5' },
+  cfg:{ supabaseUrl:'', supabaseKey:'', claudeKey:'', userKey:'', model:'claude-sonnet-4-5', fb:{} },
   ym: todayISO().slice(0,7),
   year: todayISO().slice(0,4),
   view: 'log',
-  mapMode: 'likes',
+  mapMode: 'all',
   filter: 'all',
   openYM: {}       // Listで開いている月
 };
@@ -750,390 +809,936 @@ function openFutureSheet(seed){
     });
 }
 
-/* ── 8. MAP：グラフのデータ生成 ───────────
-   ログ本文・タグ・人・場所から、
-   ノード（点）とエッジ（線）を組み立てる。
-   価値観は「繰り返し・領域をまたぐ・感情の強さ」で仮説を立てる。 */
-var VALUE_DICT = [
-  {v:'自由',   words:['自由','ひとり','自分で決め','余白','マイペース','旅','散歩']},
-  {v:'創造',   words:['つく','作','描','書','デザイン','企画','試作','アイデア','制作']},
-  {v:'安心',   words:['安心','落ち着','家','実家','休','眠','ほっと','穏やか']},
-  {v:'誠実さ', words:['正直','誠実','嘘','ちゃんと','約束','責任']},
-  {v:'つながり',words:['友','家族','会','話','一緒','チーム','仲間','紹介','面談','相談']},
-  {v:'探究',   words:['調べ','学','読','本','研究','なぜ','知り','わか']},
-  {v:'美しさ', words:['美','きれい','絵','写真','music','音楽','展示','ギャラリー','色','光','花']},
-  {v:'貢献',   words:['助','支え','役に立','届け','伝え','教え']},
-  {v:'挑戦',   words:['挑戦','初めて','転職','応募','発表','踏み出','怖','勇気']},
-  {v:'余白',   words:['余白','ゆっくり','急がなくて','間','待']}
-];
-var STRENGTH_DICT = [
-  {v:'複雑なことを、人が分かる形に翻訳する', words:['説明','資料','整理','まとめ','翻訳','言語化','図']},
-  {v:'違う領域の人をつなぎ、企画として形にする', words:['企画','声をかけ','つなぎ','紹介','チーム','巻き込']},
-  {v:'まだ言葉になっていないものを見つける',   words:['違和感','なんとなく','気づ','ひっかか','感じ']},
-  {v:'世界観と実行計画を往復する',             words:['計画','設計','スケジュール','世界観','コンセプト']}
-];
-function hits(text, words){ var n=0; words.forEach(function(w){ if(text.indexOf(w)>=0) n++; }); return n; }
+/* ══════════════════════════════════════════════════
+   8. MAP：洞察エンジン
+   具体的なログ → 抽出 → 統合 → 反復の発見 → 価値観/強み/葛藤/願い
+   ここ（toLogEntry と Insight.build）だけを差し替えれば、
+   将来 AI の構造化出力へ移行できる。描画側は触らなくてよい。
+   ══════════════════════════════════════════════════ */
+var MAPC = {
+  MAX_LABELED: 9,                 /* 初期表示のラベル付きノード上限 */
+  EDGES_PER_NODE: 2,              /* 初期表示で各ノードが持つ線の本数 */
+  DIM: 0.18,                      /* 関係のないものの明るさ */
+  PROMOTE: {seed:1, pattern:2, identity:3},
+  IDENTITY_W: {choice:.22, repeat:.18, emotion:.15, domain:.15, effort:.12, duration:.10, stated:.08},
+  DISPLAY_W:  {identity:.45, viewFit:.20, current:.15, bridge:.10, evidence:.10},
+  INTEREST_W: {comfort:.30, repeat:.25, effort:.20, context:.15, future:.10},
+  CAREER_W:   {repeat:.25, impact:.20, energy:.20, tension:.20, longterm:.15},
+  ALL_W:      {turning:.20, emotion:.18, current:.17, echo:.15, wish:.12, cross:.10, important:.08},
+  RING: {value:98, pattern:182, outer:262, evidence:[312, 436]},
+  ALLRING: {value:74, base:168, step:58},
+  ZOOM: {min:.45, max:2.6, year:.70, month:1.20}
+};
+var MAPCOL = {
+  self:'#F3E6C8', value:'#D8B56A', interest:'#E58A8A', strength:'#9587DE',
+  condition:'#6D9BC3', tension:'#C76F87', wish:'#68CBC4', turningPoint:'#5FA9A0',
+  chapter:'#A9B0C5', evidence:'#697792', recommendation:'#68CBC4'
+};
+var KINDJA = {
+  self:'いまの自分', value:'大切にしている価値観', interest:'惹かれるもの',
+  strength:'繰り返し現れる強み', condition:'力の出る／消耗する条件', tension:'いま抱えている葛藤',
+  wish:'続いている願い', turningPoint:'人生の転機', chapter:'人生の章',
+  evidence:'根拠となった出来事', recommendation:'次に広げられそうなこと'
+};
 
-function buildGraph(mode){
-  var nodes=[], links=[], by={};
-  function add(id, o){ if(by[id]) return by[id]; o.id=id; nodes.push(o); by[id]=o; return o; }
-  function link(a,b,kind,label){ if(by[a]&&by[b]) links.push({s:a,t:b,kind:kind||'rel',label:label||''}); }
-  add('self', {label:'', kind:'self', r:13, pin:true});
+/* ── 辞書。ラベルは一般名詞ではなく、意味の分かる言葉にする ── */
+var LEX = {
+  values: [
+    {id:'v_free',   chip:'自由',   label:'自分で進む方向を選べる',
+     sum:'決められた形をなぞるより、自分で選び直せる余地を大切にしている。',
+     w:['自由','自分で決め','決めない','選び直','選択肢','ひとり','マイペース','断っ','任せ']},
+    {id:'v_create', chip:'創造',   label:'手を動かして形にする',
+     sum:'受け取るだけでなく、自分の手で形にしているときに心が動いている。',
+     w:['つく','作','描','絵','デザイン','企画','制作','試作','波線','水彩','図']},
+    {id:'v_space',  chip:'余白',   label:'完成を急がず育てる時間',
+     sum:'埋めることより、空けておくことに価値を置いている。',
+     w:['余白','急がなくて','急がな','ゆっくり','眺め','休','肩の力','のんびり','待']},
+    {id:'v_honest', chip:'感性',   label:'感性を手放さない',
+     sum:'うまくやることより、自分の感じ方を守ることを選んでいる。',
+     w:['感性','正直','ちゃんと','嘘','納得','手放したくな']},
+    {id:'v_connect',chip:'つながり',label:'安心して弱さを話せる関係',
+     sum:'ひとりで完結させず、人との間で確かめながら進んでいる。',
+     w:['友','家族','一緒','相談','面談','仲間','紹介','話し','聞い']},
+    {id:'v_explore',chip:'探究',   label:'わからなさを持ち続ける',
+     sum:'すぐに答えを出すより、問いのまま持っていることを選んでいる。',
+     w:['調べ','学','本','読','なぜ','知り','わから','考え']},
+    {id:'v_beauty', chip:'美しさ', label:'感覚が動くものを信じる',
+     sum:'意味より先に、感覚が動いたものを信じている。',
+     w:['美','きれい','絵','写真','音楽','展示','ギャラリー','色','光','にじみ','青']}
+  ],
+  strengths: [
+    {id:'s_translate', label:'複雑なものを、人が分かる形にする',
+     sum:'込み入ったものをほどいて、人が動ける形に置き直している。',
+     w:['図','資料','整理','まとめ','説明','言語化','企画書','動きやすく','翻訳']},
+    {id:'s_unspoken',  label:'まだ言葉になっていない感覚をすくい上げる',
+     sum:'名前のついていない違和感や気配を、先に見つけている。',
+     w:['違和感','なんとなく','気づ','感じ','ひっかか','感性','言葉にな']},
+    {id:'s_bridge',    label:'異なる領域をつなぎ、体験として設計する',
+     sum:'離れたものを引き合わせて、ひとつの体験にしている。',
+     w:['つなぎ','紹介','声をかけ','巻き込','チーム','企画会議','橋渡し']},
+    {id:'s_safe',      label:'人が安心して参加できる場を整える',
+     sum:'人が構えずにいられる状態を、先回りしてつくっている。',
+     w:['安心','場','迎え','支え','聞く','受け止め']}
+  ],
+  conditions: [
+    {id:'c_space', energy:'gain', label:'余白と、手を動かせる時間があるとき',
+     sum:'手を動かせる時間と余白があると、力が戻ってくる。',
+     w:['余白','手を動か','静か','ゆっくり','眺め','描い']},
+    {id:'c_own',   energy:'gain', label:'進め方を自分で決められるとき',
+     sum:'順番や速さを自分で決められると、力が出ている。',
+     w:['自分で決め','自分の言葉','選ん','任せ','決めた']},
+    {id:'c_speed', energy:'drain',label:'速さと成果だけで測られるとき',
+     sum:'結果と速さだけで測られる状況で、消耗している。',
+     w:['急ぎ','結果を急','成果','締め切り','疲れ','評価']},
+    {id:'c_explain',energy:'drain',label:'うまく説明することを求められ続けるとき',
+     sum:'その場で言語化を求められ続けると、削られている。',
+     w:['説明できな','うまく言え','うまく説明','言えなかった']}
+  ],
+  interests: [
+    {id:'i_water', label:'水や余白のある表現',
+     sum:'にじみや余白のある表現に、くり返し目が止まっている。',
+     w:['水彩','にじみ','水','余白','青','色','光']},
+    {id:'i_hands', label:'静かに手を動かす時間',
+     sum:'静かな場所で手を動かしている時間に、自分へ戻っている。',
+     w:['手を動か','描い','つく','制作','波線','絵']},
+    {id:'i_grow',  label:'未完成なものを育てること',
+     sum:'完成させることより、育てている途中に心が向いている。',
+     w:['試作','育て','途中','未完成','急がな','まだ']},
+    {id:'i_story', label:'人の内面に触れる物語',
+     sum:'人の内側にふれる言葉や物語に、惹かれている。',
+     w:['物語','小説','映画','詩','言葉','内面','本']},
+    {id:'i_art',   label:'作品や展示にふれること',
+     sum:'作品の前に立ち止まる時間を、自分から取りに行っている。',
+     w:['展示','ギャラリー','美術館','アート','作家','絵']}
+  ],
+  /* 葛藤は「矛盾」ではなく、両方を残したまま問いとして立てる */
+  tensions: [
+    {id:'t_measure', label:'挑戦したいが、速さや成果だけで測られたくない',
+     sum:'前へ進みたい気持ちと、速さで自分を測られたくない気持ちが同時にある。',
+     need:['c_speed'], with:['v_create','v_free','s_translate']},
+    {id:'t_pace',    label:'次へ進みたいが、急いで答えを決めたくない',
+     sum:'動き出したい気持ちと、まだ決め切りたくない気持ちが両方ある。',
+     need:['v_space'], with:['v_free']},
+    {id:'t_bond',    label:'自由でいたいが、深くつながりたい',
+     sum:'ひとりで選びたい気持ちと、誰かと深くいたい気持ちが同時にある。',
+     need:['v_free'], with:['v_connect']}
+  ],
+  /* 「次に広げる」の候補カタログ（外部APIは使わない） */
+  recos: [
+    {id:'r_print', label:'少人数の版画ワークショップ', tags:['i_hands','v_space','v_create','i_art']},
+    {id:'r_zine',  label:'小さなZINEをつくる',        tags:['i_hands','i_story','i_grow','v_create']},
+    {id:'r_walk',  label:'早朝の写真散歩',            tags:['v_space','i_water','v_beauty']},
+    {id:'r_paint', label:'水彩のにじみを試す時間',     tags:['i_water','i_hands','v_space']}
+  ]
+};
+function lexHits(item, text){ var n=0; for(var i=0;i<item.w.length;i++){ if(text.indexOf(item.w[i])>=0) n++; } return n; }
+function hash01(str){
+  var h=2166136261;
+  for(var i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+  return ((h>>>0)%100000)/100000;
+}
+function monthsBetween(a,b){                     /* 'YYYY-MM' の差 */
+  return (+b.slice(0,4)-(+a.slice(0,4)))*12 + (+b.slice(5,7)-(+a.slice(5,7)));
+}
 
-  var logs = S.logs.slice();
-  if(mode==='time'){
-    var years={};
-    logs.forEach(function(l){ (years[yearOf(l.occurred_at)] = years[yearOf(l.occurred_at)]||[]).push(l); });
-    Object.keys(years).sort().forEach(function(y){
-      var yt = (S.years[y]||{}).title || (y+'年');
-      add('y:'+y, {label:y, sub:yt, kind:'year', r:10});
-      link('self','y:'+y,'tree');
-      var months={};
-      years[y].forEach(function(l){ (months[ymOf(l.occurred_at)] = months[ymOf(l.occurred_at)]||[]).push(l); });
-      Object.keys(months).sort().forEach(function(ym){
-        var mt = (S.months[ym]||{}).title || (+ym.slice(5,7))+'月';
-        add('m:'+ym, {label:(+ym.slice(5,7))+'月', sub:mt, kind:'month', r:7.5});
-        link('y:'+y,'m:'+ym,'tree');
-        months[ym].forEach(function(l){
-          add('l:'+l.id, {label:l.body, kind:'log', k:l.kind, r:4.4, log:l});
-          link('m:'+ym,'l:'+l.id,'tree');
+/* ── ログ → 共通形式（後方互換アダプター）── */
+function toLogEntry(l){
+  if(l.entry) return l.entry;                    /* 既に構造化済みならそのまま使う */
+  var text = (l.body||'') + ' ' + (l.tags||[]).join(' ') + ' ' + (l.place||'');
+  var et = {moved:'moved', effort:'effort', hard:'pain', chose:'choice', wish:'wish'}[l.kind] || 'moved';
+  var val = {moved:.7, effort:.3, pain:-.7, choice:.2, wish:.5}[et];
+  var ag  = {choice:.9, effort:.7, wish:.6, moved:.3, pain:.2}[et];
+  var strong = ['泣','怖','勇気','嬉','悔','疲れ','違和感','肩の力','心が','決め'];
+  var bump = 0; strong.forEach(function(x){ if(text.indexOf(x)>=0) bump += .08; });
+  var ids = function(dict){ return dict.filter(function(d){ return lexHits(d,text)>0; }).map(function(d){ return d.id; }); };
+  var conds = LEX.conditions.filter(function(d){ return lexHits(d,text)>0; });
+  var energy = 'neutral';
+  if(conds.some(function(c){ return c.energy==='drain'; }) || et==='pain') energy='drain';
+  else if(conds.some(function(c){ return c.energy==='gain'; }) || et==='moved' || et==='choice') energy='gain';
+  var dom = 'life';
+  if(/仕事|会社|企画|面談|転職|キャリア|評価|職|プロジェクト|資料|上司|部長/.test(text)) dom='career';
+  else if((l.people||[]).length) dom='relationship';
+  else if(ids(LEX.interests).length || et==='moved') dom='likes';
+  return {
+    id:l.id, occurredAt: l.undated ? null : l.occurred_at, rawText:l.body||'', eventType:et, domain:dom,
+    entities:(l.tags||[]).concat(l.people||[]).concat(l.place?[l.place]:[]),
+    emotionalValence:val,
+    emotionalIntensity: Math.max(.15, Math.min(1, Math.abs(val)*0.8 + bump)),
+    agency:ag, energy:energy,
+    candidateValues: ids(LEX.values), candidateStrengths: ids(LEX.strengths),
+    candidateInterests: ids(LEX.interests), candidateConditions: conds.map(function(c){ return c.id; }),
+    tensions: [], wishes: et==='wish' ? [l.body] : [],
+    importance: l.importance||0, userConfirmed: !!l.userConfirmed
+  };
+}
+/* Future Memo も証拠として扱う（未来側の記録） */
+function futureEntry(f){
+  var text = f.body||'';
+  var ids = function(dict){ return dict.filter(function(d){ return lexHits(d,text)>0; }).map(function(d){ return d.id; }); };
+  return {
+    id:'f:'+f.id, occurredAt: f.done_at || f.due || null, rawText:text, eventType:'wish',
+    domain:'life', entities:[], emotionalValence:.5, emotionalIntensity:.5, agency:.6,
+    energy:'gain', candidateValues:ids(LEX.values), candidateStrengths:[],
+    candidateInterests:ids(LEX.interests), candidateConditions:[],
+    tensions:[], wishes:[text], importance:0, userConfirmed:false, isFuture:true, due:f.due, doneAt:f.done_at
+  };
+}
+
+/* ── フィードバック（自分らしい／少し違う）── */
+function fbGet(id){ return (S.cfg.fb||{})[id] || 0; }
+function fbSet(id, v){
+  S.cfg.fb = S.cfg.fb || {};
+  if(S.cfg.fb[id]===v) delete S.cfg.fb[id]; else S.cfg.fb[id]=v;
+  Store.saveLocal();
+}
+
+/* ── 洞察の生成 ── */
+var Insight = (function(){
+  function mk(kind, id, label, sum, evs){
+    return {id:id, kind:kind, label:label, summary:sum, score:0, confidence:0,
+            evidenceIds:evs.slice(), relatedValueIds:[], confirmed:false};
+  }
+  function stats(entries, evs){
+    var es = evs.map(function(id){ return entries[id]; }).filter(Boolean);
+    var months={}, domains={}, choice=0, effort=0, emo=0, minM=null, maxM=null;
+    es.forEach(function(e){
+      if(e.occurredAt){ var m=e.occurredAt.slice(0,7); months[m]=1;
+        if(!minM||m<minM) minM=m; if(!maxM||m>maxM) maxM=m; }
+      domains[e.domain]=1;
+      if(e.eventType==='choice'||e.agency>=.8) choice++;
+      if(e.agency>=.6) effort++;
+      emo += e.emotionalIntensity;
+    });
+    var n = es.length||1;
+    return {n:es.length, months:Object.keys(months).length, domains:Object.keys(domains).length,
+            choice:choice/n, effort:effort/n, emo:emo/n, minM:minM, maxM:maxM,
+            span: (minM&&maxM)? monthsBetween(minM,maxM) : 0};
+  }
+  function identityScore(st, node){
+    var W=MAPC.IDENTITY_W;
+    var stated = (fbGet(node.id)>0 ? 1 : 0);
+    return  W.choice*st.choice + W.repeat*Math.min(1,(st.n-1)/3) + W.emotion*st.emo +
+            W.domain*Math.min(1,(st.domains-1)/2) + W.effort*st.effort +
+            W.duration*Math.min(1, st.span/12) + W.stated*stated;
+  }
+  function tierOf(st){
+    if(st.n >= MAPC.PROMOTE.identity && (st.months>=2 || st.domains>=2)) return 'identity';
+    if(st.n >= MAPC.PROMOTE.pattern) return 'pattern';
+    return 'seed';
+  }
+  function build(){
+    var entries = {}, order = [];
+    S.logs.forEach(function(l){ var e=toLogEntry(l); entries[e.id]=e; order.push(e.id); });
+    S.futures.forEach(function(f){ var e=futureEntry(f); entries[e.id]=e; order.push(e.id); });
+
+    var nodes = [], byId = {};
+    function add(n){ nodes.push(n); byId[n.id]=n; return n; }
+
+    /* self */
+    var self = add(mk('self','self','いまの自分','','' ? [] : order.slice(0,1)));
+    self.evidenceIds = order.slice();
+
+    /* 価値観・強み・条件・惹かれるもの */
+    function collect(dict, kind, field){
+      dict.forEach(function(d){
+        var evs = order.filter(function(id){ return (entries[id][field]||[]).indexOf(d.id)>=0; });
+        if(!evs.length) return;
+        var n = add(mk(kind, d.id, d.label, d.sum, evs));
+        n.chip = d.chip; n.energy = d.energy;
+        var st = stats(entries, evs);
+        n.stat = st; n.tier = tierOf(st);
+        n.identity = identityScore(st, n);
+        n.confidence = Math.min(1, .25 + evs.length*0.25 + (st.domains-1)*.1);
+        n.firstSeenAt = st.minM; n.lastSeenAt = st.maxM;
+        n.confirmed = fbGet(d.id)>0;
+      });
+    }
+    collect(LEX.values,     'value',     'candidateValues');
+    collect(LEX.strengths,  'strength',  'candidateStrengths');
+    collect(LEX.conditions, 'condition', 'candidateConditions');
+    collect(LEX.interests,  'interest',  'candidateInterests');
+
+    /* 価値観との関係づけ */
+    nodes.forEach(function(n){
+      if(n.kind==='value'||n.kind==='self') return;
+      var vs={};
+      n.evidenceIds.forEach(function(id){ (entries[id].candidateValues||[]).forEach(function(v){ vs[v]=(vs[v]||0)+1; }); });
+      n.relatedValueIds = Object.keys(vs).filter(function(v){ return byId[v]; })
+        .sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,2);
+    });
+
+    /* 葛藤 */
+    LEX.tensions.forEach(function(t){
+      var have = t.need.every(function(id){ return byId[id]; });
+      var withN = t.with.filter(function(id){ return byId[id]; });
+      if(!have || !withN.length) return;
+      var evs = [];
+      t.need.concat(withN).forEach(function(id){ (byId[id].evidenceIds||[]).forEach(function(e){ if(evs.indexOf(e)<0) evs.push(e); }); });
+      if(!evs.length) return;
+      var n = add(mk('tension', t.id, t.label, t.sum, evs.slice(0,6)));
+      var st = stats(entries, n.evidenceIds);
+      n.stat=st; n.tier = st.n>=2?'pattern':'seed';
+      n.identity = identityScore(st, n);
+      n.confidence = Math.min(.85, .3 + evs.length*.12);
+      n.relatedValueIds = t.need.concat(withN).filter(function(id){ return byId[id] && byId[id].kind==='value'; }).slice(0,2);
+      n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(t.id)>0;
+    });
+
+    /* 願い（過去から続いているもの・Future Memo）*/
+    order.forEach(function(id){
+      var e = entries[id];
+      if(e.eventType!=='wish') return;
+      var n = add(mk('wish','w:'+id, e.rawText,
+        e.isFuture ? '未来へ置いた願い。いまの記録と線でつながっています。'
+                   : '過去に書いた願い。いまの記録の中に、まだ現れています。', [id]));
+      n.isFuture = !!e.isFuture; n.due = e.due; n.doneAt = e.doneAt;
+      /* 過去の願いが、あとの記録に同じ価値観で現れ直していれば、その線をつなぐ */
+      if(!n.isFuture && (e.candidateValues||[]).length){
+        var echo = order.filter(function(oid){
+          var o = entries[oid];
+          if(oid===id || o.eventType==='wish') return false;
+          return (o.candidateValues||[]).some(function(v){ return e.candidateValues.indexOf(v)>=0; });
+        });
+        if(echo.length >= 2){
+          n.evidenceIds = [id].concat(echo.slice(0,4));
+          n.summary = '過去の願いは消えたのではなく、仕事の余白や、心が緩んだ時間の中に繰り返し現れています。';
+          n.echo = true;
+        }
+      }
+      var st = stats(entries, n.evidenceIds); n.stat=st; n.tier = n.echo ? 'pattern' : 'seed';
+      n.identity = (n.echo? .55 : .3) + identityScore(st,n)*.6;
+      n.confidence = n.echo? .7 : .5;
+      n.relatedValueIds = (e.candidateValues||[]).filter(function(v){ return byId[v]; }).slice(0,2);
+      n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(n.id)>0;
+    });
+
+    /* 転機：選択のうち、主体性と感情が強いもの */
+    order.forEach(function(id){
+      var e = entries[id];
+      if(e.eventType!=='choice') return;
+      var w = e.agency*.6 + e.emotionalIntensity*.4;
+      if(w < .55) return;
+      var n = add(mk('turningPoint','t:'+id, e.rawText, '方向を選び直した場面です。', [id]));
+      var st=stats(entries,[id]); n.stat=st; n.tier='seed';
+      n.identity = w; n.confidence=.7;
+      n.relatedValueIds = (e.candidateValues||[]).filter(function(v){ return byId[v]; }).slice(0,2);
+      n.firstSeenAt=st.minM; n.lastSeenAt=st.maxM; n.confirmed = fbGet(n.id)>0;
+    });
+
+    /* 章（月・年）*/
+    Object.keys(S.months).forEach(function(ym){
+      var t=(S.months[ym]||{}).title; if(!t) return;
+      var evs = order.filter(function(id){ var o=entries[id].occurredAt; return o && o.slice(0,7)===ym; });
+      if(!evs.length) return;
+      var n = add(mk('chapter','m:'+ym, t, ym.slice(0,4)+'年'+(+ym.slice(5,7))+'月の章', evs));
+      n.ym=ym; n.level='month'; n.identity=.45; n.confidence=.9; n.tier='pattern';
+      n.firstSeenAt=ym; n.lastSeenAt=ym;
+    });
+    Object.keys(S.years).forEach(function(y){
+      var t=(S.years[y]||{}).title; if(!t) return;
+      var evs = order.filter(function(id){ var o=entries[id].occurredAt; return o && o.slice(0,4)===y; });
+      if(!evs.length) return;
+      var n = add(mk('chapter','y:'+y, t, y+'年の章', evs));
+      n.year=y; n.level='year'; n.identity=.6; n.confidence=.9; n.tier='identity';
+      n.firstSeenAt=y+'-01'; n.lastSeenAt=y+'-12';
+    });
+
+    /* 根拠ノード */
+    order.forEach(function(id){
+      var e = entries[id];
+      var n = add(mk('evidence','e:'+id, e.rawText, '', [id]));
+      n.entry=e; n.identity = .2 + e.emotionalIntensity*.3; n.confidence=1; n.tier='seed';
+      n.relatedValueIds = (e.candidateValues||[]).filter(function(v){ return byId[v]; }).slice(0,2);
+      n.firstSeenAt = e.occurredAt ? e.occurredAt.slice(0,7) : null;
+      n.lastSeenAt = n.firstSeenAt;
+    });
+
+    /* 「次に広げる」候補：上位タグが2つ以上一致したものだけ */
+    var strongIds = nodes.filter(function(n){ return n.kind==='interest'||n.kind==='value'; })
+      .sort(function(a,b){ return b.identity-a.identity; }).slice(0,5).map(function(n){ return n.id; });
+    LEX.recos.forEach(function(r){
+      var hit = r.tags.filter(function(t){ return strongIds.indexOf(t)>=0; });
+      if(hit.length < 2) return;
+      var evs=[]; hit.forEach(function(t){ (byId[t].evidenceIds||[]).slice(0,2).forEach(function(e){ if(evs.indexOf(e)<0) evs.push(e); }); });
+      if(!evs.length) return;
+      var n = add(mk('recommendation', r.id, r.label,
+        hit.map(function(t){ return '「'+byId[t].label+'」'; }).join('と')+'の記録が重なっているので、ここを勧めています。', evs));
+      n.identity=.35; n.confidence=.5; n.tier='seed'; n.relatedValueIds=hit.filter(function(t){ return byId[t].kind==='value'; });
+    });
+
+    self.summary = '';
+    self.identity = 1; self.confidence = 1; self.tier='identity';
+
+    return {entries:entries, order:order, nodes:nodes, byId:byId};
+  }
+  return {build:build, stats:stats};
+})();
+
+/* ── ビューごとの選抜とスコア ── */
+function viewFit(n, mode){
+  if(mode==='likes')  return ({interest:1, value:.85, wish:.6, recommendation:.7, tension:.45, evidence:.3, self:1, strength:.2, condition:.2, turningPoint:.3, chapter:.15})[n.kind]||.2;
+  if(mode==='career') return ({strength:1, condition:.9, tension:.8, value:.7, wish:.5, turningPoint:.6, evidence:.3, self:1, interest:.25, chapter:.15, recommendation:.2})[n.kind]||.2;
+  return ({chapter:1, turningPoint:.95, value:.8, wish:.7, tension:.6, evidence:.5, self:1, interest:.4, strength:.4, condition:.35, recommendation:.2})[n.kind]||.2;
+}
+function currentness(n){
+  if(!n.lastSeenAt) return .4;
+  var m = monthsBetween(n.lastSeenAt.slice(0,7), todayISO().slice(0,7));
+  return Math.max(0, 1 - Math.abs(m)/14);
+}
+function displayScore(n, mode){
+  var W = MAPC.DISPLAY_W;
+  var bridge = Math.min(1, (n.relatedValueIds||[]).length/2);
+  var ev = Math.min(1, (n.evidenceIds||[]).length/3);
+  var base = W.identity*(n.identity||0) + W.viewFit*viewFit(n,mode) + W.current*currentness(n) +
+             W.bridge*bridge + W.evidence*ev;
+  var fb = fbGet(n.id);
+  if(fb>0) base = Math.min(1, base*1.25 + .08);
+  if(fb<0) base = base*0.45;
+  return base;
+}
+
+/* ══════════════════════════════════════════════════
+   9. MAP：決定論的レイアウト＋宇宙の描画
+   ══════════════════════════════════════════════════ */
+var Map3 = (function(){
+  var stage, cv, ctx, layer, W=0, H=0, dpr=1;
+  var G=null, view=null, cam={x:0,y:0,z:1}, sel=null, chip=null, raf=0, intro=0, built=false;
+  var stars=[], nebula=[];
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- 星と星雲は一度だけ決定論的に作る ---- */
+  function seedSky(){
+    stars=[]; nebula=[];
+    for(var i=0;i<110;i++){
+      var a=hash01('s'+i), b=hash01('t'+i), c=hash01('u'+i);
+      stars.push({x:(a-.5)*1700, y:(b-.5)*1700, r:.4+c*1.1, o:.18+c*.5});
+    }
+    for(var j=0;j<4;j++){
+      nebula.push({x:(hash01('n'+j)-.5)*1100, y:(hash01('m'+j)-.5)*1100,
+                   r:260+hash01('r'+j)*260, h:['#1B2450','#22204A','#16303F','#2A1F3D'][j]});
+    }
+  }
+
+  /* ---- レイアウト（日付とスコアから決まる。毎回同じ位置） ---- */
+  function layout(mode, list, labelSet){
+    var byId={}; list.forEach(function(n){ byId[n.id]=n; });
+    var nowYM = todayISO().slice(0,7);
+    function place(n,x,y){ n.x=x; n.y=y; }
+    place(byId['self'], 0, 0);
+
+    if(mode==='all'){
+      var R=MAPC.ALLRING;
+      var vs = list.filter(function(n){ return n.kind==='value'; });
+      vs.forEach(function(n,i){
+        var a = -Math.PI/2 + i*(Math.PI*2/Math.max(vs.length,1));
+        place(n, Math.cos(a)*R.value, Math.sin(a)*R.value);
+      });
+      var buckets = {};
+      list.forEach(function(n){
+        if(n.kind==='self'||n.kind==='value') return;
+        n.comet=false; n.foggy=false;
+        var when = n.lastSeenAt || n.firstSeenAt;
+        if(n.kind==='wish' && n.isFuture){
+          var ahead = n.due ? Math.max(1, monthsBetween(nowYM, n.due.slice(0,7))) : 6;
+          var aa = -Math.PI/2 - 1.05 - ahead*0.13;
+          var rr = R.base + ahead*R.step*0.55;
+          place(n, Math.cos(aa)*rr, Math.sin(aa)*rr); n.comet=true; return;
+        }
+        if(!when){                                   /* 時期不明は外側の淡い星雲へ */
+          var an = Math.PI*0.74 + hash01(n.id)*0.42;
+          place(n, Math.cos(an)*520, Math.sin(an)*520); n.foggy=true; return;
+        }
+        var ago = Math.max(0, monthsBetween(when.slice(0,7), nowYM));
+        (buckets[ago] = buckets[ago] || []).push(n);
+      });
+      Object.keys(buckets).forEach(function(k){
+        var ago=+k, arr=buckets[k];
+        arr.sort(function(a,b){ return (b.display||b.identity||0)-(a.display||a.identity||0); });
+        var band = Math.min(1.55, 0.30 + arr.length*0.16);
+        var mid = -Math.PI/2 + ago*0.66;
+        arr.forEach(function(n,i){
+          var t = arr.length===1 ? .5 : i/(arr.length-1);
+          var a = mid - band/2 + band*t;
+          var r = R.base + ago*R.step + (n.kind==='evidence'? 26 : 0) + (hash01(n.id)-.5)*22;
+          place(n, Math.cos(a)*r, Math.sin(a)*r);
         });
       });
-    });
-    S.futures.filter(function(f){ return !f.done_at; }).forEach(function(f){
-      add('f:'+f.id, {label:f.body, kind:'future', r:5});
-      link('self','f:'+f.id,'wish');
-    });
-  } else {
-    var themes = mode==='likes'
-      ? [['t:like','好き','moved'],['t:place','場所','place'],['t:people','人','person']]
-      : [['t:work','仕事','effort'],['t:hard','消耗','hard'],['t:choice','選んだ','chose'],['t:people','人','person']];
-    themes.forEach(function(t){ add(t[0], {label:t[1], kind:'theme', r:9}); link('self',t[0],'tree'); });
+      return;
+    }
 
-    var pool = mode==='likes'
-      ? logs.filter(function(l){ return l.kind==='moved'||l.kind==='wish'; })
-      : logs.filter(function(l){ return l.kind!=='moved'; });
-    if(!pool.length) pool = logs;
-
-    var tagCount={}, tagLogs={};
-    pool.forEach(function(l){
-      (l.tags||[]).forEach(function(tg){ tagCount[tg]=(tagCount[tg]||0)+1; (tagLogs[tg]=tagLogs[tg]||[]).push(l); });
-    });
-    Object.keys(tagCount).forEach(function(tg){
-      var host = mode==='likes' ? 't:like' : 't:work';
-      add('tg:'+tg, {label:tg, kind:'tag', r:5+Math.min(tagCount[tg],6)*0.8, n:tagCount[tg], logs:tagLogs[tg]});
-      link(host,'tg:'+tg,'tree');
-    });
-    pool.forEach(function(l){
-      var host = mode==='likes' ? 't:like'
-               : l.kind==='hard' ? 't:hard' : l.kind==='chose' ? 't:choice' : 't:work';
-      add('l:'+l.id, {label:l.body, kind:'log', k:l.kind, r:4.2, log:l});
-      var parented=false;
-      (l.tags||[]).forEach(function(tg){ if(!parented){ link('tg:'+tg,'l:'+l.id,'tree'); parented=true; } });
-      if(!parented) link(host,'l:'+l.id,'tree');
-      (l.people||[]).forEach(function(p){
-        add('p:'+p, {label:p, kind:'person', r:6});
-        link('t:people','p:'+p,'tree'); link('p:'+p,'l:'+l.id,'ref','この人といた時間');
+    /* 好きなこと／キャリア：中心から外へ、種類ごとに角度領域を固定 */
+    var ring = MAPC.RING;
+    function ringPlace(arr, radius, from, to){
+      arr.forEach(function(n,i){
+        var t = arr.length===1 ? .5 : i/(arr.length-1);
+        var a = from + (to-from)*t;
+        place(n, Math.cos(a)*radius, Math.sin(a)*radius);
       });
-      if(mode==='likes' && l.place){
-        add('pl:'+l.place, {label:l.place, kind:'place', r:5.4});
-        link('t:place','pl:'+l.place,'tree'); link('pl:'+l.place,'l:'+l.id,'ref','この場所での出来事');
+    }
+    /* ラベルを出す星は広く均等に置き、そうでない星は外側へ回す（重なりを根から減らす）*/
+    var LS = labelSet || {};
+    var labeledV = list.filter(function(n){ return LS[n.id] && n.kind==='value'; });
+    var labeledO = list.filter(function(n){ return LS[n.id] && n.kind!=='value' && n.kind!=='self'; });
+    var rest     = list.filter(function(n){ return !LS[n.id] && n.kind!=='self' && n.kind!=='evidence'; });
+    var evs      = list.filter(function(n){ return n.kind==='evidence'; });
+    labeledV.sort(function(a,b){ return b.display-a.display; });
+    labeledO.sort(function(a,b){ return b.display-a.display; });
+    ringPlace(labeledV, ring.value, -Math.PI*0.5 - Math.PI*0.66, -Math.PI*0.5 + Math.PI*0.66);
+    labeledO.forEach(function(n,i){
+      var a = -Math.PI/2 + (i+0.5)*(Math.PI*2/Math.max(labeledO.length,1));
+      var r = ring.pattern + (i%2? 34 : 0);
+      n.x=Math.cos(a)*r; n.y=Math.sin(a)*r;
+    });
+    rest.forEach(function(n,i){
+      var a = hash01(n.id)*Math.PI*2;
+      var r = ring.outer + hash01(n.id+'r')*70;
+      n.x=Math.cos(a)*r; n.y=Math.sin(a)*r;
+    });
+    evs.forEach(function(n){
+      var host = byId[(n.relatedValueIds||[])[0]];
+      var base = host ? Math.atan2(host.y, host.x) : (hash01(n.id)*Math.PI*2);
+      var a = base + (hash01(n.id+'a')-.5)*1.1;
+      var r = ring.evidence[0] + hash01(n.id+'r')*(ring.evidence[1]-ring.evidence[0]);
+      place(n, Math.cos(a)*r, Math.sin(a)*r);
+    });
+  }
+
+  /* ---- ビューの組み立て ---- */
+  function compose(mode){
+    if(!G) G = Insight.build();
+    var z = cam.z;
+    var pool = G.nodes.filter(function(n){
+      if(mode==='likes')  return ['self','value','interest','wish','recommendation','tension','evidence'].indexOf(n.kind)>=0;
+      if(mode==='career') return ['self','value','strength','condition','tension','wish','turningPoint','evidence'].indexOf(n.kind)>=0;
+      if(n.kind==='chapter') return z < MAPC.ZOOM.month ? (z < MAPC.ZOOM.year ? n.level==='year' : true) : true;
+      if(n.kind==='evidence') return z >= MAPC.ZOOM.month;
+      return true;
+    });
+    pool.forEach(function(n){ n.display = displayScore(n, mode); });
+    var byIdAll={}; pool.forEach(function(n){ byIdAll[n.id]=n; });
+    var ranked = pool.slice().sort(function(a,b){ return b.display-a.display; });
+    /* ラベルを出す顔ぶれ：ビューの主役を必ず1つずつ確保し、同じ種類が偏らないようにする */
+    var must = mode==='likes'  ? ['interest','value','wish','tension']
+             : mode==='career'? ['strength','condition','tension','value']
+                              : ['chapter','turningPoint','value','wish'];
+    var CAP = {tension:2, turningPoint:2, wish:2, condition:2, chapter:2, recommendation:1};
+    var labeled=[], used={}, seenK={};
+    function take(n){
+      if(!n || used[n.id] || n.kind==='evidence') return false;
+      var c = seenK[n.kind]||0;
+      if(CAP[n.kind] && c >= CAP[n.kind]) return false;
+      if(labeled.length >= MAPC.MAX_LABELED) return false;
+      used[n.id]=1; seenK[n.kind]=c+1; labeled.push(n); return true;
+    }
+    take(byIdAll['self']);
+    must.forEach(function(k){
+      var top = ranked.filter(function(n){ return n.kind===k; })[0];
+      if(top) take(top);
+    });
+    ranked.forEach(take);
+    var labelSet = {}; labeled.forEach(function(n){ labelSet[n.id]=1; });
+
+    /* 線をつくる */
+    var edges=[], seen={};
+    function link(a,b,w,dashed,why){
+      if(!a||!b||a===b) return;
+      var k=a.id+'|'+b.id; if(seen[k]) return; seen[k]=1;
+      edges.push({a:a,b:b,w:w,dashed:dashed,why:why||''});
+    }
+    var byId = byIdAll;
+    var self = byId['self'];
+    ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3).forEach(function(v){
+      link(self, v, 1, false, 'いまの自分の軸');
+    });
+    pool.forEach(function(n){
+      if(n.kind==='self'||n.kind==='value') return;
+      (n.relatedValueIds||[]).slice(0,2).forEach(function(vid){
+        link(byId[vid], n, n.confidence, n.confidence<.55, '同じ価値観に根がある');
+      });
+      (n.evidenceIds||[]).slice(0,3).forEach(function(eid){
+        link(n, byId['e:'+eid], .5, false, 'この出来事が根拠');
+      });
+    });
+    pool.filter(function(n){ return n.kind==='value'; }).forEach(function(v){
+      (v.evidenceIds||[]).slice(0,3).forEach(function(eid){ link(v, byId['e:'+eid], .5, v.tier==='seed', 'この出来事が根拠'); });
+    });
+
+    /* 初期表示は各ノード2本まで */
+    var count={}, primary=[];
+    edges.slice().sort(function(a,b){ return b.w-a.w; }).forEach(function(e){
+      var ca=count[e.a.id]||0, cb=count[e.b.id]||0;
+      if(ca<MAPC.EDGES_PER_NODE && cb<MAPC.EDGES_PER_NODE){
+        primary.push(e); count[e.a.id]=ca+1; count[e.b.id]=cb+1;
       }
     });
 
-    /* 価値観・強みの仮説：本文とタグを合わせて判定する */
-    var dict = mode==='likes' ? VALUE_DICT : VALUE_DICT.concat(STRENGTH_DICT);
-    dict.forEach(function(d){
-      var matched=[];
-      pool.forEach(function(l){
-        var text = l.body + ' ' + (l.tags||[]).join(' ');
-        if(hits(text, d.words) > 0) matched.push(l);
-      });
-      if(matched.length < 2) return;
-      var isStrength = STRENGTH_DICT.indexOf(d) >= 0;
-      add('v:'+d.v, {label:d.v, kind:isStrength?'strength':'value', r:7+Math.min(matched.length,7)*0.55,
-                     n:matched.length, logs:matched});
-      link('self','v:'+d.v,'deep');
-      matched.slice(0,8).forEach(function(l){ link('v:'+d.v,'l:'+l.id,'ref', isStrength?'ここで力を使っていた':'ここに現れていた'); });
-    });
+    layout(mode, pool, labelSet);
+    return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet,
+            ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
   }
-  return {nodes:nodes, links:links, by:by};
-}
 
-/* ── 9. MAP：キャンバス描画とシミュレーション ── */
-var Map3 = (function(){
-  var cv, ctx, W=0, H=0, dpr=1, G={nodes:[],links:[]}, byId={};
-  var cam={x:0,y:0,z:1}, raf=0, alpha=1, hot=null, sel=null, drag=null, pointers={}, pinch=null;
-  var COL={};
-  function readColors(){
-    COL = {ink:cssv('--ink'), muted:cssv('--muted'), faint:cssv('--faint'), line:cssv('--line'),
-      accent:cssv('--accent'), bg:cssv('--bg'),
-      self:cssv('--ink'), theme:cssv('--accent'), value:'#9B85AF', strength:'#6E9885',
-      tag:'#B5924C', person:'#C97B6B', place:'#7C8DA6', year:cssv('--accent'), month:cssv('--muted'),
-      future:'#9B85AF', log:cssv('--faint')};
-    KINDS.forEach(function(k){ COL['k_'+k.id]=cssv(k.v); });
+  /* ---- サマリー文 ---- */
+  function summarize(v){
+    if(!S.logs.length) return '';
+    var top = v.ranked.filter(function(n){ return n.kind!=='self'&&n.kind!=='evidence'; })[0];
+    if(!top) return 'まだ一つの軸に決めず、記録を集めています。';
+    if(v.mode==='likes'){
+      var i = v.ranked.filter(function(n){ return n.kind==='interest'; })[0] || top;
+      return '「'+i.label+'」に、心が戻っているようです。';
+    }
+    if(v.mode==='career'){
+      var s = v.ranked.filter(function(n){ return n.kind==='strength'; })[0];
+      var t = v.ranked.filter(function(n){ return n.kind==='tension'; })[0];
+      if(s) return '「'+s.label+'」力が、くり返し現れています。'+(t?' いまは「'+t.label+'」という問いの中にいるようです。':'');
+      return '働き方については、まだ言葉を探している途中のようです。';
+    }
+    var c = v.ranked.filter(function(n){ return n.kind==='chapter'; })[0];
+    return (c? '「'+c.label+'」':'いまの章') + 'が、'+ (v.values[0]? '「'+v.values[0].label+'」':'あなたの選び方') +'を中心に進んでいます。';
   }
-  function colorOf(n){
-    if(n.kind==='log') return COL['k_'+(n.k||'moved')] || COL.log;
-    return COL[n.kind] || COL.muted;
-  }
+
+  /* ---- 描画 ---- */
   function resize(){
     if(!cv) return;
     dpr = Math.min(window.devicePixelRatio||1, 2);
-    var r = cv.getBoundingClientRect();
-    W = r.width; H = r.height;
-    cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+    var r = stage.getBoundingClientRect(); W=r.width; H=r.height;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    alpha = Math.max(alpha, .5); fitAt=Date.now()+500; kick();
+    draw(); syncDom();
   }
-  function seed(){
-    var deg={}; G.links.forEach(function(l){ deg[l.s]=(deg[l.s]||0)+1; deg[l.t]=(deg[l.t]||0)+1; });
-    var kids={}, seen={};
-    G.links.forEach(function(l){ if(l.kind!=='ref'){ (kids[l.s]=kids[l.s]||[]).push(l.t); } });
-    var RAD=[130,86,54,38];
-    (function place(id,x,y,ang,spread,d){
-      var n=byId[id]; if(!n||seen[id]) return; seen[id]=1;
-      n.x=x; n.y=y; n.vx=n.vy=0;
-      var ks=(kids[id]||[]), r=RAD[Math.min(d,RAD.length-1)];
-      var sub=Math.min(spread/Math.max(ks.length,1)*1.5, 2.1);
-      ks.forEach(function(c,i){
-        var a = ks.length===1 ? ang : ang - spread/2 + spread*(i+0.5)/ks.length;
-        place(c, x+Math.cos(a)*r, y+Math.sin(a)*r, a, sub, d+1);
-      });
-    })('self',0,0,-Math.PI/2,Math.PI*2,0);
-    G.nodes.forEach(function(n){
-      if(n.x===undefined){ var a=Math.random()*6.28; n.x=Math.cos(a)*180; n.y=Math.sin(a)*180; n.vx=n.vy=0; }
-    });
+  function sx(n){ return W/2 + (n.x+cam.x)*cam.z; }
+  function sy(n){ return H/2 + (n.y+cam.y)*cam.z; }
+  function related(n){
+    if(!sel) return true;
+    if(n===sel) return true;
+    return view.edges.some(function(e){ return (e.a===sel&&e.b===n)||(e.b===sel&&e.a===n); });
   }
-  function build(mode){
-    var g = buildGraph(mode);
-    G = {nodes:g.nodes, links:g.links}; byId = g.by;
-    G.links.forEach(function(l){
-      l.len = l.kind==='ref' ? 96 : l.kind==='deep' ? 150 : l.kind==='wish' ? 130 : (byId[l.s]&&byId[l.s].kind==='self' ? 130 : 74);
-    });
-    seed(); sel=null; hideDetail();
-    cam={x:0,y:0,z:1}; alpha=1; fitAt=Date.now()+900; kick();
+  function chipRelated(n){
+    if(!chip) return true;
+    if(n.id===chip || n.kind==='self') return true;
+    if((n.relatedValueIds||[]).indexOf(chip)>=0) return true;
+    if(n.kind==='evidence' && n.entry) return (n.entry.candidateValues||[]).indexOf(chip)>=0;
+    return false;
   }
-  function step(){
-    var ns=G.nodes, i, j, n, m;
-    for(i=0;i<ns.length;i++){ n=ns[i];
-      for(j=i+1;j<ns.length;j++){ m=ns[j];
-        var dx=m.x-n.x, dy=m.y-n.y, d2=dx*dx+dy*dy;
-        if(d2<1e-6){ dx=Math.random()-0.5; dy=Math.random()-0.5; d2=1; }
-        if(d2>90000) continue;
-        var d=Math.sqrt(d2), f=(1400*(n.r/6)*(m.r/6))/d2;
-        f=Math.min(f,26); var ux=dx/d, uy=dy/d;
-        n.vx-=ux*f; n.vy-=uy*f; m.vx+=ux*f; m.vy+=uy*f;
-      }
-    }
-    G.links.forEach(function(l){
-      var a=byId[l.s], b=byId[l.t]; if(!a||!b) return;
-      var dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||1;
-      var k = l.kind==='ref' ? 0.012 : 0.05;
-      var f=(d-l.len)*k, ux=dx/d, uy=dy/d;
-      a.vx+=ux*f; a.vy+=uy*f; b.vx-=ux*f; b.vy-=uy*f;
-    });
-    ns.forEach(function(n){
-      n.vx += -n.x*0.0018; n.vy += -n.y*0.0018;
-      if(n.pin){ n.x=0; n.y=0; n.vx=n.vy=0; return; }
-      if(drag && drag.node===n){ n.vx=n.vy=0; return; }
-      n.vx*=0.86; n.vy*=0.86;
-      n.x+=n.vx*alpha; n.y+=n.vy*alpha;
-    });
-    alpha *= 0.994; if(alpha<0.06) alpha=0.06;
+  function alphaOf(n){
+    var a = 1;
+    if(sel && !related(n)) a = MAPC.DIM;
+    if(chip && !chipRelated(n)) a = Math.min(a, MAPC.DIM);
+    return a;
   }
-  function toScreen(n){ return {x:W/2 + (n.x+cam.x)*cam.z, y:H/2 + (n.y+cam.y)*cam.z}; }
-  /* 全体が画面におさまるようにカメラを合わせる */
-  function fit(pad){
-    if(!G.nodes.length || !W || !H) return;
-    var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-    G.nodes.forEach(function(n){
-      var lw = (n.label && n.r>=5) ? Math.min(n.label.length,10)*3 : 0;  /* ラベルのはみ出しぶん */
-      x0=Math.min(x0,n.x-n.r-lw); x1=Math.max(x1,n.x+n.r+lw);
-      y0=Math.min(y0,n.y-n.r); y1=Math.max(y1,n.y+n.r+22);
-    });
-    var m = pad===undefined ? 16 : pad;
-    var gw=Math.max(x1-x0,1), gh=Math.max(y1-y0,1);
-    var top=26, bottom=88;                    /* タブと凡例のぶんを空ける */
-    var z = Math.min((W-m*2)/gw, (H-top-bottom)/gh);
-    cam.z = Math.max(0.3, Math.min(2.0, z));
-    cam.x = -(x0+x1)/2;
-    cam.y = -(y0+y1)/2 + (top-bottom)/2/cam.z;
+  function radiusOf(n){
+    var base = n.kind==='self' ? 13 : n.kind==='evidence' ? 2.6 : 4 + (n.display||0)*11;
+    return base * (n===sel ? 1.25 : 1);
   }
   function draw(){
-    ctx.clearRect(0,0,W,H);
-    var showLabel = cam.z > 0.75;
-    G.links.forEach(function(l){
-      var a=byId[l.s], b=byId[l.t]; if(!a||!b) return;
-      var A=toScreen(a), B=toScreen(b);
-      var lit = sel && (l.s===sel.id||l.t===sel.id);
-      ctx.beginPath(); ctx.moveTo(A.x,A.y);
-      if(l.kind==='ref'||l.kind==='deep'){
-        var mx=(A.x+B.x)/2, my=(A.y+B.y)/2, ox=(B.y-A.y)*0.12, oy=-(B.x-A.x)*0.12;
-        ctx.quadraticCurveTo(mx+ox,my+oy,B.x,B.y);
-      } else ctx.lineTo(B.x,B.y);
-      ctx.strokeStyle = lit ? COL.accent : COL.line;
-      ctx.globalAlpha = lit ? 0.85 : (l.kind==='ref'?0.30:0.5);
-      ctx.lineWidth = lit ? 1.4 : 0.8;
-      ctx.stroke(); ctx.globalAlpha=1;
+    if(!ctx) return;
+    var g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#070916'); g.addColorStop(.55,'#0C1024'); g.addColorStop(1,'#151A35');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    var px = cam.x*0.06*cam.z, py = cam.y*0.06*cam.z;
+    nebula.forEach(function(nb){
+      var X=W/2+nb.x*.35+px, Y=H/2+nb.y*.35+py;
+      var rg=ctx.createRadialGradient(X,Y,0,X,Y,nb.r);
+      rg.addColorStop(0, nb.h+'44'); rg.addColorStop(1, nb.h+'00');
+      ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(X,Y,nb.r,0,6.284); ctx.fill();
     });
-    G.nodes.forEach(function(n){
-      var P=toScreen(n), r=Math.max(n.r*cam.z, 1.6);
-      var lit = sel===n || hot===n;
-      var near = sel && G.links.some(function(l){ return (l.s===sel.id&&l.t===n.id)||(l.t===sel.id&&l.s===n.id); });
-      ctx.globalAlpha = sel ? (lit||near ? 1 : 0.34) : 1;
-      if(n.kind==='self'){
-        var g=ctx.createRadialGradient(P.x,P.y,0,P.x,P.y,r*3.4);
-        g.addColorStop(0,'rgba(200,138,92,.32)'); g.addColorStop(1,'rgba(200,138,92,0)');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(P.x,P.y,r*3.4,0,6.284); ctx.fill();
-        ctx.strokeStyle=COL.ink; ctx.lineWidth=1; ctx.globalAlpha=.5;
-        ctx.beginPath(); ctx.arc(P.x,P.y,r*1.5,0,6.284); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillStyle='#FFFFFF';
+    stars.forEach(function(st){
+      var X=W/2+st.x*.5+px*2, Y=H/2+st.y*.5+py*2;
+      if(X<-10||X>W+10||Y<-10||Y>H+10) return;
+      ctx.globalAlpha=st.o*.55; ctx.beginPath(); ctx.arc(X,Y,st.r,0,6.284); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    if(!view) return;
+    var t = intro;
+
+    var list = sel ? view.edges.filter(function(e){ return e.a===sel||e.b===sel; }) : view.primary;
+    list.forEach(function(e){
+      var A={x:sx(e.a),y:sy(e.a)}, B={x:sx(e.b),y:sy(e.b)};
+      var mx=(A.x+B.x)/2 + (B.y-A.y)*0.13, my=(A.y+B.y)/2 - (B.x-A.x)*0.13;
+      ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.quadraticCurveTo(mx,my,B.x,B.y);
+      ctx.strokeStyle = (sel? '#D8B56A' : '#8E97B5');
+      ctx.globalAlpha = (sel?0.58:0.15) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
+      ctx.lineWidth = (sel?0.8:0.5) + e.w*(sel?1.3:0.7);
+      ctx.setLineDash(e.dashed?[2,5]:[]);
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+    ctx.globalAlpha=1;
+
+    view.nodes.forEach(function(n){
+      var X=sx(n), Y=sy(n), r=radiusOf(n)*cam.z*t;
+      if(X<-60||X>W+60||Y<-60||Y>H+60) return;
+      var col = MAPCOL[n.kind]||'#8E97B5';
+      var a = alphaOf(n) * (0.45 + (n.confidence||.5)*0.55);
+      if(n.comet){
+        var ang=Math.atan2(n.y,n.x);
+        var gx=X-Math.cos(ang)*70*cam.z, gy=Y-Math.sin(ang)*70*cam.z;
+        var lg=ctx.createLinearGradient(X,Y,gx,gy);
+        lg.addColorStop(0,'rgba(104,203,196,.55)'); lg.addColorStop(1,'rgba(104,203,196,0)');
+        ctx.strokeStyle=lg; ctx.lineWidth=Math.max(2,r*1.1); ctx.globalAlpha=a*t;
+        ctx.beginPath(); ctx.moveTo(X,Y); ctx.lineTo(gx,gy); ctx.stroke();
       }
-      ctx.beginPath(); ctx.arc(P.x,P.y,r,0,6.284);
-      ctx.fillStyle=colorOf(n); ctx.fill();
-      if(lit){ ctx.strokeStyle=COL.ink; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(P.x,P.y,r+4,0,6.284); ctx.stroke(); }
-      var big = n.kind==='self'||n.kind==='theme'||n.kind==='value'||n.kind==='strength'||n.kind==='year'||n.kind==='month';
-      if(n.label && (big || (showLabel && n.r>=5) || lit)){
-        var lim = (n.kind==='log'||n.kind==='future') ? 11 : 14;
-        var txt = n.label.length>lim ? n.label.slice(0,lim)+'…' : n.label;
-        ctx.font = (big?'500 ':'400 ') + Math.max(10, Math.min(13, 9+n.r*0.35)) + 'px "Shippori Mincho B1", serif';
-        ctx.textAlign='center'; ctx.textBaseline='top';
-        ctx.fillStyle = big ? COL.ink : COL.muted;
-        ctx.globalAlpha *= big?1:0.9;
-        ctx.fillText(txt, P.x, P.y + r + 5);
+      var glow=ctx.createRadialGradient(X,Y,0,X,Y,Math.max(r*4,10));
+      glow.addColorStop(0, col+'55'); glow.addColorStop(1, col+'00');
+      ctx.globalAlpha=a*0.9; ctx.fillStyle=glow;
+      ctx.beginPath(); ctx.arc(X,Y,Math.max(r*4,10),0,6.284); ctx.fill();
+      ctx.globalAlpha=a; ctx.fillStyle=col;
+      ctx.beginPath(); ctx.arc(X,Y,Math.max(r,1.2),0,6.284); ctx.fill();
+      if(n.confirmed){ ctx.globalAlpha=a; ctx.strokeStyle='#D8B56A'; ctx.lineWidth=1.4;
+        ctx.beginPath(); ctx.arc(X,Y,r+4,0,6.284); ctx.stroke(); }
+      if(n.kind==='tension'){ ctx.globalAlpha=a*.9; ctx.strokeStyle=MAPCOL.tension; ctx.lineWidth=1;
+        ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(X,Y,r+6,0,6.284); ctx.stroke(); ctx.setLineDash([]); }
+      if(n.tier==='seed' && n.kind!=='evidence' && n.kind!=='self'){
+        ctx.globalAlpha=a*.35; ctx.strokeStyle=col; ctx.lineWidth=.8;
+        ctx.beginPath(); ctx.arc(X,Y,r+3,0,6.284); ctx.stroke();
       }
+      if(n===sel){ ctx.globalAlpha=1; ctx.strokeStyle='#F7F1E6'; ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.arc(X,Y,r+7,0,6.284); ctx.stroke(); }
       ctx.globalAlpha=1;
     });
   }
-  var fitAt=0;
-  function loop(){
-    step();
-    if(fitAt && Date.now()>fitAt && !drag){ fit(); fitAt=0; }
-    draw();
-    raf = alpha>0.061 || drag || fitAt ? requestAnimationFrame(loop) : 0;
-    if(!raf) draw();
-  }
-  function kick(){ if(!raf) raf=requestAnimationFrame(loop); }
-  function pick(px,py){
-    var best=null, bd=22*22;
-    G.nodes.forEach(function(n){
-      var P=toScreen(n), dx=P.x-px, dy=P.y-py, d=dx*dx+dy*dy;
-      var rr=Math.max(n.r*cam.z,8)+10;
-      if(d<rr*rr && d<bd){ bd=d; best=n; }
-    });
-    return best;
-  }
-  /* 詳細パネル */
-  function showDetail(n){
-    var el=$('#nodeDetail'), b=$('#ndBody');
-    var kindJa={self:'CENTER',theme:'カテゴリ',value:'価値観の仮説',strength:'強みの仮説',tag:'くり返し現れるもの',
-      person:'人',place:'場所',log:'ログ',month:'月',year:'年',future:'FUTURE MEMO'}[n.kind]||'';
-    var html='<p class="k">'+esc(kindJa)+'</p>';
-    if(n.kind==='log'){
-      var l=n.log;
-      html += '<h4>'+esc(l.body)+'</h4><p>'+fmtMD(l.occurred_at)+'　'+esc(KIND[l.kind].ja)+
-              (l.place?'　'+esc(l.place):'')+'</p>';
-      if((l.people||[]).length) html += '<p class="why">この時いた人：'+esc(l.people.join('、'))+'</p>';
-      if((l.tags||[]).length) html += '<p class="why">タグ：'+esc(l.tags.join('、'))+'</p>';
-    } else if(n.kind==='value'||n.kind==='strength'){
-      html += '<h4>'+esc(n.label)+'</h4>';
-      html += '<p>'+esc(valueSentence(n))+'</p>';
-      html += '<p class="why">'+n.n+'件のログに、くり返し現れています。<br>'+
-        (n.logs||[]).slice(0,3).map(function(l){ return '・'+esc(l.body); }).join('<br>')+'</p>';
-    } else if(n.kind==='tag'){
-      html += '<h4>'+esc(n.label)+'</h4><p>'+n.n+'回、記録に登場しています。</p>';
-      html += '<p class="why">'+(n.logs||[]).slice(0,4).map(function(l){ return fmtMD(l.occurred_at)+'　'+esc(l.body); }).join('<br>')+'</p>';
-    } else if(n.kind==='month'||n.kind==='year'){
-      html += '<h4>'+esc(n.sub||n.label)+'</h4><p>'+esc(n.label)+'</p>';
-    } else if(n.kind==='self'){
-      html += '<h4>わたし</h4><p>ここから、好きなもの・仕事・人・時間がのびています。</p>';
-    } else {
-      html += '<h4>'+esc(n.label)+'</h4>';
-      var rel = G.links.filter(function(l){ return l.s===n.id||l.t===n.id; }).length;
-      html += '<p>'+rel+'本のつながりを持っています。</p>';
-    }
-    b.innerHTML = html; el.classList.add('on');
-  }
-  function hideDetail(){ $('#nodeDetail').classList.remove('on'); }
-  function valueSentence(n){
-    var s = {
-      '自由':'決められた形をなぞるより、自分で選べる余地を大切にしている。',
-      '創造':'受け取るだけでなく、自分の手で形にすることに心が動いている。',
-      '安心':'頑張ることと同じくらい、戻れる場所を守ろうとしている。',
-      '誠実さ':'うまくやることより、自分に嘘をつかないことを選んでいる。',
-      'つながり':'ひとりで完結させず、人との間で確かめながら進んでいる。',
-      '探究':'すぐに答えを出すより、分からなさを持ち続けることを選んでいる。',
-      '美しさ':'意味より先に、感覚が動いたものを信じている。',
-      '貢献':'自分のためだけでない理由があるとき、力が出ている。',
-      '挑戦':'こわさがある方を、それでも選び直している。',
-      '余白':'埋めることより、空けておくことに価値を置いている。'
-    }[n.label];
-    return s || (n.kind==='strength' ? 'この動きが、違う場面でくり返し現れています。' : 'くり返し現れている、あなたの傾向です。');
-  }
-  /* 入力 */
-  function bind(){
-    cv.addEventListener('pointerdown', function(e){
-      cv.setPointerCapture(e.pointerId);
-      pointers[e.pointerId]={x:e.clientX,y:e.clientY};
-      var ids=Object.keys(pointers);
-      if(ids.length===2){
-        var a=pointers[ids[0]], b=pointers[ids[1]];
-        pinch={d:Math.hypot(a.x-b.x,a.y-b.y), z:cam.z}; drag=null; return;
-      }
-      var r=cv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
-      var n=pick(px,py);
-      drag={node:n, px:px, py:py, moved:0, id:e.pointerId};
-      cv.classList.add('grabbing'); alpha=Math.max(alpha,.55); kick();
-    });
-    cv.addEventListener('pointermove', function(e){
-      if(pointers[e.pointerId]) pointers[e.pointerId]={x:e.clientX,y:e.clientY};
-      var ids=Object.keys(pointers);
-      if(pinch && ids.length===2){
-        var a=pointers[ids[0]], b=pointers[ids[1]];
-        var d=Math.hypot(a.x-b.x,a.y-b.y);
-        cam.z = Math.max(0.32, Math.min(3.2, pinch.z * d/pinch.d));
-        kick(); return;
-      }
-      var r=cv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
-      if(!drag){ hot=pick(px,py); cv.style.cursor = hot?'pointer':'grab'; kick(); return; }
-      var dx=px-drag.px, dy=py-drag.py;
-      drag.moved += Math.abs(dx)+Math.abs(dy);
-      if(drag.node && drag.node.kind!=='self'){
-        drag.node.x += dx/cam.z; drag.node.y += dy/cam.z;
+
+  /* ---- ラベルと当たり判定（HTML／キーボード対応） ---- */
+  function syncDom(){
+    if(!view||!layer) return;
+    var pad = 66;
+    Array.prototype.forEach.call(layer.children, function(el){
+      var n = view.byId[el.dataset.id];
+      if(!n){ el.style.display='none'; return; }
+      var X=sx(n), Y=sy(n), r=radiusOf(n)*cam.z;
+      var show = X>-40 && X<W+40 && Y>-30 && Y<H+30;
+      el.style.display = show ? '' : 'none';
+      if(!show) return;
+      if(el.classList.contains('nhit')){
+        var d=Math.max(40, r*2+22);
+        el.style.width=d+'px'; el.style.height=d+'px';
+        el.style.left=X+'px'; el.style.top=Y+'px';
       } else {
-        cam.x += dx/cam.z; cam.y += dy/cam.z;
+        var lx = Math.max(pad, Math.min(W-pad, X));
+        el.style.left=lx+'px'; el.style.top=(Y+r+7)+'px';
+        el.style.opacity = String(alphaOf(n));
+        var labelIt = view.labelSet[n.id] || n===sel ||
+                      (sel && view.edges.some(function(e){ return (e.a===sel&&e.b===n)||(e.b===sel&&e.a===n); }));
+        el.style.visibility = labelIt ? 'visible' : 'hidden';
+        el.style.fontSize = (n.kind==='self'? .82 : n.kind==='evidence'? .62 : .7)+'rem';
       }
-      drag.px=px; drag.py=py; alpha=Math.max(alpha,.4); kick();
+    });
+    avoidCollisions();
+  }
+  /* ラベル同士が重なったらずらし、それでも無理なら隠す */
+  function avoidCollisions(){
+    var sumEl=$('#mapSum'), stageTop=stage.getBoundingClientRect().top;
+    var top = sumEl ? Math.min(H*0.4, sumEl.getBoundingClientRect().bottom - stageTop + 10) : 110;
+    var bottom = H - 96;                            /* ヒントと「全体を見る」の帯は避ける */
+    var items = Array.prototype.filter.call(layer.children, function(el){
+      return el.classList.contains('nlabel') && el.style.visibility!=='hidden' && el.style.display!=='none';
+    });
+    items.sort(function(a,b){
+      var na=view.byId[a.dataset.id], nb=view.byId[b.dataset.id];
+      return (nb.display||0)-(na.display||0);
+    });
+    var placed=[];
+    items.forEach(function(el){
+      var w0=el.offsetWidth, h0=el.offsetHeight;
+      var x=parseFloat(el.style.left), y=parseFloat(el.style.top);
+      var tries=[[0,0],[0,h0+6],[0,-(h0+24)],[w0*0.55,0],[-w0*0.55,0],[w0*0.55,h0+6],[-w0*0.55,h0+6],[0,(h0+8)*2],[0,-(h0+8)*2],[w0*0.9,h0*0.5],[-w0*0.9,h0*0.5]];
+      var ok=false;
+      for(var i=0;i<tries.length;i++){
+        var cx=Math.max(w0/2+6, Math.min(W-w0/2-6, x+tries[i][0]));
+        var cy=Math.max(top, Math.min(bottom-h0, y+tries[i][1]));
+        var r={l:cx-w0/2, r:cx+w0/2, t:cy, b:cy+h0};
+        var hit = placed.some(function(q){ return !(r.r<q.l-4||r.l>q.r+4||r.b<q.t-2||r.t>q.b+2); });
+        if(!hit){ el.style.left=cx+'px'; el.style.top=cy+'px'; placed.push(r); ok=true; break; }
+      }
+      if(!ok) el.style.visibility='hidden';
+    });
+  }
+  function buildDom(){
+    layer.innerHTML='';
+    view.nodes.forEach(function(n){
+      var hit=document.createElement('button');
+      hit.className='nhit'; hit.dataset.id=n.id; hit.type='button';
+      hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分'));
+      hit.onclick=function(ev){ ev.stopPropagation(); select(n); };
+      layer.appendChild(hit);
+      var lb=document.createElement('div');
+      lb.className='nlabel'; lb.dataset.id=n.id; lb.setAttribute('aria-hidden','true');
+      lb.innerHTML = '<span class="mk">'+esc(({value:'VALUE',interest:'LIKES',strength:'STRENGTH',
+        condition:'CONDITION',tension:'TENSION',wish:'WISH',turningPoint:'TURNING',chapter:'CHAPTER',
+        recommendation:'NEXT',self:'NOW',evidence:''})[n.kind]||'')+'</span>'+
+        '<span class="lb">'+esc(n.label||'いまの自分')+'</span>';
+      layer.appendChild(lb);
+    });
+  }
+
+  /* ---- 選択と詳細カード ---- */
+  function select(n){ sel = (sel===n)?null:n; if(sel) showCard(sel); else hideCard(); draw(); syncDom(); }
+  function hideCard(){ $('#nodeDetail').classList.remove('on'); }
+  function evLine(id){
+    var e = G.entries[id]; if(!e) return '';
+    var kindJa = ({moved:'心が動いた',effort:'頑張った',pain:'つらかった',choice:'選んだ',wish:'願った'})[e.eventType]||'';
+    var d = e.occurredAt ? fmtMD(e.occurredAt) : '時期不明';
+    return '<div class="nd-ev"><span class="d">'+esc(d)+'</span><span class="t">'+esc(e.rawText)+
+           '<em>'+esc(kindJa)+'</em></span></div>';
+  }
+  function showCard(n){
+    var el=$('#nodeDetail'), b=$('#ndBody');
+    var col = MAPCOL[n.kind]||'#8E97B5';
+    var h='<p class="nd-k"><i style="background:'+col+'"></i>'+esc(KINDJA[n.kind]||'')+'</p>';
+    if(n.kind==='self'){
+      var vs = view.values;
+      var mt = (S.months[todayISO().slice(0,7)]||{}).title;
+      h += '<h4>いまの自分</h4><p class="sum">'+
+        (vs.length? '記録からは、'+vs.map(function(v){ return '「'+esc(v.label)+'」'; }).join('、')+'が強く現れています。'
+                  : 'まだ一つの軸に決めず、記録を集めています。')+'</p>';
+      h += '<div class="nd-sec"><h5>今月のテーマ</h5><p>'+esc(mt||'まだ名前がありません')+'</p></div>';
+      b.innerHTML=h; el.classList.add('on'); return;
+    }
+    h += '<h4>'+esc(n.label)+'</h4>';
+    if(n.summary) h += '<p class="sum">'+esc(n.summary)+'</p>';
+    var st = n.stat||{n:(n.evidenceIds||[]).length, months:1, domains:1};
+    var why = n.tier==='identity' ? st.n+'件の記録に、'+st.months+'つの月をまたいで繰り返し現れています。'
+            : n.tier==='pattern'  ? st.n+'件の記録に共通して現れています。まだ仮説です。'
+            : '1件の記録から見えた芽です。「'+esc(n.label)+'」を大切にしている可能性があります。';
+    h += '<div class="nd-sec"><h5>なぜここにある？</h5><p>'+esc(why)+'</p></div>';
+    var evs=(n.evidenceIds||[]).slice(0,5).map(evLine).join('');
+    if(evs) h += '<div class="nd-sec"><h5>根拠になった記録</h5>'+evs+'</div>';
+    var rel=(n.relatedValueIds||[]).map(function(v){ return G.byId[v]? G.byId[v].label : ''; }).filter(Boolean);
+    var futures = S.futures.filter(function(f){
+      return (n.evidenceIds||[]).indexOf('f:'+f.id)>=0 ||
+             (n.kind!=='evidence' && (f.body||'').length && (n.evidenceIds||[]).some(function(id){
+               var e=G.entries[id]; return e && e.rawText && f.body && e.rawText.indexOf(f.body.slice(0,4))>=0; }));
+    });
+    h += '<div class="nd-sec"><div class="nd-meta">'+
+      (rel.length? '<span>関連する価値観：'+esc(rel.join('・'))+'</span>':'')+
+      (n.firstSeenAt? '<span>最初に現れた：'+esc(n.firstSeenAt)+'</span>':'')+
+      (n.lastSeenAt? '<span>最近現れた：'+esc(n.lastSeenAt)+'</span>':'')+
+      '</div></div>';
+    if(futures.length) h += '<div class="nd-sec"><h5>Future Memo とのつながり</h5><p>'+
+      esc(futures.map(function(f){ return f.body; }).join(' / '))+'</p></div>';
+    var fb=fbGet(n.id);
+    h += '<div class="nd-fb"><button type="button" id="fbYes"'+(fb>0?' class="on"':'')+'>自分らしい</button>'+
+         '<button type="button" id="fbNo"'+(fb<0?' class="on"':'')+'>少し違う</button></div>';
+    b.innerHTML=h; el.classList.add('on');
+    $('#fbYes').onclick=function(){ fbSet(n.id, 1); G=null; rebuild(); toast('覚えました'); };
+    $('#fbNo').onclick =function(){ fbSet(n.id,-1); G=null; rebuild(); toast('表示を控えます'); };
+  }
+
+  /* ---- 価値観チップ ---- */
+  function renderChips(){
+    var w=$('#vchips'); w.innerHTML='';
+    view.values.forEach(function(v){
+      var b=document.createElement('button');
+      b.type='button'; b.className='vchip'+(chip===v.id?' on':'');
+      b.setAttribute('aria-pressed', chip===v.id ? 'true':'false');
+      b.innerHTML=esc(v.chip||v.label)+'<b>'+(v.evidenceIds||[]).length+'</b>';
+      b.onclick=function(){ chip = (chip===v.id)?null:v.id; renderChips(); draw(); syncDom(); };
+      w.appendChild(b);
+    });
+  }
+
+  /* ---- 入力 ---- */
+  var drag=null, pts={}, pinch=null;
+  function bind(){
+    stage.addEventListener('pointerdown', function(e){
+      stage.setPointerCapture(e.pointerId); pts[e.pointerId]={x:e.clientX,y:e.clientY};
+      var ids=Object.keys(pts);
+      if(ids.length===2){ var A=pts[ids[0]],B=pts[ids[1]];
+        pinch={d:Math.hypot(A.x-B.x,A.y-B.y), z:cam.z}; drag=null; return; }
+      drag={x:e.clientX,y:e.clientY,moved:0,id:e.pointerId}; stage.classList.add('grabbing');
+    });
+    stage.addEventListener('pointermove', function(e){
+      if(pts[e.pointerId]) pts[e.pointerId]={x:e.clientX,y:e.clientY};
+      var ids=Object.keys(pts);
+      if(pinch && ids.length===2){ var A=pts[ids[0]],B=pts[ids[1]];
+        var d=Math.hypot(A.x-B.x,A.y-B.y);
+        setZoom(pinch.z*d/pinch.d); return; }
+      if(!drag) return;
+      var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+      drag.moved+=Math.abs(dx)+Math.abs(dy);
+      cam.x+=dx/cam.z; cam.y+=dy/cam.z; drag.x=e.clientX; drag.y=e.clientY;
+      draw(); syncDom();
     });
     function up(e){
-      delete pointers[e.pointerId];
-      if(Object.keys(pointers).length<2) pinch=null;
-      cv.classList.remove('grabbing');
+      delete pts[e.pointerId]; if(Object.keys(pts).length<2) pinch=null;
+      stage.classList.remove('grabbing');
       if(drag && drag.id===e.pointerId){
-        if(drag.moved<8){
-          if(drag.node){ sel = (sel===drag.node)?null:drag.node; sel?showDetail(sel):hideDetail(); }
-          else { sel=null; hideDetail(); }
-        }
-        drag=null; alpha=Math.max(alpha,.3); kick();
+        if(drag.moved<8 && e.target===stage){ sel=null; hideCard(); draw(); syncDom(); }
+        drag=null;
       }
     }
-    cv.addEventListener('pointerup', up);
-    cv.addEventListener('pointercancel', up);
-    cv.addEventListener('wheel', function(e){
-      e.preventDefault();
-      cam.z = Math.max(0.32, Math.min(3.2, cam.z * (e.deltaY<0?1.1:0.9))); kick();
-    }, {passive:false});
+    stage.addEventListener('pointerup', up);
+    stage.addEventListener('pointercancel', up);
+    stage.addEventListener('wheel', function(e){ e.preventDefault(); setZoom(cam.z*(e.deltaY<0?1.12:0.89)); }, {passive:false});
+  }
+  function setZoom(z){
+    var prev = cam.z;
+    cam.z = Math.max(MAPC.ZOOM.min, Math.min(MAPC.ZOOM.max, z));
+    var crossed = (view && view.mode==='all') &&
+      ((prev<MAPC.ZOOM.year)!==(cam.z<MAPC.ZOOM.year) || (prev<MAPC.ZOOM.month)!==(cam.z<MAPC.ZOOM.month));
+    if(crossed) rebuild(true); else { draw(); syncDom(); }
+  }
+
+  function fit(){
+    if(!view||!view.nodes.length||!W) return;
+    var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    view.nodes.forEach(function(n){
+      if(!view.labelSet[n.id] && n.kind==='evidence') return;
+      x0=Math.min(x0,n.x); x1=Math.max(x1,n.x); y0=Math.min(y0,n.y); y1=Math.max(y1,n.y);
+    });
+    if(x0>x1) return;
+    var gw=Math.max(x1-x0,140), gh=Math.max(y1-y0,140);
+    var topPad=126, botPad=86;
+    var z=Math.min((W-130)/gw, (H-topPad-botPad)/gh);
+    cam.z=Math.max(MAPC.ZOOM.min, Math.min(1.2, z));
+    cam.x=-(x0+x1)/2; cam.y=-(y0+y1)/2 + (topPad-botPad)/2/cam.z;
+  }
+  function rebuild(keepCam){
+    view = compose(S.mapMode);
+    if(!keepCam) fit();
+    buildDom(); renderChips();
+    $('#mapSum').textContent = summarize(view);
+    $('#mapHint').textContent = S.mapMode==='all'
+      ? '外側ほど過去、中心ほど現在。ピンチで年→月→出来事へ'
+      : '星にふれると、根拠になった記録がひらきます';
+    draw(); syncDom();
+  }
+  function animateIn(){
+    if(reduce){ intro=1; draw(); syncDom(); return; }
+    var t0=performance.now();
+    (function step(){
+      var k=Math.min(1,(performance.now()-t0)/650);
+      intro = k<1 ? (1-Math.pow(1-k,3)) : 1;
+      draw(); syncDom();
+      if(k<1) raf=requestAnimationFrame(step); else raf=0;
+    })();
   }
   return {
     init:function(){
-      cv=$('#gcv'); if(!cv||!cv.getContext) return; ctx=cv.getContext('2d');
-      readColors(); bind();
+      stage=$('#mapStage'); cv=$('#gcv'); layer=$('#mapLayer');
+      if(!cv||!cv.getContext) return;
+      ctx=cv.getContext('2d'); seedSky(); bind();
       window.addEventListener('resize', resize);
-      $('#mapReset').onclick=function(){ sel=null; hideDetail(); seed(); alpha=1; fitAt=Date.now()+900; kick(); };
-      $('#ndClose').onclick=function(){ sel=null; hideDetail(); kick(); };
+      $('#mapReset').onclick=function(){ sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1}; rebuild(); };
+      $('#ndClose').onclick=function(){ sel=null; hideCard(); draw(); syncDom(); };
     },
-    show:function(mode){ readColors(); build(mode); setTimeout(resize,0); },
-    resize:resize
+    show:function(mode){
+      if(!cv) return;
+      S.mapMode = mode||'all';
+      sel=null; chip=null; hideCard(); G=null;
+      var empty = !S.logs.length;
+      var e=$('#mapEmpty');
+      if(empty){
+        if(!e){ e=document.createElement('p'); e.className='mapempty'; e.id='mapEmpty'; stage.appendChild(e); }
+        e.textContent='記録が増えると、ここにあなたの星座が育ちます。';
+        layer.innerHTML=''; $('#vchips').innerHTML=''; $('#mapSum').textContent=''; $('#mapHint').textContent='';
+        resize(); return;
+      }
+      if(e) e.remove();
+      cam={x:0,y:0,z:1};
+      setTimeout(function(){ resize(); rebuild(); intro=0; animateIn(); }, 0);
+    },
+    resize:resize,
+    clearSelection:function(){ sel=null; chip=null; hideCard(); }
   };
 })();
 
@@ -1593,7 +2198,7 @@ function setView(v){
   $$('#nav button').forEach(function(b){ b.classList.toggle('on', b.dataset.v===v); });
   $('#periodBtn').style.visibility = (v==='map') ? 'hidden' : 'visible';
   renderPeriodLabel();
-  if(v==='map') Map3.show(S.mapMode);
+  if(v==='map') Map3.show(S.mapMode); else Map3.clearSelection();
   if(v==='list'){ renderList(); requestAnimationFrame(renderList); }
   if(v==='log') renderLog();
 }
@@ -1603,33 +2208,28 @@ function renderAll(){ renderLog(); renderList(); if(S.view==='map') Map3.show(S.
 function seedDemo(){
   var Y = todayISO().slice(0,4);
   var d = function(m,day){ return Y+'-'+pad(m)+'-'+pad(day); };
-  var now = new Date(), cm = now.getMonth()+1;
-  var m1 = Math.max(1, cm-2), m2 = Math.max(1, cm-1), m3 = cm;
   S.logs = [
-    {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(m1,16), place:'清澄白河', people:[], tags:['アート','色']},
-    {id:uid(),kind:'moved', body:'雨の音だけ聴いて何もしない時間をつくった',       occurred_at:d(m1,19), place:'家',       people:[], tags:['余白','音']},
-    {id:uid(),kind:'effort',body:'企画書を最後まで自分の言葉で書き直した',         occurred_at:d(m1,24), place:'会社',     people:['ミナ'], tags:['企画','言語化']},
-    {id:uid(),kind:'hard',  body:'評価面談で、うまく説明できなかった',             occurred_at:d(m1,27), place:'会社',     people:['部長'], tags:['キャリア']},
-    {id:uid(),kind:'moved', body:'友達の展示を見て、つくる側に戻りたくなった',     occurred_at:d(m2,3),  place:'代官山',   people:['ユキ'], tags:['アート','制作']},
-    {id:uid(),kind:'chose', body:'週末の予定を断って、ひとりで美術館に行った',     occurred_at:d(m2,9),  place:'上野',     people:[], tags:['自由','アート']},
-    {id:uid(),kind:'effort',body:'はじめて自分の作品を人に見せた',                 occurred_at:d(m2,15), place:'カフェ',   people:['ユキ'], tags:['制作','勇気']},
-    {id:uid(),kind:'hard',  body:'好きなことが仕事にならない気がして落ち込んだ',   occurred_at:d(m2,21), place:'家',       people:[], tags:['キャリア','違和感']},
-    {id:uid(),kind:'wish',  body:'来年、小さな展示をひらきたい',                   occurred_at:d(m2,22), place:'',         people:[], tags:['制作']},
-    {id:uid(),kind:'moved', body:'「急がなくていい」と言われて肩の力が抜けた',     occurred_at:d(m3,6),  place:'',         people:['ミナ'], tags:['余白','言葉']},
-    {id:uid(),kind:'effort',body:'キャリア面談に行って、選択肢を並べた',           occurred_at:d(m3,12), place:'渋谷',     people:['カウンセラー'], tags:['キャリア']},
-    {id:uid(),kind:'chose', body:'転職はまだ決めない、と決めた',                   occurred_at:d(m3,13), place:'',         people:[], tags:['キャリア','自由']},
-    {id:uid(),kind:'moved', body:'企画書の余白に波線を描いていた',                 occurred_at:d(m3,20), place:'会社',     people:[], tags:['制作','余白']}
+    {id:uid(),kind:'wish',  body:'小さい頃、絵や物語をつくる人になりたかった', occurred_at:d(1,1), place:'', people:[], tags:['創作','物語'], undated:true},
+    {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(6,16), place:'清澄白河', people:[], tags:['展示','色']},
+    {id:uid(),kind:'effort',body:'複雑な企画を図にしたら、みんなが動きやすくなった', occurred_at:d(6,18), place:'会社', people:['ミナ'], tags:['企画','言語化']},
+    {id:uid(),kind:'hard',  body:'結果を急ぎ続ける働き方に、少し疲れた',           occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
+    {id:uid(),kind:'moved', body:'水彩のにじみを眺めている時間が心地よかった',     occurred_at:d(7,7),  place:'家',   people:[], tags:['水彩','余白']},
+    {id:uid(),kind:'chose', body:'今すぐ転職すると決めなくてもいいと思えた',       occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
+    {id:uid(),kind:'moved', body:'「急がなくていい」と言われて肩の力が抜けた',     occurred_at:d(8,6),  place:'',     people:['ミナ'], tags:['余白','言葉']},
+    {id:uid(),kind:'effort',body:'キャリア面談に行って、選択肢を並べた',           occurred_at:d(8,12), place:'渋谷', people:['カウンセラー'], tags:['キャリア']},
+    {id:uid(),kind:'chose', body:'転職はまだ決めない、と決めた',                   occurred_at:d(8,13), place:'',     people:[], tags:['キャリア','自由']},
+    {id:uid(),kind:'moved', body:'企画書の余白に波線を描いていた',                 occurred_at:d(8,20), place:'会社', people:[], tags:['制作','余白']}
   ];
   S.months = {};
-  S.months[Y+'-'+pad(m1)] = {title:'知らない青に、立ち止まった'};
-  S.months[Y+'-'+pad(m2)] = {title:'つくる側に、戻りたくなった'};
+  S.months[Y+'-06'] = {title:'知らない青に、立ち止まった'};
+  S.months[Y+'-07'] = {title:'急がなくていいと思えた'};
+  S.months[Y+'-08'] = {title:'感性を諦めなかった面談'};
   S.years = {}; S.years[Y] = {title:'答えを決めず、自分の道を選び始めた年'};
   S.futures = [
-    {id:uid(), body:'小さな展示をひらく',           mode:'by',      due:(+Y+1)+'-06-30', done_at:null},
-    {id:uid(), body:'週に一度、手を動かす時間をとる', mode:'anytime', due:null,            done_at:null},
-    {id:uid(), body:'作品を人に見せる',              mode:'anytime', due:null,            done_at:d(m2,15)}
+    {id:uid(), body:'小さな展示をひらく',             mode:'by',      due:(+Y+1)+'-06-30', done_at:null},
+    {id:uid(), body:'週に一度、手を動かす時間をとる', mode:'anytime', due:null,            done_at:null}
   ];
-  S.ym = Y+'-'+pad(m3); S.year = Y;
+  S.ym = Y+'-08'; S.year = Y;
   Store.saveLocal();
   if(Store.on()){
     Promise.all(S.logs.map(function(l){ return Store.putLog(l); })
@@ -1647,8 +2247,9 @@ function boot(){
   $$('#mapTabs button').forEach(function(b){
     b.onclick=function(){
       S.mapMode=b.dataset.m;
-      $$('#mapTabs button').forEach(function(x){ x.classList.toggle('on', x===b); });
-      Map3.show(S.mapMode);
+      $$('#mapTabs button').forEach(function(x){
+        var on = (x===b); x.classList.toggle('on', on); x.setAttribute('aria-selected', on?'true':'false'); });
+      Map3.show(S.mapMode);          /* タブ切替で選択・チップ・カードは解除される */
     };
   });
   $('#settingsBtn').onclick=openSettings;
@@ -1661,8 +2262,6 @@ function boot(){
   $('#yPrev').onclick=function(){ var y=allYears(), i=y.indexOf(S.year); if(i>0){ S.year=y[i-1]; renderList(); } };
   $('#yNext').onclick=function(){ var y=allYears(), i=y.indexOf(S.year); if(i<y.length-1){ S.year=y[i+1]; renderList(); } };
   Map3.init();
-  var lg=$('#mapLegend');
-  lg.innerHTML = KINDS.map(function(k){ return '<span><i style="background:'+cssv(k.v)+'"></i>'+k.ja+'</span>'; }).join('');
   S.openYM[todayISO().slice(0,7)] = true;   /* 今月は最初からひらいておく */
   if(!S.logs.length && !Store.on()) seedDemo();   /* 同期設定済みならサンプルは入れない */
   renderAll(); setView('log');
