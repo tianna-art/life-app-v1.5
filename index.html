@@ -47,13 +47,13 @@ button{cursor:pointer}
   padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;
   border-bottom:1px solid var(--line-soft); background:var(--bg); z-index:5;
 }
-.brand{text-decoration:none;font-family:var(--serif);font-weight:600;font-size:.82rem;line-height:1.05;letter-spacing:.02em;color:var(--ink);justify-self:start;text-align:left}
+.brand{text-decoration:none;min-height:44px;min-width:44px;display:flex;flex-direction:column;justify-content:center;font-family:var(--serif);font-weight:600;font-size:.82rem;line-height:1.05;letter-spacing:.02em;color:var(--ink);justify-self:start;text-align:left}
 .brand i{display:block;font-style:normal;padding-left:.5em}
 .hd-c{display:flex;align-items:center;gap:7px;font-family:var(--serif);font-size:1.02rem;letter-spacing:.06em;white-space:nowrap}
 .hd-c .yr{font-style:italic;color:var(--ink-soft)}
-.hd-c button{display:flex;align-items:center;gap:6px;padding:2px 4px;color:inherit}
+.hd-c button{display:flex;align-items:center;gap:6px;padding:2px 8px;min-height:44px;color:inherit}
 .chev{width:11px;height:11px;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px)}
-.hd-r{justify-self:end;font-size:.56rem;font-weight:700;letter-spacing:.18em;color:var(--muted);padding:6px 2px}
+.hd-r{justify-self:end;display:flex;align-items:center;min-height:44px;font-size:.56rem;font-weight:700;letter-spacing:.18em;color:var(--muted);padding:6px 2px}
 
 /* ── scroll body ─────────────────────────── */
 .views{position:relative;flex:1;min-height:0}
@@ -189,7 +189,7 @@ button{cursor:pointer}
 /* 価値観チップ */
 .vchips{position:absolute;left:0;right:0;top:42px;z-index:7;display:flex;gap:6px;justify-content:center;
   flex-wrap:wrap;padding:12px 14px 0;pointer-events:none}
-.vchip{pointer-events:auto;font-family:var(--serif);font-size:.68rem;letter-spacing:.1em;color:#E9E0CB;
+.vchip{pointer-events:auto;min-height:44px;font-family:var(--serif);font-size:.68rem;letter-spacing:.1em;color:#E9E0CB;
   background:rgba(216,181,106,.12);border:1px solid rgba(216,181,106,.42);border-radius:999px;
   padding:6px 13px;display:inline-flex;align-items:center;gap:7px;line-height:1}
 .vchip b{font-weight:400;font-size:.56rem;color:#D8B56A;letter-spacing:.04em}
@@ -198,8 +198,9 @@ button{cursor:pointer}
 .vchip:focus-visible{outline:2px solid #D8B56A;outline-offset:2px}
 
 /* 今見えていること */
-.mapsum{position:absolute;left:0;right:0;top:90px;z-index:6;padding:0 26px;text-align:center;
-  font-family:var(--serif);font-size:.78rem;line-height:1.95;color:#CBD1E0;letter-spacing:.03em;
+.maphead{position:absolute;left:0;right:0;top:84px;z-index:6;pointer-events:none}
+.mapsum{padding:0 26px 8px;text-align:center;
+  font-family:var(--serif);font-size:.76rem;line-height:1.9;color:#CBD1E0;letter-spacing:.03em;
   pointer-events:none;text-shadow:0 1px 12px rgba(7,9,22,.95)}
 
 /* ノードのラベルと当たり判定 */
@@ -217,10 +218,51 @@ button{cursor:pointer}
 .nhit:focus-visible{outline:2px solid #D8B56A;outline-offset:1px}
 
 /* 操作まわり */
-.mapreset{position:absolute;right:12px;top:8px;z-index:10;border:1px solid rgba(169,176,197,.35);
+.mapreset{position:absolute;right:12px;top:8px;z-index:10;min-height:44px;border:1px solid rgba(169,176,197,.35);
   border-radius:999px;background:rgba(12,16,36,.85);font-family:var(--serif);font-size:.66rem;
   letter-spacing:.06em;color:#CBD1E0;padding:7px 13px}
 .mapreset:focus-visible{outline:2px solid #D8B56A;outline-offset:2px}
+/* ── 気づきの帯（鏡・橋・羅針盤）と 物語のレンズ ── */
+.insights{display:flex;gap:7px;overflow-x:auto;padding:0 14px 2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;pointer-events:auto}
+.insights::-webkit-scrollbar{display:none}
+.insights:empty{display:none}
+.ins{flex:0 0 auto;width:min(62%,238px);text-align:left;background:rgba(20,25,44,.66);
+  border:1px solid rgba(201,177,131,.24);border-radius:12px;padding:8px 11px;color:#E8E0CE;
+  backdrop-filter:blur(6px);min-height:44px}
+.ins b{display:block;font-size:.56rem;letter-spacing:.16em;color:#C9B183;margin-bottom:3px;font-weight:400}
+.ins span{display:block;font-size:.66rem;line-height:1.6;letter-spacing:.02em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ins em{display:none}
+.ins.open{width:min(84%,320px)}
+.ins.open span{-webkit-line-clamp:4}
+.ins.open em{display:block;font-style:normal;font-size:.64rem;line-height:1.7;color:#A8B0C8;margin-top:5px}
+.ins:focus-visible{outline:2px solid #C88A5C;outline-offset:2px}
+.lens{position:absolute;left:14px;right:14px;bottom:14px;z-index:7;background:rgba(20,25,44,.86);
+  border:1px solid rgba(201,177,131,.3);border-radius:16px;padding:10px 14px;color:#E8E0CE;backdrop-filter:blur(8px)}
+.lens.open{padding:14px}
+.lens b{display:block;font-size:.58rem;letter-spacing:.16em;color:#C9B183;margin-bottom:4px;font-weight:400}
+.lens p{font-size:.74rem;line-height:1.8;letter-spacing:.02em;margin:0 0 4px;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.lens.open p{-webkit-line-clamp:unset;display:block}
+.lens .lq,.lens .lopts,.lens .lshelf{display:none}
+.lens.open .lq{display:block;color:#A8B0C8;font-size:.68rem;line-height:1.7;margin-bottom:10px}
+.lens.open .lopts{display:flex}
+.lens.open .lshelf{display:block}
+.lenshead{width:100%;text-align:left;background:transparent;border:0;padding:0;color:inherit;min-height:44px}
+.lens .lopts{flex-wrap:wrap;gap:7px}
+.lens .lopts button{flex:1 1 46%;min-height:44px;border-radius:999px;font-family:var(--serif);
+  font-size:.72rem;letter-spacing:.05em;color:#E8E0CE;background:transparent;
+  border:1px solid rgba(201,177,131,.34);padding:9px 8px}
+.lens .lopts button:focus-visible{outline:2px solid #C88A5C;outline-offset:2px}
+.lens.open .lshelf{margin-top:9px;font-size:.64rem;letter-spacing:.06em;color:#A8B0C8;
+  background:transparent;border:0;padding:6px 2px;min-height:32px;text-decoration:underline}
+.shelf-item{border-bottom:1px solid var(--line-soft);padding:11px 0}
+.shelf-item p{font-size:.78rem;line-height:1.8;color:#4A3B29;margin:0 0 4px}
+.shelf-item span{font-size:.62rem;letter-spacing:.06em;color:#A8926A}
+.maplegend{position:absolute;left:0;right:0;
+  bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 26px);text-align:center;
+  font-size:.56rem;letter-spacing:.14em;color:#79839E;pointer-events:none;z-index:4}
 .maplvl{position:absolute;left:50%;top:8px;transform:translate(-50%,-6px);
   padding:5px 16px;border-radius:999px;background:rgba(12,16,32,.82);border:1px solid rgba(216,181,106,.4);
   color:#F3E6C8;font-size:12px;letter-spacing:.16em;pointer-events:none;opacity:0;
@@ -238,7 +280,7 @@ button{cursor:pointer}
   box-shadow:0 14px 44px rgba(0,0,0,.55);transform:translateY(16px);opacity:0;pointer-events:none;
   transition:opacity .22s ease,transform .22s ease;max-height:42vh;overflow-y:auto;overscroll-behavior:contain}
 .ndetail.on{transform:none;opacity:1;pointer-events:auto}
-.ndetail .x{position:absolute;right:6px;top:4px;padding:10px 12px;color:#A8926A;font-size:1.1rem;line-height:1}
+.ndetail .x{position:absolute;right:6px;top:4px;min-width:44px;min-height:44px;padding:10px 12px;color:#A8926A;font-size:1.1rem;line-height:1}
 .ndetail .x:focus-visible{outline:2px solid #C88A5C;outline-offset:-2px}
 .nd-layers .ly{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #E6D8A6}
 .nd-layers .ly:last-child{border-bottom:0}
@@ -261,11 +303,36 @@ button{cursor:pointer}
 .nd-ev .t{font-family:var(--serif);font-size:.75rem;line-height:1.75;color:#4A3C2C}
 .nd-ev .t em{font-style:normal;color:#A8926A;font-size:.62rem;letter-spacing:.06em;margin-left:.4em}
 .nd-meta{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:.62rem;color:#A8926A;letter-spacing:.04em}
-.nd-fb{display:flex;gap:8px;margin-top:14px}
-.nd-fb button{flex:1;font-family:var(--serif);font-size:.76rem;letter-spacing:.06em;padding:11px 4px;
-  border-radius:999px;border:1px solid rgba(160,138,96,.42);color:#5B4B37}
+.nd-fb{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.nd-fb button{flex:1 1 46%;min-height:44px;font-family:var(--serif);font-size:.76rem;letter-spacing:.06em;padding:11px 8px;
+  border-radius:999px;border:1px solid rgba(160,138,96,.42);color:#5B4B37;background:transparent}
 .nd-fb button.on{background:#3B3025;color:#FBF7EA;border-color:#3B3025}
+.nd-fb button[data-danger]{flex:1 1 100%;color:#9C6A6A;border-color:rgba(156,106,106,.4)}
+.nd-fb button[data-danger].on{background:#8E5E5E;color:#FBF7EA;border-color:#8E5E5E}
 .nd-fb button:focus-visible{outline:2px solid #C88A5C;outline-offset:2px}
+/* 事実 → 見立て → 問い の帯 */
+.nd-band{margin:20px 0 8px;font-size:.6rem;letter-spacing:.24em;color:#A8926A;
+  border-top:1px solid var(--line-soft);padding-top:12px}
+.nd-factline{font-size:.7rem;line-height:1.85;color:#5B4B37;margin-top:7px}
+.nd-hold{margin-top:12px;padding:11px 13px;border-radius:12px;background:rgba(200,138,92,.10);
+  border:1px solid rgba(200,138,92,.28);font-size:.72rem;line-height:1.85;color:#7A5B3E}
+.nd-relline{display:flex;align-items:flex-start;gap:7px;font-size:.7rem;line-height:1.8;
+  color:#5B4B37;margin-top:7px}
+.nd-relline i{flex:0 0 auto;width:7px;height:7px;border-radius:50%;margin-top:.52em}
+.nd-relline b{flex:0 0 auto;font-weight:400;color:#A8926A;font-size:.62rem;letter-spacing:.08em;margin-top:.15em}
+.nd-q{font-family:var(--serif);font-size:.8rem;line-height:1.95;color:#4A3B29;letter-spacing:.02em;
+  padding:12px 14px;border-radius:12px;background:rgba(216,181,106,.10)}
+.nd-fbnote{margin-top:9px;font-size:.62rem;color:#A8926A;letter-spacing:.04em;line-height:1.7}
+/* 仮説がどこまで育ったか */
+.nd-stage{display:inline-block;font-size:.62rem;letter-spacing:.1em;padding:4px 11px;border-radius:999px;
+  margin:0 0 6px;border:1px solid rgba(160,138,96,.45);color:#8A7A5E}
+.nd-stage.stg-seed{color:#9AA98C;border-color:rgba(154,169,140,.55)}
+.nd-stage.stg-growing{color:#8A9BC0;border-color:rgba(138,155,192,.55)}
+.nd-stage.stg-rooted{color:#A8874A;border-color:rgba(168,135,74,.6);background:rgba(216,181,106,.12)}
+.nd-stage.stg-changing{color:#B08153;border-color:rgba(176,129,83,.55)}
+.nd-stage.stg-tension{color:#B4728A;border-color:rgba(180,114,138,.55)}
+.nd-stagenote{margin-top:6px;font-size:.66rem;color:#8E7B5E;letter-spacing:.03em;line-height:1.8}
+.nd-was{font-size:.62rem;color:#A8926A;letter-spacing:.04em;margin:-2px 0 6px}
 
 /* ── LIST ────────────────────────────────── */
 .yearhead{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0 10px;border-bottom:1px solid var(--line)}
@@ -405,9 +472,14 @@ button{cursor:pointer}
           <canvas id="gcv" aria-hidden="true"></canvas>
           <div class="maplayer" id="mapLayer"></div>
           <div class="vchips" id="vchips" role="group" aria-label="いま強く現れている価値観"></div>
-          <p class="mapsum" id="mapSum"></p>
+          <div class="maphead">
+            <p class="mapsum" id="mapSum"></p>
+            <div class="insights" id="mapInsights" aria-label="いま見えていること"></div>
+          </div>
+          <div class="lens" id="mapLens" hidden></div>
           <button class="mapreset" id="mapReset">全体を見る</button>
           <p class="maphint" id="mapHint"></p>
+          <p class="maplegend" id="mapLegend" hidden>外側ほど過去、中心ほど現在</p>
           <div class="maplvl" id="mapLvl" aria-live="polite"></div>
         </div>
       </div>
@@ -557,7 +629,7 @@ var S = {
   ym: todayISO().slice(0,7),
   year: todayISO().slice(0,4),
   view: 'log',
-  mapMode: 'all',
+  mapMode: 'career',      /* 初回はキャリア。以降は最後に選んだビューを覚える */
   filter: 'all',
   openYM: {}       // Listで開いている月
 };
@@ -987,8 +1059,9 @@ function openFutureSheet(seed){
    ══════════════════════════════════════════════════ */
 var MAPC = {
   MAX_LABELED: 9,                 /* 初期表示のラベル付きノード上限 */
+  DOMAIN_MIN: 0.62,               /* これ未満は領域を決めつけず、「全て」に孤児として残す */
   EDGES_PER_NODE: 2,              /* 初期表示で各ノードが持つ線の本数 */
-  DIM: 0.10,                      /* 関係のないものの明るさ */
+  DIM: 0.18,                      /* 関係のないものの明るさ */
   PROMOTE: {seed:1, pattern:2, identity:3},
   IDENTITY_W: {choice:.22, repeat:.18, emotion:.15, domain:.15, effort:.12, duration:.10, stated:.08},
   DISPLAY_W:  {identity:.45, viewFit:.20, current:.15, bridge:.10, evidence:.10},
@@ -1022,7 +1095,7 @@ var LEX = {
      w:['自由','自分で決め','決めない','選び直','選択肢','ひとり','マイペース','断っ','任せ']},
     {id:'v_create', chip:'創造',   label:'手を動かして形にする',
      sum:'受け取るだけでなく、自分の手で形にしているときに心が動いている。',
-     w:['つく','作','描','絵','デザイン','企画','制作','試作','波線','水彩','図']},
+     w:['つく','作','描','絵','デザイン','企画','制作','試作','波線','水彩','図','手を動か','ものづくり']},
     {id:'v_space',  chip:'余白',   label:'完成を急がず育てる時間',
      sum:'埋めることより、空けておくことに価値を置いている。',
      w:['余白','急がなくて','急がな','ゆっくり','眺め','休','肩の力','のんびり','待']},
@@ -1204,7 +1277,7 @@ var NEEDS = [
   {n:'創造',     w:['つくっ','作っ','描い','制作','企画し','設計','形にし','試作','考えた'],
                  vw:['つくった感じがしな','何も残ら','作れな','消化','ルーティン','単調','ただの作業']},
   {n:'余白',     w:['余白','ゆっくり','急がな','眺め','休め','静か','間があ','のんびり'],
-                 vw:['急かされ','急いで','締め切り','詰まっ','休めな','余裕がな','時間がな','せかされ','早く']},
+                 vw:['急かされ','急いで','急ぎ','締め切り','詰まっ','休めな','余裕がな','時間がな','せかされ','早く','追われ']},
   {n:'納得感',   w:['納得','腹落ち','理由が分か','説明でき','意味があ'],
                  vw:['納得できな','腑に落ちな','数字だけ','評価だけ','理由が分から','なぜか分から']},
   {n:'つながり', w:['一緒','仲間','話せ','聞いてもら','分かってもら','支え','相談し'],
@@ -1372,9 +1445,37 @@ function extract(l){
   var creative = /つく|作っ|描い|企画|設計|構成|物語|デザイン|制作|形にし/.test(body) ? .8
                : /対応|調整|返信|処理|問い合わせ/.test(body) ? .15 : .4;
 
-  var dom = context.indexOf('仕事')>=0 || context.indexOf('学び')>=0 ? 'career'
-          : (l.people||[]).length || context.indexOf('人との時間')>=0 ? 'relationship'
-          : (aesthetic.length || ids(LEX.interests).length) ? 'likes' : 'life';
+  /* ── どの領域の話か。断定せず、確からしさも一緒に返す。
+        確からしさが低いものは、どちらのMapにも押し込まず「全て」に残す。 ── */
+  var dscore = {career:0, private:0, relationship:0, life:0.25};
+  if(context.indexOf('仕事')>=0) dscore.career += 1.1;
+  if(context.indexOf('学び')>=0) dscore.career += 0.7;
+  if(context.indexOf('制作')>=0) dscore.private += 0.7;
+  if(context.indexOf('外へ出た日')>=0) dscore.private += 0.6;
+  if(context.indexOf('ひとりの時間')>=0) dscore.private += 0.5;
+  if(context.indexOf('人との時間')>=0 || (l.people||[]).length) dscore.relationship += 0.9;
+  dscore.private += Math.min(1.2, aesthetic.length*0.5 + ids(LEX.interests).length*0.35);
+  dscore.career  += Math.min(1.0, ids(LEX.strengths).length*0.45 + (outcome?0.3:0) + (externalFeedback?0.3:0));
+  if(tag==='effort') dscore.career  += 0.55;      /* 入口は弱い前提としてだけ足す */
+  if(tag==='moved')  dscore.private += 0.55;
+  var dranked = Object.keys(dscore).sort(function(x,y){ return dscore[y]-dscore[x]; });
+  var dom = dranked[0], dTop = dscore[dranked[0]], dSecond = dscore[dranked[1]] || 0;
+  var dsum = dranked.reduce(function(a,k){ return a+dscore[k]; }, 0) || 1;
+  var domainConfidence = Math.max(0, Math.min(1, (dTop/dsum) + (dTop-dSecond)*0.22));
+  /* 仕事と日常の両方に同じ構造があれば、どちらにも出す（Bridge） */
+  var bridged = (dscore.career >= 0.9 && dscore.private >= 0.9);
+
+  /* 繰り返し戻ってくる具体物。美意識の芯になる */
+  var motifs = [];
+  AESTH.forEach(function(a){ a.w.forEach(function(w){
+    if(body.indexOf(w)>=0 && motifs.indexOf(w)<0) motifs.push(w); }); });
+  /* つながりを探すときの手がかり。言葉そのものだけでなく、
+     その言葉が属する美意識や、満たされた／損なわれた願いも一緒に見る。
+     「にじみ」と「波線」を別ものにしないため。 */
+  var themes = themeSet(motifs, aesthetic, satisfied, violated, ids(LEX.values));
+  var meaning = satisfied.indexOf('意味')>=0 ? .85 : violated.indexOf('意味')>=0 ? .15
+              : (externalFeedback ? .65 : .45);
+  var completion = outcome ? .8 : violated.indexOf('完結感')>=0 ? .15 : .4;
 
   /* 確信度：具体が多いほど高い。低いときだけ、あとで一問だけ聞く。 */
   var conf = Math.min(1, .28
@@ -1399,7 +1500,13 @@ function extract(l){
     tensionCandidates: [],
     /* 既存のMap側が読む形（互換） */
     id:l.id, occurredAt: l.undated ? null : l.occurred_at, rawText: body,
+    timestamp: l.undated ? null : l.occurred_at,
+    source: l.demo ? 'demo' : 'log',
     inputTag: tag, eventType: et, domain: dom,
+    domainConfidence: domainConfidence, bridged: bridged,
+    motifs: motifs, themes: themes, meaning: meaning, completion: completion,
+    places: canonList(l.place ? [l.place] : []),
+    actions: verbs, wishCandidates: wish ? [wish] : [],
     isChoice: !!choice, isWish: !!wish,
     action: verbs, objects: object,
     entities: canonList(object.concat(l.people||[]).concat(l.place?[l.place]:[])),
@@ -1436,6 +1543,15 @@ function futureEntry(f){
     wish:text, nextInterest:text, aestheticAttributes:aesthetic,
     valueCandidates:ids(LEX.values), strengthCandidates:[], tensionCandidates:[],
     id:'f:'+f.id, occurredAt: f.done_at || f.due || null, rawText:text, inputTag:'moved',
+    timestamp: f.done_at || f.due || null, source:'future_memo',
+    domainConfidence:.5, bridged:false,
+    motifs: (function(){ var ms=[]; AESTH.forEach(function(a){ (a.w||[]).forEach(function(w){
+      if(text.indexOf(w)>=0 && ms.indexOf(w)<0) ms.push(w); }); }); return ms; })(),
+    themes: (function(){ var ms=[]; AESTH.forEach(function(a){ (a.w||[]).forEach(function(w){
+      if(text.indexOf(w)>=0 && ms.indexOf(w)<0) ms.push(w); }); });
+      return themeSet(ms, aesthetic, [], [], ids(LEX.values)); })(),
+    meaning:.7, completion:.2,
+    places:[], actions:[], wishCandidates:[text],
     eventType:'wish', domain:'life', entities:[], emotionalValence:.5, agency:.6, arousal:.5,
     autonomy:.6, creativeControl:.5, energyDelta:.6, socialContext:'ひとり',
     candidateValues:ids(LEX.values), candidateStrengths:[],
@@ -1455,6 +1571,90 @@ function fbSet(id, v){
   Store.saveLocal();
 }
 
+/* ── 仮説の育ち方 ──
+   仮説は「当たっている／外れている」ではなく、どこまで育ったかで扱う。
+   芽 → 育ちつつある → 根づいた／変わりつつある／ゆれている。
+   本人の言葉が最終決定権を持つので、5つの応答をここに保存する。 */
+var STAGEJA = {
+  seed:'仮説の芽', growing:'育ちつつある仮説', rooted:'根づいた仮説',
+  changing:'変わりつつある仮説', tension:'ゆれている仮説'
+};
+var STAGENOTE = {
+  seed:'まだ1つの記録から見えた芽です。合っているかは、これから確かめます。',
+  growing:'まだ確かめている途中です。合わなければ、いつでも書き換えられます。',
+  rooted:'時間をまたいで何度も現れています。それでも、決めつけではありません。',
+  changing:'言葉が合わなくなってきているかもしれません。書き換えていける段階です。',
+  tension:'どちらも本当で、いまは片方を選ばなくて大丈夫です。'
+};
+var HYPOPT = [
+  {v:'me',     t:'自分らしい'},
+  {v:'off',    t:'少し違う'},
+  {v:'unsure', t:'今は分からない'},
+  {v:'reword', t:'言葉を変える'},
+  {v:'del',    t:'この仮説を削除する'}
+];
+function hypGet(id){
+  var h = (S.cfg.hyp||{})[id];
+  if(h) return h;
+  var f = fbGet(id);                     /* 旧データ（自分らしい／少し違う）も読む */
+  return f>0 ? {v:'me'} : f<0 ? {v:'off'} : null;
+}
+function hypSet(id, v, text){
+  S.cfg.hyp = S.cfg.hyp || {};
+  if(!v) delete S.cfg.hyp[id];
+  else S.cfg.hyp[id] = {v:v, text:text||'', at:todayISO()};
+  /* 旧キーも合わせて動かし、既存の並び替えを壊さない */
+  S.cfg.fb = S.cfg.fb || {};
+  if(v==='me') S.cfg.fb[id]=1;
+  else if(v==='off'||v==='del') S.cfg.fb[id]=-1;
+  else delete S.cfg.fb[id];
+  Store.saveLocal();
+}
+/* 削除は「なかったこと」にはしない。地図から外すだけで、記録そのものは残る。 */
+function hypDropped(id){ var h=hypGet(id); return !!(h && h.v==='del'); }
+function hypLabel(n){ var h=hypGet(n.id); return (h && h.v==='reword' && h.text) ? h.text : n.label; }
+function stageOf(n){
+  if(!n || n.kind==='self' || n.kind==='evidence' || n.kind==='chapter') return null;
+  var h = hypGet(n.id);
+  if(h && (h.v==='reword' || h.v==='unsure')) return 'changing';
+  if(n.kind==='tension') return 'tension';
+  var st = n.stat || {n:(n.evidenceIds||[]).length, months:1, days:1, domains:1};
+  if(n.tier==='identity' || (h && h.v==='me' && st.n>=2)) return 'rooted';
+  if(n.tier==='pattern' || st.n>=2) return 'growing';
+  return 'seed';
+}
+
+function themeSet(motifs, aestheticIds, satisfied, violated, valueIds){
+  var out = [];
+  function add(x){ if(x && out.indexOf(x)<0) out.push(x); }
+  (motifs||[]).forEach(add);
+  (aestheticIds||[]).forEach(function(id){
+    var a = AESTH.filter(function(x){ return x.id===id; })[0]; if(a) add(a.label);
+  });
+  (valueIds||[]).forEach(function(id){
+    var v = LEX.values.filter(function(x){ return x.id===id; })[0]; if(v) add(v.chip||v.label);
+  });
+  (satisfied||[]).forEach(add);
+  (violated||[]).forEach(add);
+  return out;
+}
+
+/* ── つながりの種類 ──
+   線は6種類だけ。どれも「こうだ」ではなく「こう見える」と言う。 */
+var REL_MAX = 2;                       /* 1つの記録が最初から持つ線の本数 */
+var RELJA = {
+  foreshadow:  {t:'伏線',            c:'#9587DE'},
+  recurrence:  {t:'繰り返し',        c:'#D8B56A'},
+  reversal:    {t:'反転',            c:'#C76F87'},
+  cross_domain:{t:'領域をまたぐ',    c:'#68CBC4'},
+  tension:     {t:'ゆれ',            c:'#B4728A'},
+  orphan:      {t:'まだつながらない',c:'#8E97B5'}
+};
+function DOMJA(d){
+  return d==='career' ? '仕事' : d==='private' ? '暮らし' :
+         d==='relationship' ? '人との関わり' : '生活';
+}
+
 /* ── 洞察の生成 ── */
 var Insight = (function(){
   function mk(kind, id, label, sum, evs){
@@ -1463,9 +1663,9 @@ var Insight = (function(){
   }
   function stats(entries, evs){
     var es = evs.map(function(id){ return entries[id]; }).filter(Boolean);
-    var months={}, domains={}, choice=0, effort=0, emo=0, minM=null, maxM=null;
+    var months={}, days={}, domains={}, choice=0, effort=0, emo=0, minM=null, maxM=null;
     es.forEach(function(e){
-      if(e.occurredAt){ var m=e.occurredAt.slice(0,7); months[m]=1;
+      if(e.occurredAt){ var m=e.occurredAt.slice(0,7); months[m]=1; days[e.occurredAt]=1;
         if(!minM||m<minM) minM=m; if(!maxM||m>maxM) maxM=m; }
       domains[e.domain]=1;
       if(e.isChoice||e.agency>=.8) choice++;
@@ -1473,7 +1673,8 @@ var Insight = (function(){
       emo += e.emotionalIntensity;
     });
     var n = es.length||1;
-    return {n:es.length, months:Object.keys(months).length, domains:Object.keys(domains).length,
+    return {n:es.length, months:Object.keys(months).length, days:Object.keys(days).length,
+            domains:Object.keys(domains).length,
             choice:choice/n, effort:effort/n, emo:emo/n, minM:minM, maxM:maxM,
             span: (minM&&maxM)? monthsBetween(minM,maxM) : 0};
   }
@@ -1823,9 +2024,86 @@ var Insight = (function(){
     self.summary = '';
     self.identity = 1; self.confidence = 1; self.tier='identity';
 
-    return {entries:entries, order:order, nodes:nodes, byId:byId};
+    var rels = relate(entries, order, byId);
+    return {entries:entries, order:order, nodes:nodes, byId:byId, rels:rels};
   }
-  return {build:build, stats:stats};
+
+  /* ── つながりの種類 ──
+     線は「関係がある」ではなく「どういう関係か」を持つ。
+     つながらない記録は、つながらないまま置く。無理に結ばない。 */
+  function relate(entries, order, byId){
+    /* 日付のない記録も外さない。「小さい頃」は、いちばん古い出来事として置く。 */
+    function when(e){
+      if(e.occurredAt) return e.occurredAt;
+      return /小さい頃|子どもの頃|昔|幼い/.test(e.rawText||'') ? '1990-01-01' : todayISO();
+    }
+    var ids = order.filter(function(id){ return !!entries[id]; })
+                   .sort(function(a,b){ return when(entries[a]) < when(entries[b]) ? -1 : 1; });
+    var out = [], deg = {};
+    function days(a,b){ return Math.abs((new Date(b)-new Date(a))/86400000); }
+    function gapJA(d){
+      if(d >= 365*3) return 'ずいぶん長い時間を';
+      if(d >= 300)   return Math.round(d/365*10)/10+'年';
+      if(d >= 60)    return Math.round(d/30)+'か月';
+      return Math.round(d/7)+'週';
+    }
+    function shared(x,y){
+      var mx = x.themes || x.motifs || [], my = y.themes || y.motifs || [];
+      return mx.filter(function(m){ return my.indexOf(m)>=0; });
+    }
+    function push(kind, a, b, why, w){
+      if(deg[a]>=REL_MAX || deg[b]>=REL_MAX) return;
+      out.push({kind:kind, a:a, b:b, why:why, w:w||.5});
+      deg[a]=(deg[a]||0)+1; deg[b]=(deg[b]||0)+1;
+    }
+    var cand = [];
+    for(var i=0;i<ids.length;i++){
+      for(var j=i+1;j<ids.length;j++){
+        var A=entries[ids[i]], B=entries[ids[j]];
+        var sh = shared(A,B); if(!sh.length) continue;
+        var gap = days(when(A), when(B));
+        var word = sh[0];
+        /* 伏線：先に願いとして書かれ、あとで実際に起きている */
+        if((!A.occurredAt || A.eventType==='wish' || A.isWish) && gap>=60)
+          cand.push({kind:'foreshadow', a:ids[i], b:ids[j], w:.62+Math.min(.3,gap/900),
+            why:'「'+word+'」が、'+(A.occurredAt?'先に願いとして書かれ':'ずっと前から書かれていて')+
+                '、あとの出来事にも出てきています。'});
+        /* 領域をまたぐ：同じものが仕事と暮らしの両方に出ている */
+        else if(A.domain!==B.domain && A.domain!=='life' && B.domain!=='life')
+          cand.push({kind:'cross_domain', a:ids[i], b:ids[j], w:.6,
+            why:'「'+word+'」が、'+DOMJA(A.domain)+'と'+DOMJA(B.domain)+'の両方に出ています。'});
+        /* 反転：同じものへの感じ方が、逆に変わっている */
+        else if(A.energy && B.energy && A.energy!==B.energy && A.energy!=='flat' && B.energy!=='flat')
+          cand.push({kind:'reversal', a:ids[i], b:ids[j], w:.55,
+            why:'「'+word+'」への感じ方が、'+(A.energy==='gain'?'力が出る':'消耗する')+'から'+
+                (B.energy==='gain'?'力が出る':'消耗する')+'へ変わっています。'});
+        /* 繰り返し：時間をあけて、同じものが何度も現れている */
+        else if(gap>=21)
+          cand.push({kind:'recurrence', a:ids[i], b:ids[j], w:.5+Math.min(.3,gap/600),
+            why:'「'+word+'」が、'+gapJA(gap)+'あけてまた現れています。'});
+      }
+    }
+    /* ゆれ：同じ時期に、逆向きの気持ちが同時に出ている */
+    for(var k=0;k<ids.length;k++){
+      for(var m=k+1;m<ids.length;m++){
+        var X=entries[ids[k]], Y=entries[ids[m]];
+        if(days(when(X),when(Y))>45) continue;
+        var conf = (X.satisfiedNeeds||[]).filter(function(nd){ return (Y.violatedNeeds||[]).indexOf(nd)>=0; });
+        if(!conf.length) continue;
+        cand.push({kind:'tension', a:ids[k], b:ids[m], w:.6,
+          why:'同じころに、「'+conf[0]+'」が満たされた記録と、そうでなかった記録の両方があります。'});
+      }
+    }
+    cand.sort(function(x,y){ return y.w-x.w; });
+    cand.forEach(function(c){ push(c.kind, c.a, c.b, c.why, c.w); });
+    /* 孤児：どこにもつながらなかった記録。つながらないことも情報として残す */
+    ids.forEach(function(id){
+      if(!deg[id]) out.push({kind:'orphan', a:id, b:null, w:.2,
+        why:'いまはまだ、ほかの記録とつながっていません。無理につなげずに置いています。'});
+    });
+    return out;
+  }
+  return {build:build, stats:stats, relate:relate};
 })();
 
 /* ── ビューごとの選抜とスコア ── */
@@ -1851,9 +2129,16 @@ function displayScore(n, mode){
   var ev = Math.min(1, (n.evidenceIds||[]).length/3);
   var base = W.identity*(n.identity||0) + W.viewFit*viewFit(n,mode) + W.current*currentness(n) +
              W.bridge*bridge + W.evidence*ev;
-  var fb = fbGet(n.id);
-  if(fb>0) base = Math.min(1, base*1.25 + .08);
-  if(fb<0) base = base*0.45;
+  var h = hypGet(n.id);
+  if(h && h.v==='me')     base = Math.min(1, base*1.25 + .08);
+  if(h && h.v==='off')    base = base*0.45;
+  if(h && h.v==='unsure') base = base*0.85;
+  /* 強みは、日付の違う2件以上の記録がないと上位に置かない。
+     一度うまくいっただけのことを「あなたの強み」と言い切らないため。 */
+  if(n.kind==='strength'){
+    var sd = (n.stat && n.stat.days) || (n.evidenceIds||[]).length;
+    if(sd < 2) base = base*0.5;
+  }
   return base;
 }
 
@@ -2007,6 +2292,7 @@ var Map3 = (function(){
     return true;
   }
   function simWake(){                              /* 動きだす。触った瞬間ではなく、動かしたときだけ */
+    if(view && view.mode==='all'){ draw(); syncDom(); return; }  /* 星図は動かさない */
     sim.quiet = 0; sim.alpha = 1;                  /* 動かすたびに、また少し熱を持つ */
     if(!raf) raf = requestAnimationFrame(simStep);
   }
@@ -2025,8 +2311,84 @@ var Map3 = (function(){
     else sim.quiet = 99;
   }
 
+  /* ---- 「全て」の配置：時系列の星図 ------------------------------------
+     中心が現在の自分。外へ行くほど過去。
+     日付を古い順に正規化して半径を決め、角度は時系列順と黄金角で配る。
+     同じ月は近い角度にまとめ、Future Memo は中心から未来へ伸びる別軌道に置く。
+     毎回まったく同じ位置になる。揺れる力学計算は使わない。 */
+  var GOLD = Math.PI * (3 - Math.sqrt(5));       /* 黄金角 ≒ 137.5° */
+  var SPIRAL = { rMin: 70, rMax: 430, monthSpan: 0.42, comet: [96, 150, 204] };
+
+  function layoutTimeline(list, tree){
+    var self = null, dated = [], future = [], undated = [], marks = [];
+    list.forEach(function(n){
+      if(n.id==='self'){ self = n; return; }
+      if(n.isFuture || (n.entry && n.entry.source==='future_memo')){ future.push(n); return; }
+      if(n.kind==='chapter'){ marks.push(n); return; }   /* 章は、その期間の目印として後で置く */
+      var t = n.lastSeenAt || n.firstSeenAt || (n.entry && n.entry.occurredAt) || null;
+      if(t) { n._t = t; dated.push(n); } else undated.push(n);
+    });
+    if(self){ self.x = 0; self.y = 0; self.depth = 0; }
+
+    /* 古い順に並べ、順位で半径を決める。古いほど外側。 */
+    dated.sort(function(a,b){ return a._t < b._t ? -1 : a._t > b._t ? 1 : (a.id<b.id?-1:1); });
+    var n = dated.length;
+    /* 月ごとの塊をつくる。同じ月は角度が近くなる。 */
+    var months = [], seen = {};
+    dated.forEach(function(d){ var m = d._t.slice(0,7); if(!seen[m]){ seen[m]=1; months.push(m); } });
+    months.sort();                                  /* 古い月が先 */
+    var mIndex = {}; months.forEach(function(m,i){ mIndex[m] = i; });
+
+    dated.forEach(function(d, i){
+      var m = d._t.slice(0,7);
+      /* 半径：古いほど外。順位を使うので、記録の密度が偏っても均等に散る */
+      var k = n<=1 ? 0 : (n-1-i)/(n-1);            /* 0=最新 → 1=最古 */
+      var r = SPIRAL.rMin + Math.pow(k, 0.82) * (SPIRAL.rMax - SPIRAL.rMin);
+      /* 角度：月ごとの基準角（黄金角）＋ 月内での小さなずらし */
+      var base = mIndex[m] * GOLD;
+      var within = 0, cnt = 0;
+      dated.forEach(function(o){ if(o._t.slice(0,7)===m){ if(o===d) within = cnt; cnt++; } });
+      var off = cnt<=1 ? 0 : (within/(cnt-1) - .5) * SPIRAL.monthSpan;
+      var ang = base + off;
+      d.x = Math.cos(ang)*r; d.y = Math.sin(ang)*r;
+      d.depth = 1 + Math.round(k*3);
+      d.ring = k;
+    });
+
+    /* 章（年・月・週）は、その期間の記録たちの重心のすこし外に置く。時間の見出しになる。 */
+    marks.forEach(function(mk){
+      var key = mk.key || '';
+      var mine = dated.filter(function(d){ return key && d._t.indexOf(key.slice(0,7))===0; });
+      if(!mine.length) mine = dated.filter(function(d){ return key && d._t.indexOf(key.slice(0,4))===0; });
+      if(!mine.length){ mk.x = 0; mk.y = -SPIRAL.rMin*0.6; mk.depth = 1; return; }
+      var ax=0, ay=0;
+      mine.forEach(function(d){ ax += d.x; ay += d.y; });
+      ax/=mine.length; ay/=mine.length;
+      var len = Math.sqrt(ax*ax+ay*ay) || 1;
+      mk.x = ax/len * (len + 40); mk.y = ay/len * (len + 40);
+      mk.depth = 1;
+    });
+
+    /* Future Memo は、中心から未来へ伸びる別の軌道に。彗星として上向きに置く。 */
+    future.sort(function(a,b){ return (a.due||'9999') < (b.due||'9999') ? -1 : 1; });
+    future.forEach(function(f, i){
+      var ang = -Math.PI/2 + (i - (future.length-1)/2) * 0.34;   /* 上方向へ扇形に */
+      var r = SPIRAL.comet[Math.min(i, SPIRAL.comet.length-1)];
+      f.x = Math.cos(ang)*r; f.y = Math.sin(ang)*r;
+      f.depth = 1; f.comet = ang;
+    });
+
+    /* 日付のない記録は、外周のいちばん外側へ静かに置く */
+    undated.forEach(function(u, i){
+      var ang = GOLD * (months.length + i + 1);
+      u.x = Math.cos(ang)*(SPIRAL.rMax+34); u.y = Math.sin(ang)*(SPIRAL.rMax+34);
+      u.depth = 4; u.ring = 1;
+    });
+  }
+
   function layout(mode, list, tree){
     var byId={}; list.forEach(function(n){ byId[n.id]=n; n.depth=0; });
+    if(mode==='all'){ layoutTimeline(list, tree); return; }   /* 「全て」は時系列の星図 */
     var kids = tree.kids, cnt = {};
     (function count(id){                          /* 枝の重さ＝ぶら下がる葉の数 */
       var ks = kids[id]||[];
@@ -2085,11 +2447,15 @@ var Map3 = (function(){
       var v = (n.relatedValueIds||[]).map(function(id){ return byId[id]; }).filter(Boolean)[0];
       return v || self;
     }
-    ['interest','strength','condition','tension','experiment','recommendation','wish']
+    /* プライベート／キャリアでは、仕様の大きな星座（価値観・美意識・惹かれるもの・葛藤／
+       強み・条件・モヤモヤ・願い・次の一歩）がすべて第一階層に並ぶようにする。
+       第二階層は、その根拠になった出来事。 */
+    var flat = (mode!=='all');
+    ['aesthetic','interest','strength','condition','friction','tension','experiment','recommendation','wish']
       .forEach(function(k){
         pool.filter(function(n){ return n.kind===k; })
             .sort(function(a,b){ return b.display-a.display; })
-            .forEach(function(n){ setP(n, hostValue(n)); });
+            .forEach(function(n){ setP(n, flat ? self : hostValue(n)); });
       });
     pool.filter(function(n){ return n.kind==='turningPoint'; })
         .sort(function(a,b){ return (a.firstSeenAt||'')<(b.firstSeenAt||'')?-1:1; })
@@ -2116,19 +2482,37 @@ var Map3 = (function(){
 
   /* ---- ビューの組み立て ---- */
   function compose(mode){
-    if(!G) G = Insight.build();
+    if(!G){
+      G = Insight.build();
+      /* 本人が言い換えた仮説は、本人の言葉で表示する。生成元の言葉は残す。 */
+      G.nodes.forEach(function(n){
+        var h = hypGet(n.id);
+        if(h && h.v==='reword' && h.text){ n.autoLabel = n.autoLabel || n.label; n.label = h.text; }
+      });
+    }
     /* lvl 0=年 1=月 2=週 3=出来事。ピンチで一段ずつ深くなる */
     var pool = G.nodes.filter(function(n){
+      /* 本人が「この仮説を削除する」と答えたものは地図から外す。
+         元の記録は消さない。 */
+      if(hypDropped(n.id)) return false;
       if(mode==='likes')  return ['self','value','aesthetic','interest','wish','recommendation','tension','experiment','evidence'].indexOf(n.kind)>=0;
       if(mode==='career') return ['self','value','strength','condition','friction','tension','wish','turningPoint','experiment','evidence'].indexOf(n.kind)>=0;
+      /* 「全て」は記録を時間で見るビュー。仮説はプライベートとキャリアに置く。 */
+      if(['self','chapter','turningPoint','wish','evidence'].indexOf(n.kind)<0) return false;
       if(n.kind==='chapter'){
         if(n.level==='year')  return true;
         if(n.level==='month') return lvl >= 1;
         return lvl >= 2;                                   /* 週 */
       }
       /* 出来事は小項目。全てビューではピンチの深さで、
-         プライベート／キャリアでは中項目を押したときにひらく。 */
-      if(n.kind==='evidence') return mode!=='all' || lvl >= 3;
+         プライベート／キャリアでは中項目を押したときにひらく。
+         ただし領域の確からしさが低い記録は、どちらかに決めつけず「全て」だけに残す。 */
+      if(n.kind==='evidence'){
+        if(mode==='all') return true;      /* 星図では記録そのものが星 */
+        var e = n.entry;
+        if(e && e.domainConfidence < MAPC.DOMAIN_MIN && !e.bridged) return false;
+        return true;
+      }
       return true;
     });
     pool.forEach(function(n){ n.display = displayScore(n, mode); });
@@ -2136,6 +2520,7 @@ var Map3 = (function(){
     /* 最初は中項目だけを枝として出す。押された中項目の下だけ、小項目がひらく。
        いきなり全部を出すと、どこが幹でどこが枝葉か読めなくなるため。 */
     (function fold(){
+      if(mode==='all'){ pool.forEach(function(n){ n.hidden = 0; }); return; }
       var by0={}; pool.forEach(function(n){ by0[n.id]=n; });
       var t0 = buildTree(pool, by0, mode);
       var show = {self:1}, mid = {}, sub = {};
@@ -2157,6 +2542,30 @@ var Map3 = (function(){
         n.hidden = show[n.id] ? ks.filter(function(c){ return !show[c]; }).length : 0;
       });
       pool = pool.filter(function(n){ return show[n.id]; });
+
+      /* 中項目そのものも絞る。全部を第一階層に並べると、
+         どれが今の自分の話なのか読めなくなるため。
+         同じ種類は上位3つまで。そのうえで全体をMIDCAPで抑える。 */
+      if(mode!=='all'){
+        var MIDCAP = 13, PERKIND = 3;
+        var mids = pool.filter(function(n){ return mid[n.id] && n.kind!=='chapter'; })
+                       .sort(function(x,y){ return y.display-x.display; });
+        var perk = {}, midKeep = {}, midRest = [];
+        mids.forEach(function(n){
+          perk[n.kind] = (perk[n.kind]||0) + 1;
+          if(perk[n.kind] <= PERKIND) midKeep[n.id]=1; else midRest.push(n);
+        });
+        var room = MIDCAP - Object.keys(midKeep).length;
+        midRest.slice(0, Math.max(0, room)).forEach(function(n){ midKeep[n.id]=1; });
+        /* ひらいている枝は、たとえ順位が下でも閉じない */
+        mids.forEach(function(n){ if(opened[n.id]) midKeep[n.id]=1; });
+        mids.forEach(function(n){ if(!midKeep[n.id]) delete mid[n.id]; });
+        pool = pool.filter(function(n){
+          return n.id==='self' || n.kind==='chapter' || mid[n.id] || sub[n.id];
+        });
+        /* 落とした中項目のぶん、隠れている数を自分の星に持たせ直す */
+        by0['self'] && (by0['self'].hidden = Math.max(0, (t0.kids['self']||[]).length - Object.keys(mid).length));
+      }
 
       /* 一度に出す星の数を抑える。読めなくなるのを防ぐ。
          中項目と、いまひらいている小項目は削らない。 */
@@ -2216,7 +2625,7 @@ var Map3 = (function(){
     Object.keys(tree.parentOf).forEach(function(cid){
       var c=byId[cid], p=byId[tree.parentOf[cid]];
       link(p, c, c && c.confidence!=null ? c.confidence : .6,
-           !!(c && c.tier==='seed' && c.kind!=='evidence' && c.kind!=='chapter'),
+           !!(c && stageOf(c)==='seed'),
            'ここから伸びています', true);
     });
     pool.forEach(function(n){
@@ -2227,6 +2636,17 @@ var Map3 = (function(){
       (n.evidenceIds||[]).slice(0,4).forEach(function(eid){
         link(n, byId['e:'+eid], .4, true, 'この出来事が根拠', false);
       });
+    });
+    /* 記録どうしの関係。種類ごとに色と説明を持たせる。
+       つながらなかった記録（孤児）は、線を引かずに印だけ付ける。 */
+    var orphans = {};
+    (G.rels||[]).forEach(function(r){
+      if(r.kind==='orphan'){ var o=byId['e:'+r.a]; if(o){ o.orphan=1; o.orphanWhy=r.why; } orphans[r.a]=1; return; }
+      var A=byId['e:'+r.a], B=byId['e:'+r.b];
+      if(!A||!B) return;
+      var e0 = {a:A,b:B,w:r.w,dashed:true,why:r.why,trunk:false,rel:r.kind};
+      var k0 = A.id+'|'+B.id; if(seen[k0]) return; seen[k0]=1;
+      edges.push(e0);
     });
 
     /* 幹ごとに色を配り、子孫へ受け継ぐ。色をたどれば枝がわかる。 */
@@ -2240,30 +2660,231 @@ var Map3 = (function(){
       if(byId['self']) byId['self'].branch = '#F3E6C8';
     })();
 
-    layout(mode, pool, tree);                              /* 放射ツリーを初期形に置く */
-    simBuild(pool, byIdAll, tree, edges);
-    simSettle();                                           /* 力で解いて、有機的な形に落ち着かせる */
+    layout(mode, pool, tree);
+    if(mode==='all'){
+      /* 時系列の星図は、日付から位置が決まる。毎回まったく同じ場所に出す。
+         力学計算は使わないので、揺れもドリフトもない。 */
+      sim.list = pool; sim.links = []; sim.root = byIdAll['self'] || null;
+      pool.forEach(function(n){ n.vx=0; n.vy=0; });
+      sim.alpha = 0; sim.drag = null;
+    } else {
+      simBuild(pool, byIdAll, tree, edges);
+      simSettle();                                         /* 力で解いて、有機的な形に落ち着かせる */
+    }
     return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet, tree:tree,
             ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
+  }
+
+  /* ---- 気づきの帯：鏡・橋・羅針盤 ----
+     鏡＝繰り返し現れているもの／橋＝離れた記録どうしの線／羅針盤＝次の小さな一歩。
+     どれも最大1つ。並べすぎると、読むのではなく浴びるものになるため。
+     言い方の順番は、事実 → 仮説 → 問い。断定はしない。 */
+  function insightsFor(v){
+    var out = [];
+    function grown(n){ var g=stageOf(n); return g && g!=='seed'; }
+    /* 鏡：いちばん繰り返し現れているもの */
+    var m = v.ranked.filter(function(n){
+      return ['value','strength','aesthetic','interest','condition'].indexOf(n.kind)>=0 && grown(n);
+    })[0];
+    if(m){
+      var st = m.stat||{n:(m.evidenceIds||[]).length, months:1};
+      out.push({k:'mirror', t:'鏡',
+        f: st.n+'件の記録に、「'+m.label+'」が出ています。',
+        q: 'これは、あなたが選んできたことでしょうか。それとも、選ばされてきたことでしょうか。',
+        node: m});
+    }
+    /* 橋：離れた時間や領域をまたいでつながっている線 */
+    var chain = bridgeChain();
+    if(chain && chain.length>=3){
+      out.push({k:'bridge', t:'橋',
+        f: chain.map(function(x){ return x.short; }).join(' → '),
+        q: 'この並びの真ん中にあるものに、名前をつけるとしたら何でしょう。'});
+    } else {
+      var br = (G.rels||[]).filter(function(r){ return r.kind==='foreshadow'||r.kind==='cross_domain'; })[0];
+      if(br && G.entries[br.a] && G.entries[br.b])
+        out.push({k:'bridge', t:'橋',
+          f: br.why,
+          q: 'この2つは、あなたの中では同じことでしょうか。'});
+    }
+    /* 羅針盤：次に試せる小さなこと */
+    var c = v.ranked.filter(function(n){ return n.kind==='experiment'||n.kind==='recommendation'; })[0];
+    if(c){
+      out.push({k:'compass', t:'羅針盤',
+        f: c.label,
+        q: 'うまくいくかではなく、やってみて力が出るかを見てみませんか。',
+        node: c});
+    }
+    return out.slice(0,3);
+  }
+  /* 記録から記録へ、関係の線をいちばん長くたどる。時間の古い順に並べる。 */
+  function bridgeChain(){
+    var rels = (G.rels||[]).filter(function(r){ return r.b && r.kind!=='orphan'; });
+    if(!rels.length) return null;
+    var adj = {};
+    rels.forEach(function(r){
+      (adj[r.a]=adj[r.a]||[]).push(r.b); (adj[r.b]=adj[r.b]||[]).push(r.a);
+    });
+    function when(id){ var e=G.entries[id]; if(!e) return '9999';
+      return e.occurredAt || (/小さい頃|子どもの頃|昔|幼い/.test(e.rawText||'') ? '1990-01-01' : todayISO()); }
+    var best = [];
+    Object.keys(adj).forEach(function(startId){
+      (function walk(id, path, seen){
+        if(path.length > best.length) best = path.slice();
+        if(path.length >= 5) return;
+        (adj[id]||[]).forEach(function(nx){
+          if(seen[nx]) return;
+          seen[nx]=1; path.push(nx); walk(nx, path, seen);
+          path.pop(); delete seen[nx];
+        });
+      })(startId, [startId], (function(){ var o={}; o[startId]=1; return o; })());
+    });
+    if(best.length < 3) return null;
+    best.sort(function(a,b){ return when(a) < when(b) ? -1 : 1; });
+    return best.map(function(id){
+      var e=G.entries[id]||{};
+      var txt=(e.rawText||'').replace(/[。、！？\n].*$/,'');
+      return {id:id, short: txt.length>13 ? txt.slice(0,13)+'…' : txt};
+    });
+  }
+  function renderInsights(){
+    var w=$('#mapInsights'); if(!w) return;
+    w.innerHTML='';
+    if(!S.logs.length) return;
+    insightsFor(view).forEach(function(i){
+      var b=document.createElement('button');
+      b.type='button'; b.className='ins ins-'+i.k;
+      b.setAttribute('aria-label', i.t+'：'+i.f+' '+i.q);
+      b.innerHTML='<b>'+esc(i.t)+'</b><span>'+esc(i.f)+'</span><em>'+esc(i.q)+'</em>';
+      b.onclick=function(){
+        /* 1回目でひらいて問いを見せ、2回目でその星へ寄る */
+        if(!b.classList.contains('open')){
+          Array.prototype.forEach.call(w.children, function(c){ c.classList.remove('open'); });
+          b.classList.add('open'); return;
+        }
+        if(i.node){ sel=i.node; carded=true; computeKin(); showCard(i.node); panIntoView(i.node); draw(); syncDom(); }
+      };
+      w.appendChild(b);
+    });
+  }
+
+  /* ---- 物語のレンズ ----
+     世界の見え方を1つだけ差し出す。答えは5つ。押さなくても消えない。
+     受け取った見方は「世界観の棚」に積まれる。 */
+  function lensFor(v){
+    function grown(n){ var g=stageOf(n); return g && g!=='seed'; }
+    var top = v.ranked.filter(function(n){
+      return ['value','aesthetic','strength','condition','tension'].indexOf(n.kind)>=0 && grown(n); });
+    var cands = [];
+    top.slice(0,4).forEach(function(n){
+      if(n.kind==='tension')
+        cands.push({id:'lens:'+n.id, title:'どちらも本当',
+          p:'「'+n.label+'」。この2つは、どちらかを選ぶものではなく、両方あるまま進めるものかもしれません。',
+          q:'いまのあなたには、この見方はどう映りますか。'});
+      else if(n.kind==='condition')
+        cands.push({id:'lens:'+n.id, title:'場所の話',
+          p:'「'+n.label+'」。これは、あなたの能力ではなく、あなたに合う場所の話かもしれません。',
+          q:'いまのあなたには、この見方はどう映りますか。'});
+      else
+        cands.push({id:'lens:'+n.id, title:'続いているもの',
+          p:'「'+n.label+'」。これは一時の気分ではなく、あなたが何度も戻ってきている場所かもしれません。',
+          q:'いまのあなたには、この見方はどう映りますか。'});
+    });
+    /* まだ答えていないものを、日ごとに1つだけ */
+    var open0 = cands.filter(function(c){ return !lensGet(c.id); });
+    if(!open0.length) return null;
+    var i = Math.floor(hash01(todayISO()+'|'+v.mode) * open0.length);
+    return open0[Math.min(i, open0.length-1)];
+  }
+  function lensGet(id){ return (S.cfg.lens||{})[id] || null; }
+  function lensSet(id, rec){
+    S.cfg.lens = S.cfg.lens || {};
+    if(!rec) delete S.cfg.lens[id]; else S.cfg.lens[id]=rec;
+    Store.saveLocal();
+  }
+  var LENSOPT = [
+    {v:'fit',    t:'しっくりくる'},
+    {v:'off',    t:'少し違う'},
+    {v:'unsure', t:'今は分からない'},
+    {v:'reword', t:'言葉を変える'},
+    {v:'close',  t:'この見方は閉じる'}
+  ];
+  function renderLens(){
+    var w=$('#mapLens'); if(!w) return;
+    var L = S.logs.length ? lensFor(view) : null;
+    if(!L){ w.hidden=true; w.innerHTML=''; w.dataset.has='0'; return; }
+    w.dataset.has='1'; w.hidden = !!sel;
+    var wasOpen = w.classList.contains('open');
+    w.innerHTML='<button type="button" class="lenshead" id="lensHead" aria-expanded="'+(wasOpen?'true':'false')+'">'+
+      '<b>物語のレンズ</b><p>'+esc(L.p)+'</p></button>'+
+      '<p class="lq">'+esc(L.q)+'</p>'+
+      '<div class="lopts">'+LENSOPT.map(function(o){
+        return '<button type="button" data-v="'+o.v+'">'+esc(o.t)+'</button>'; }).join('')+'</div>'+
+      '<button type="button" class="lshelf" id="lensShelf">世界観の棚を見る</button>';
+    $('#lensHead').onclick=function(){
+      var on = w.classList.toggle('open');
+      $('#lensHead').setAttribute('aria-expanded', on?'true':'false');
+    };
+    Array.prototype.forEach.call(w.querySelectorAll('.lopts button'), function(btn){
+      btn.onclick=function(){
+        var v=btn.getAttribute('data-v'), text=L.p;
+        if(v==='reword'){
+          var t=window.prompt('あなたの言葉で書き換えてください', L.p);
+          if(t===null) return; t=t.trim(); if(!t) return; text=t;
+        }
+        lensSet(L.id, {v:v, text:text, title:L.title, at:todayISO()});
+        renderLens();
+        toast(v==='close' ? '閉じました' : '棚に置きました');
+      };
+    });
+    $('#lensShelf').onclick=openShelf;
+  }
+  function openShelf(){
+    var m = S.cfg.lens||{};
+    var ks = Object.keys(m).filter(function(k){ return m[k].v!=='close'; });
+    var h='<h3 class="sh-t">世界観の棚</h3><p class="mono-note">受け取った見方が積まれています。いつでも降ろせます。</p>';
+    if(!ks.length) h += '<p class="mono-note" style="margin-top:14px">まだ何も置かれていません。</p>';
+    ks.forEach(function(k){
+      var r=m[k];
+      var ja = (LENSOPT.filter(function(o){ return o.v===r.v; })[0]||{}).t || '';
+      h += '<div class="shelf-item"><p>'+esc(r.text)+'</p><span>'+esc(r.at)+' ・ '+esc(ja)+
+           '</span> <button type="button" class="lshelf" data-k="'+esc(k)+'">棚から降ろす</button></div>';
+    });
+    Sheet.open(h, function(b){
+      Array.prototype.forEach.call(b.querySelectorAll('[data-k]'), function(btn){
+        btn.onclick=function(){ lensSet(btn.getAttribute('data-k'), null); openShelf(); renderLens(); };
+      });
+    });
   }
 
   /* ---- サマリー文 ---- */
   function summarize(v){
     if(!S.logs.length) return '';
-    var top = v.ranked.filter(function(n){ return n.kind!=='self'&&n.kind!=='evidence'; })[0];
-    if(!top) return 'まだ一つの軸に決めず、記録を集めています。';
+    /* 上のまとめには「芽」を出さない。1件だけ見えたことを、
+       あなたはこういう人です、と言ってしまわないため。 */
+    function grown(n){ var g=stageOf(n); return g && g!=='seed'; }
+    var pool0 = v.ranked.filter(function(n){ return n.kind!=='self'&&n.kind!=='evidence'&&grown(n); });
+    /* 「全て」は時間のビュー。仮説ではなく、いまの章の話をする。 */
+    if(v.mode==='all'){
+      var c0 = v.ranked.filter(function(n){ return n.kind==='chapter'; })[0];
+      var v0 = v.values.filter(grown)[0] || v.values[0];
+      return (c0? '「'+c0.label+'」':'いまの章') + 'が、' +
+             (v0? '「'+v0.label+'」':'あなたの選び方') + 'を中心に進んでいます。';
+    }
+    var top = pool0[0];
+    if(!top) return 'まだ言葉にはせず、記録が集まってきているところです。';
     if(v.mode==='likes'){
-      var i = v.ranked.filter(function(n){ return n.kind==='interest'; })[0] || top;
+      var i = pool0.filter(function(n){ return n.kind==='interest'; })[0] || top;
       return '「'+i.label+'」に、心が戻っているようです。';
     }
     if(v.mode==='career'){
-      var s = v.ranked.filter(function(n){ return n.kind==='strength'; })[0];
-      var t = v.ranked.filter(function(n){ return n.kind==='tension'; })[0];
+      var s = pool0.filter(function(n){ return n.kind==='strength'; })[0];
+      var t = pool0.filter(function(n){ return n.kind==='tension'; })[0];
       if(s) return '「'+s.label+'」力が、くり返し現れています。'+(t?' いまは「'+t.label+'」という問いの中にいるようです。':'');
       return '働き方については、まだ言葉を探している途中のようです。';
     }
     var c = v.ranked.filter(function(n){ return n.kind==='chapter'; })[0];
-    return (c? '「'+c.label+'」':'いまの章') + 'が、'+ (v.values[0]? '「'+v.values[0].label+'」':'あなたの選び方') +'を中心に進んでいます。';
+    var v0 = v.values.filter(grown)[0] || v.values[0];
+    return (c? '「'+c.label+'」':'いまの章') + 'が、'+ (v0? '「'+v0.label+'」':'あなたの選び方') +'を中心に進んでいます。';
   }
 
   /* ---- 描画 ---- */
@@ -2274,6 +2895,15 @@ var Map3 = (function(){
     cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
     draw(); syncDom();
+  }
+  /* 上に出ている文字（まとめと気づきの帯）の下端。星をそこに重ねないため */
+  function headBottom(stageTop){
+    var b = 110;
+    ['#mapSum','#mapInsights'].forEach(function(q){
+      var el=$(q); if(!el || el.hidden || !el.offsetHeight) return;
+      b = Math.max(b, el.getBoundingClientRect().bottom - stageTop);
+    });
+    return b;
   }
   function sx(n){ return W/2 + (n.x+cam.x)*cam.z; }
   function sy(n){ return H/2 + (n.y+cam.y)*cam.z; }
@@ -2306,7 +2936,7 @@ var Map3 = (function(){
     return a;
   }
   function radiusOf(n){
-    var base = n.kind==='self' ? 4.5 : n.kind==='evidence' ? 1.2 : 1.7 + (n.display||0)*4.75;
+    var base = n.kind==='self' ? 4.5 : n.kind==='evidence' ? (view && view.mode==='all' ? 2.2 : 1.2) : 1.7 + (n.display||0)*4.75;
     return base * (n===sel ? 1.25 : 1);
   }
   function draw(){
@@ -2331,6 +2961,17 @@ var Map3 = (function(){
     if(!view) return;
     var t = intro;
 
+    /* 時系列の星図では、時間の輪をごく薄く敷く。外へ行くほど過去。 */
+    if(view.mode==='all'){
+      var c0x = sx({x:0,y:0}), c0y = sy({x:0,y:0});
+      ctx.strokeStyle='#3E4A78'; ctx.lineWidth=.9;
+      [SPIRAL.rMin, 170, 300, SPIRAL.rMax].forEach(function(rr, i){
+        ctx.globalAlpha = (0.50 - i*0.08) * t;
+        ctx.beginPath(); ctx.arc(c0x, c0y, rr*cam.z, 0, 6.284); ctx.stroke();
+      });
+      ctx.globalAlpha=1;
+    }
+
     /* 幹は常に、細く静かに。選んだときだけその線が起きあがる。 */
     var lit = {};
     if(sel) view.edges.forEach(function(e){ if(e.a===sel||e.b===sel) lit[e.a.id+'|'+e.b.id]=1; });
@@ -2338,16 +2979,21 @@ var Map3 = (function(){
                    : view.primary;
     list.forEach(function(e){
       var on = sel && selKin[e.a.id] && selKin[e.b.id];   /* 道すじ全体が光る */
+      var touch = sel && (e.a===sel || e.b===sel);         /* 選んだ星につながる関係線 */
       /* 参照線（同じ価値観に根がある、など）は、選んだときだけ出す。
-         いつも出すと点線だらけになって、幹がどれか分からなくなる。 */
-      if(!e.trunk && !on) return;
+         いつも出すと点線だらけになって、幹がどれか分からなくなる。
+         時系列の星図では、幹の線も引かない。位置そのものが時間を語るため。 */
+      if(!e.trunk && !on && !(e.rel && touch)) return;
+      if(view.mode==='all' && !on && !(e.rel && touch)) return;
       var A={x:sx(e.a),y:sy(e.a)}, B={x:sx(e.b),y:sy(e.b)};
       var mx=(A.x+B.x)/2 + (B.y-A.y)*0.09, my=(A.y+B.y)/2 - (B.x-A.x)*0.09;
       ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.quadraticCurveTo(mx,my,B.x,B.y);
-      ctx.strokeStyle = on ? (e.b.branch||'#C9B183') : mixHex(e.b.branch||'#39405E', '#232A44', .62);
-      ctx.globalAlpha = (on ? .95 : (sel ? .10 : .78)) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
-      ctx.lineWidth = on ? (e.trunk ? 1.6 : 1.1) : .9;
-      ctx.setLineDash(!e.trunk ? [2,5] : []);
+      ctx.strokeStyle = e.rel ? (RELJA[e.rel]||{}).c || '#C9B183'
+                    : on ? (e.b.branch||'#C9B183') : mixHex(e.b.branch||'#39405E', '#232A44', .62);
+      ctx.globalAlpha = (e.rel ? .88 : on ? .95 : (sel ? .10 : .78)) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
+      ctx.lineWidth = e.rel ? 1.3 : on ? (e.trunk ? 1.6 : 1.1) : .9;
+      ctx.setLineDash(e.rel ? [5,4] : !e.trunk ? [2,5] : []);
+      if(e.rel) e.hit = {ax:A.x, ay:A.y, bx:B.x, by:B.y, mx:mx, my:my};
       ctx.stroke(); ctx.setLineDash([]);
     });
     ctx.globalAlpha=1;
@@ -2405,9 +3051,14 @@ var Map3 = (function(){
         ctx.beginPath(); ctx.arc(X,Y,r+3,0,6.284); ctx.stroke(); }
       if(n.kind==='tension'){ ctx.globalAlpha=a*.9; ctx.strokeStyle=MAPCOL.tension; ctx.lineWidth=1;
         ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(X,Y,r+4.5,0,6.284); ctx.stroke(); ctx.setLineDash([]); }
-      if(n.tier==='seed' && n.kind!=='evidence' && n.kind!=='self'){
+      var stgN = stageOf(n);
+      /* 芽はうすい輪、変わりつつある仮説は割れた輪。育ち方が目で分かるように */
+      if(stgN==='seed'){
         ctx.globalAlpha=a*.35; ctx.strokeStyle=col; ctx.lineWidth=.8;
         ctx.beginPath(); ctx.arc(X,Y,r+3,0,6.284); ctx.stroke();
+      } else if(stgN==='changing'){
+        ctx.globalAlpha=a*.6; ctx.strokeStyle='#B08153'; ctx.lineWidth=1;
+        ctx.setLineDash([4,4]); ctx.beginPath(); ctx.arc(X,Y,r+4,0,6.284); ctx.stroke(); ctx.setLineDash([]);
       }
       if(n===sel){ ctx.globalAlpha=1; ctx.strokeStyle='#F7F1E6'; ctx.lineWidth=1.2;
         ctx.beginPath(); ctx.arc(X,Y,r+7,0,6.284); ctx.stroke(); }
@@ -2418,6 +3069,8 @@ var Map3 = (function(){
   /* ---- ラベルと当たり判定（HTML／キーボード対応） ---- */
   function syncDom(){
     if(!view||!layer) return;
+    /* 星を選んでいるあいだ、レンズは引っこむ。読むものが2つ重ならないように */
+    var lw=$('#mapLens'); if(lw && lw.dataset.has==='1') lw.hidden = !!sel;
     var pad = 66;
     Array.prototype.forEach.call(layer.children, function(el){
       var n = view.byId[el.dataset.id];
@@ -2427,7 +3080,9 @@ var Map3 = (function(){
       el.style.display = show ? '' : 'none';
       if(!show) return;
       if(el.classList.contains('nhit')){
-        var d=Math.max(30, r*2+16);
+        /* 指で押せる大きさを必ず確保する。見た目の点は小さくても、
+           押せる範囲は44px以上あける。 */
+        var d=Math.max(44, r*2+16);
         el.style.width=d+'px'; el.style.height=d+'px';
         el.style.left=X+'px'; el.style.top=Y+'px';
       } else {
@@ -2445,7 +3100,7 @@ var Map3 = (function(){
   /* ラベル同士が重なったらずらし、それでも無理なら隠す */
   function avoidCollisions(){
     var sumEl=$('#mapSum'), stageTop=stage.getBoundingClientRect().top;
-    var top = sumEl ? Math.min(H*0.4, sumEl.getBoundingClientRect().bottom - stageTop + 10) : 110;
+    var top = Math.min(H*0.46, headBottom(stageTop) + 10);
     var bottom = H - 96;                            /* ヒントと「全体を見る」の帯は避ける */
     var items = Array.prototype.filter.call(layer.children, function(el){
       return el.classList.contains('nlabel') && el.style.visibility!=='hidden' && el.style.display!=='none';
@@ -2584,6 +3239,7 @@ var Map3 = (function(){
     sel = keep===false ? null : (view.byId[id] || null);
     computeKin(); buildDom(); renderChips();
     $('#mapSum').textContent = summarize(view);
+    renderInsights(); renderLens();
     fit();                       /* 先に、ひらいたあとの姿で画面に収める */
     /* そのうえで、新しく出てきた小項目だけ親のところから咲くように出す */
     var fresh = view.nodes.filter(function(m){ return !beforeIds[m.id]; });
@@ -2619,6 +3275,89 @@ var Map3 = (function(){
     return '<div class="nd-ev"><span class="d">'+esc(d)+'</span><span class="t">'+esc(e.rawText)+
            '<em>'+esc(kindJa)+'</em></span></div>';
   }
+  /* 線を押せるようにする。曲線は3点で近似して、いちばん近い線を返す。 */
+  function edgeAt(px, py){
+    if(!view) return null;
+    var best=null, bd=16;
+    view.edges.forEach(function(e){
+      if(!e.rel || !e.hit) return;
+      var h=e.hit;
+      var pts=[[h.ax,h.ay]], STEPS=8;
+      for(var i=1;i<=STEPS;i++){
+        var u=i/STEPS, iu=1-u;
+        pts.push([iu*iu*h.ax + 2*iu*u*h.mx + u*u*h.bx,
+                  iu*iu*h.ay + 2*iu*u*h.my + u*u*h.by]);
+      }
+      for(var k=0;k<pts.length-1;k++){
+        var d=segDist(px,py,pts[k][0],pts[k][1],pts[k+1][0],pts[k+1][1]);
+        if(d<bd){ bd=d; best=e; }
+      }
+    });
+    return best;
+  }
+  function segDist(px,py,x1,y1,x2,y2){
+    var dx=x2-x1, dy=y2-y1, L=dx*dx+dy*dy;
+    var u = L ? Math.max(0, Math.min(1, ((px-x1)*dx + (py-y1)*dy)/L)) : 0;
+    var qx=x1+u*dx, qy=y1+u*dy;
+    return Math.hypot(px-qx, py-qy);
+  }
+  function showRelCard(e){
+    var el=$('#nodeDetail'), b=$('#ndBody');
+    var meta = RELJA[e.rel] || {t:'つながり', c:'#8E97B5'};
+    var h = '<p class="nd-k"><i style="background:'+meta.c+'"></i>つながり</p>'+
+      '<p class="nd-stage" style="border-color:'+meta.c+'55;color:'+meta.c+'">'+esc(meta.t)+'</p>'+
+      '<h4>'+esc(e.a.label)+' と '+esc(e.b.label)+'</h4>'+
+      '<div class="nd-sec"><h5>なぜ結ばれている？</h5><p>'+esc(e.why)+'</p>'+
+      '<p class="nd-stagenote">これは見立てです。違うと感じたら、そのままにしておいて大丈夫です。</p></div>';
+    b.innerHTML=h; el.classList.add('on');
+  }
+
+  /* 星が属している領域。決めきれないときは決めない。 */
+  function cardDomain(n){
+    var ds = {};
+    (n.evidenceIds||[]).forEach(function(id){
+      var e=G.entries[id]; if(!e) return;
+      if(e.domainConfidence!=null && e.domainConfidence < MAPC.DOMAIN_MIN) return;
+      ds[e.domain] = (ds[e.domain]||0)+1;
+    });
+    var ks = Object.keys(ds).sort(function(a,b){ return ds[b]-ds[a]; });
+    if(!ks.length) return 'まだ決めていない';
+    if(ks.length>=2 && ds[ks[1]] >= ds[ks[0]]*0.8) return DOMJA(ks[0])+'と'+DOMJA(ks[1])+'の両方';
+    return DOMJA(ks[0]);
+  }
+  /* いちばんつらかった記録の強さ。意味づけを急がないための目安 */
+  function cardDistress(n){
+    var m=0;
+    (n.evidenceIds||[]).forEach(function(id){
+      var e=G.entries[id]; if(!e) return;
+      if(e.energy==='drain' || (e.violatedNeeds||[]).length)
+        m = Math.max(m, (e.emotionalIntensity||0)*0.7 + ((e.violatedNeeds||[]).length?0.3:0));
+    });
+    return m;
+  }
+  /* この星につながっている関係線を、種類つきで返す */
+  function cardRels(n){
+    var mine = {};
+    (n.evidenceIds||[]).forEach(function(id){ mine[id]=1; });
+    if(n.kind==='evidence' && n.entry) mine[n.entry.id]=1;
+    return (G.rels||[]).filter(function(r){
+      return r.kind!=='orphan' && (mine[r.a] || mine[r.b]);
+    }).slice(0,3);
+  }
+  /* 問いはひとつだけ。答えを出させるためではなく、置いておくため。 */
+  function cardQuestion(n, stg){
+    if(stg==='seed')     return 'これは、これから何度も戻ってくることでしょうか。それとも、この一度きりのことでしょうか。';
+    if(stg==='changing') return 'いまのあなたなら、これをどんな言葉で言い直しますか。';
+    if(stg==='tension')  return 'この2つが両方あるまま進めるとしたら、どんな進み方になりそうですか。';
+    if(n.kind==='condition')  return 'この条件は、いまの場所でどのくらい満たせていますか。';
+    if(n.kind==='friction')   return 'これは、あなたの側の話でしょうか。それとも、場所の側の話でしょうか。';
+    if(n.kind==='strength')   return 'これを使っているとき、あなたは何をしているときですか。';
+    if(n.kind==='wish' || n.kind==='experiment' || n.kind==='recommendation')
+      return '今週のうちに、これを15分だけ試すとしたら、何をしますか。';
+    if(n.kind==='evidence')   return 'この日のことを、いまはどう思い出しますか。';
+    return 'これは、あなたが選んできたことでしょうか。それとも、選ばされてきたことでしょうか。';
+  }
+
   function showCard(n){
     var el=$('#nodeDetail'), b=$('#ndBody');
     var col = MAPCOL[n.kind]||'#8E97B5';
@@ -2632,8 +3371,44 @@ var Map3 = (function(){
       h += '<div class="nd-sec"><h5>今月のテーマ</h5><p>'+esc(mt||'まだ名前がありません')+'</p></div>';
       b.innerHTML=h; el.classList.add('on'); return;
     }
+    var stg0 = stageOf(n);
+    if(stg0) h += '<p class="nd-stage stg-'+stg0+'">'+esc(STAGEJA[stg0])+'</p>';
     h += '<h4>'+esc(n.label)+'</h4>';
+    if(n.autoLabel && n.autoLabel!==n.label)
+      h += '<p class="nd-was">はじめの言葉：'+esc(n.autoLabel)+'</p>';
     if(n.summary) h += '<p class="sum">'+esc(n.summary)+'</p>';
+    /* ── ① 事実 ──
+       まず、何がどれだけあったか。ここには解釈を混ぜない。 */
+    var st = n.stat||{n:(n.evidenceIds||[]).length, months:1, days:1, domains:1};
+    var mix = n.evidenceMix;
+    var facts = [];
+    if(st.n) facts.push('記録の数：'+st.n+'件');
+    if(st.days) facts.push('日付の違う日：'+st.days+'日');
+    if(st.months) facts.push('またいだ月：'+st.months+'か月');
+    if(n.firstSeenAt) facts.push('最初に現れた：'+n.firstSeenAt);
+    if(n.lastSeenAt)  facts.push('最近現れた：'+n.lastSeenAt);
+    facts.push('領域：'+cardDomain(n));
+    h += '<div class="nd-sec"><h5>事実</h5><div class="nd-meta">'+
+         facts.map(function(f){ return '<span>'+esc(f)+'</span>'; }).join('')+'</div>';
+    if(mix){
+      var kinds=[];
+      if(mix.choice)   kinds.push('何かを選び直した記録が'+mix.choice+'件');
+      if(mix.outcome)  kinds.push('それで結果が変わった記録が'+mix.outcome+'件');
+      if(mix.praised)  kinds.push('人から反応があった記録が'+mix.praised+'件');
+      if(mix.violated) kinds.push('侵されたときに痛んだ記録が'+mix.violated+'件');
+      if(kinds.length) h += '<p class="nd-factline">'+esc(kinds.join('、')+'あります。')+'</p>';
+      if(mix.objects && mix.objects.length>=2)
+        h += '<p class="nd-factline">'+esc(mix.objects.slice(0,3).join('・')+'に共通して現れています。')+'</p>';
+    }
+    h += '</div>';
+    var evs0=(n.evidenceIds||[]).slice(0,5).map(evLine).join('');
+    if(evs0) h += '<div class="nd-sec"><h5>根拠になった記録</h5>'+evs0+'</div>';
+    /* つらさの強い記録は、意味づけを急がない */
+    if(cardDistress(n) >= .72)
+      h += '<p class="nd-hold">ここに残しました。今は、意味を決めなくても大丈夫です。</p>';
+
+    /* ── ② 見立て（仮説）── */
+    h += '<div class="nd-band">見立て</div>';
     /* モヤモヤは4層で見せる。原因を能力に閉じず、環境との相性として置く。 */
     if(n.kind==='friction' && n.layers){
       h += '<div class="nd-sec nd-layers">'+
@@ -2648,45 +3423,62 @@ var Map3 = (function(){
     if(n.kind==='tension' && n.sides){
       h += '<div class="nd-sec nd-sides"><span>'+esc(n.sides[0])+'</span><em>×</em><span>'+esc(n.sides[1])+'</span></div>';
     }
-    var st = n.stat||{n:(n.evidenceIds||[]).length, months:1, domains:1};
-    var mix = n.evidenceMix;
+    var stg = stageOf(n);
     var why;
-    if(n.tier==='identity') why = st.n+'件の記録に、'+st.months+'つの月をまたいで繰り返し現れています。';
-    else if(n.tier==='pattern') why = st.n+'件の記録に共通して現れています。まだ仮説です。';
+    if(stg==='rooted')        why = st.n+'件の記録に、'+st.months+'つの月をまたいで繰り返し現れています。';
+    else if(stg==='changing') why = st.n+'件の記録から出てきた言葉ですが、いまのあなたには合っていないかもしれません。';
+    else if(stg==='tension')  why = st.n+'件の記録の中で、２つの気持ちが同時に出ています。';
+    else if(stg==='growing')  why = st.n+'件の記録に共通して現れています。まだ仮説です。';
     else why = '1件の記録から見えた芽です。「'+n.label+'」が大事になりつつある可能性があります。';
-    /* 何を根拠にそう言えるのかを、抽象語ではなく証拠の種類で具体的に添える */
-    if(mix){
-      var bits=[];
-      if(mix.choice)   bits.push('何かを選び直した記録が'+mix.choice+'件');
-      if(mix.outcome)  bits.push('それで結果が変わった記録が'+mix.outcome+'件');
-      if(mix.praised)  bits.push('人から反応があった記録が'+mix.praised+'件');
-      if(mix.violated) bits.push('侵されたときに痛んだ記録が'+mix.violated+'件');
-      if(bits.length) why += ' '+bits.slice(0,3).join('、')+'あります。';
-      if(mix.objects && mix.objects.length>=2)
-        why += ' '+mix.objects.slice(0,3).join('・')+'に共通して現れています。';
-    }
-    h += '<div class="nd-sec"><h5>なぜここにある？</h5><p>'+esc(why)+'</p></div>';
-    var evs=(n.evidenceIds||[]).slice(0,5).map(evLine).join('');
-    if(evs) h += '<div class="nd-sec"><h5>根拠になった記録</h5>'+evs+'</div>';
+    h += '<div class="nd-sec"><h5>なぜここにある？</h5><p>'+esc(why)+'</p>'+
+         (stg? '<p class="nd-stagenote">'+esc(STAGENOTE[stg])+'</p>' : '')+'</div>';
     var rel=(n.relatedValueIds||[]).map(function(v){ return G.byId[v]? G.byId[v].label : ''; }).filter(Boolean);
     var futures = S.futures.filter(function(f){
       return (n.evidenceIds||[]).indexOf('f:'+f.id)>=0 ||
              (n.kind!=='evidence' && (f.body||'').length && (n.evidenceIds||[]).some(function(id){
                var e=G.entries[id]; return e && e.rawText && f.body && e.rawText.indexOf(f.body.slice(0,4))>=0; }));
     });
-    h += '<div class="nd-sec"><div class="nd-meta">'+
-      (rel.length? '<span>関連する価値観：'+esc(rel.join('・'))+'</span>':'')+
-      (n.firstSeenAt? '<span>最初に現れた：'+esc(n.firstSeenAt)+'</span>':'')+
-      (n.lastSeenAt? '<span>最近現れた：'+esc(n.lastSeenAt)+'</span>':'')+
-      '</div></div>';
+    if(rel.length) h += '<div class="nd-sec"><h5>根がつながっている価値観</h5><p>'+esc(rel.join('・'))+'</p></div>';
+    var lines = cardRels(n);
+    if(lines.length) h += '<div class="nd-sec"><h5>ほかの記録とのつながり</h5>'+
+      lines.map(function(r){ return '<p class="nd-relline"><i style="background:'+
+        ((RELJA[r.kind]||{}).c||'#8E97B5')+'"></i><b>'+esc((RELJA[r.kind]||{}).t||'')+'</b>'+esc(r.why)+'</p>'; }).join('')+
+      '</div>';
     if(futures.length) h += '<div class="nd-sec"><h5>Future Memo とのつながり</h5><p>'+
       esc(futures.map(function(f){ return f.body; }).join(' / '))+'</p></div>';
-    var fb=fbGet(n.id);
-    h += '<div class="nd-fb"><button type="button" id="fbYes"'+(fb>0?' class="on"':'')+'>自分らしい</button>'+
-         '<button type="button" id="fbNo"'+(fb<0?' class="on"':'')+'>少し違う</button></div>';
+
+    /* ── ③ 問い ──
+       言い切らずに、考える場所だけ残す。 */
+    h += '<div class="nd-band">問い</div>';
+    h += '<p class="nd-q">'+esc(cardQuestion(n, stg))+'</p>';
+    /* 最終的に決めるのは本人。5つの答え方を必ず同じ並びで置く。 */
+    var hy = hypGet(n.id) || {};
+    h += '<div class="nd-sec"><h5>この言葉は、いまのあなたに合っていますか</h5>'+
+         '<div class="nd-fb">'+ HYPOPT.map(function(o){
+           return '<button type="button" class="fbo'+(hy.v===o.v?' on':'')+
+                  '" data-v="'+o.v+'"'+(o.v==='del'?' data-danger="1"':'')+'>'+esc(o.t)+'</button>';
+         }).join('') +'</div>'+
+         '<p class="nd-fbnote">答えは、次からの表示に反映されます。記録そのものは消えません。</p></div>';
     b.innerHTML=h; el.classList.add('on');
-    $('#fbYes').onclick=function(){ fbSet(n.id, 1); G=null; rebuild(); toast('覚えました'); };
-    $('#fbNo').onclick =function(){ fbSet(n.id,-1); G=null; rebuild(); toast('表示を控えます'); };
+    Array.prototype.forEach.call(b.querySelectorAll('.fbo'), function(btn){
+      btn.onclick = function(){
+        var v = btn.getAttribute('data-v');
+        if(hy.v===v){ hypSet(n.id, null); G=null; rebuild(); toast('答えを取り消しました'); return; }
+        if(v==='reword'){
+          var cur = hy.v==='reword' ? (hy.text||'') : n.label;
+          var t = window.prompt('あなたの言葉で書き換えてください', cur);
+          if(t===null) return;
+          t = t.trim(); if(!t) return;
+          hypSet(n.id, 'reword', t); G=null; rebuild(); toast('あなたの言葉にしました'); return;
+        }
+        if(v==='del'){
+          if(!window.confirm('この仮説を地図から外します。元の記録は残ります。よろしいですか？')) return;
+          hypSet(n.id, 'del'); G=null; rebuild(); hideCard(); toast('地図から外しました'); return;
+        }
+        hypSet(n.id, v); G=null; rebuild();
+        toast(v==='me' ? '覚えました' : v==='off' ? '表示を控えます' : '保留にしました');
+      };
+    });
   }
 
   /* ---- 価値観チップ ---- */
@@ -2728,7 +3520,13 @@ var Map3 = (function(){
       delete pts[e.pointerId]; if(Object.keys(pts).length<2) pinch=null;
       stage.classList.remove('grabbing');
       if(drag && drag.id===e.pointerId){
-        if(drag.moved<8 && e.target===stage){ sel=null; carded=false; computeKin(); hideCard(); draw(); syncDom(); }
+        if(drag.moved<8 && e.target===stage){
+          /* 何もない所を押したら選択を解く。ただし線の上なら、その線の意味を出す。 */
+          var r0=stage.getBoundingClientRect();
+          var hitE = edgeAt(e.clientX-r0.left, e.clientY-r0.top);
+          if(hitE){ drag=null; showRelCard(hitE); return; }
+          sel=null; carded=false; computeKin(); hideCard(); draw(); syncDom();
+        }
         drag=null;
       }
     }
@@ -2760,6 +3558,17 @@ var Map3 = (function(){
 
   function fit(){
     if(!view||!view.nodes.length||!W) return;
+    if(view.mode==='all'){
+      /* 時系列の星図は、現在の自分を画面の中心に置く。外周がちょうど収まる倍率にする。 */
+      var sumEl0=$('#mapSum'), st0=stage.getBoundingClientRect().top;
+      var top0 = sumEl0 ? Math.max(120, Math.min(H*0.42, sumEl0.getBoundingClientRect().bottom - st0 + 14)) : 126;
+      var bot0 = 104, band = Math.max(120, H - top0 - bot0);
+      var need = (SPIRAL.rMax + 46) * 2;
+      cam.z = Math.max(MAPC.ZOOM.min, Math.min(1.2, Math.min((W-24)/need, band/need)));
+      cam.base = cam.z; cam.v = 1;
+      cam.x = 0; cam.y = (top0 - bot0)/2/cam.z;
+      return;
+    }
     var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
     view.nodes.forEach(function(n){
       x0=Math.min(x0,n.x); x1=Math.max(x1,n.x); y0=Math.min(y0,n.y); y1=Math.max(y1,n.y);
@@ -2767,7 +3576,7 @@ var Map3 = (function(){
     if(x0>x1) return;
     var gw=Math.max(x1-x0,140), gh=Math.max(y1-y0,140);
     var sumEl=$('#mapSum'), st=stage.getBoundingClientRect().top;
-    var topPad = sumEl ? Math.max(120, Math.min(H*0.42, sumEl.getBoundingClientRect().bottom - st + 14)) : 126;
+    var topPad = Math.max(120, Math.min(H*0.48, headBottom(st) + 14));
     var botPad = 86;
     var z=Math.min((W-104)/gw, (H-topPad-botPad)/gh);
     cam.z=Math.max(MAPC.ZOOM.min, Math.min(1.55, z));
@@ -2779,8 +3588,10 @@ var Map3 = (function(){
     if(!keepCam) fit();
     buildDom(); renderChips();
     $('#mapSum').textContent = summarize(view);
+    renderInsights(); renderLens();
+    var lg=$('#mapLegend'); if(lg) lg.hidden = (S.mapMode!=='all');
     $('#mapHint').textContent = S.mapMode==='all'
-      ? '点線の輪がある星を押すと内訳がひらき、もう一度押すとくわしく読めます'
+      ? '星を押すとその日の記録がひらきます。ピンチで 年 → 月 → 週 → 出来事'
       : '点線の輪がある星を押すと内訳がひらき、もう一度押すとくわしく読めます';
     draw(); syncDom();
   }
@@ -2800,6 +3611,13 @@ var Map3 = (function(){
       if(!cv||!cv.getContext) return;
       ctx=cv.getContext('2d'); seedSky(); bind();
       window.addEventListener('resize', resize);
+      /* Esc で、選択・カード・シートを順に閉じる。キーボードだけでも出口があるように */
+      document.addEventListener('keydown', function(e){
+        if(e.key!=='Escape') return;
+        if(Sheet.isOpen()){ Sheet.close(); return; }
+        if($('#nodeDetail').classList.contains('on')){ hideCard(); carded=false; return; }
+        if(sel){ sel=null; carded=false; computeKin(); draw(); syncDom(); }
+      });
       $('#mapReset').onclick=function(){
         sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1,base:0,v:1}; lvl=0; opened={};
         Store.saveLocal(); rebuild();
@@ -2808,7 +3626,12 @@ var Map3 = (function(){
     },
     show:function(mode){
       if(!cv) return;
-      S.mapMode = mode||'all';
+      S.mapMode = mode||S.cfg.lastMap||'career';
+      /* 覚えているビューに、タブの見た目もそろえる */
+      $$('#mapTabs button').forEach(function(x){
+        var on = x.dataset.m===S.mapMode;
+        x.classList.toggle('on', on); x.setAttribute('aria-selected', on?'true':'false');
+      });
       sel=null; chip=null; hideCard(); G=null;
       var empty = !S.logs.length;
       var e=$('#mapEmpty');
@@ -3292,39 +4115,36 @@ function renderAll(){ renderLog(); renderList(); if(S.view==='map') Map3.show(S.
 
 /* ── 16. サンプルデータ ─────────────────── */
 function seedDemo(){
-  var Y = todayISO().slice(0,4);
-  var d = function(m,day){ return Y+'-'+pad(m)+'-'+pad(day); };
+  /* 仕様で指定されたデモデータ。既存データがないときと ?demo=1 のときだけ使う。
+     ユーザーの記録を上書きすることはない。 */
+  var d = function(m,day){ return '2026-'+pad(m)+'-'+pad(day); };
   S.logs = [
-    {id:uid(),kind:'moved', body:'小さい頃、絵や物語をつくる人になりたかった', occurred_at:d(1,1), place:'', people:[], tags:['創作','物語'], undated:true},
-    {id:uid(),kind:'moved', body:'ギャラリーで知らない作家の青い絵に立ち止まった', occurred_at:d(6,16), place:'清澄白河', people:[], tags:['展示','色']},
-    {id:uid(),kind:'effort',body:'複雑な企画を図にしたら、みんなが動きやすくなった', occurred_at:d(6,18), place:'会社', people:['ミナ'], tags:['企画','言語化']},
-    {id:uid(),kind:'hard',  body:'結果を急ぎ続ける働き方に、少し疲れた',                       occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
-    {id:uid(),kind:'hard',  body:'企画を急いで形にしろと言われると、自分の感覚が置いていかれる感じがする', occurred_at:d(6,30), place:'会社', people:[], tags:['余白']},
-    {id:uid(),kind:'hard',  body:'数字だけで評価されて、プロセスや顧客への貢献は見られなかったので納得できなかった', occurred_at:d(7,15), place:'会社', people:[], tags:['評価']},
-    {id:uid(),kind:'hard',  body:'一日中問い合わせに対応したけれど、何もつくった感じがしなかった', occurred_at:d(7,2),  place:'会社', people:[], tags:['対応']},
-    {id:uid(),kind:'moved', body:'水彩のにじみを眺めている時間が心地よかった',     occurred_at:d(7,7),  place:'家',   people:[], tags:['水彩','余白']},
-    {id:uid(),kind:'effort',body:'今すぐ転職すると決めなくてもいいと思えた',       occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
-    {id:uid(),kind:'moved', body:'「急がなくていい」と言われて肩の力が抜けた',     occurred_at:d(8,6),  place:'',     people:['ミナ'], tags:['余白','言葉']},
-    {id:uid(),kind:'effort',body:'キャリア面談に行って、選択肢を並べた',           occurred_at:d(8,12), place:'渋谷', people:['カウンセラー'], tags:['キャリア']},
-    {id:uid(),kind:'effort',body:'転職はまだ決めない、と決めた',                   occurred_at:d(8,13), place:'',     people:[], tags:['キャリア','自由']},
-    {id:uid(),kind:'moved', body:'企画書の余白に波線を描いていた',                 occurred_at:d(8,20), place:'会社', people:[], tags:['制作','余白']}
+    {id:uid(),kind:'effort',demo:1, body:'複雑な企画を図にしたら、みんなが動きやすくなった', occurred_at:d(6,18), place:'会社', people:['ミナ'], tags:['企画','言語化']},
+    {id:uid(),kind:'effort',demo:1, body:'結果を急ぎ続ける働き方に、少し疲れた',             occurred_at:d(6,29), place:'会社', people:[], tags:['キャリア']},
+    {id:uid(),kind:'moved', demo:1, body:'水彩のにじみを眺めている時間が心地よかった',       occurred_at:d(7,7),  place:'家',   people:[], tags:['水彩','余白']},
+    {id:uid(),kind:'hard',  demo:1, body:'今すぐ転職すると決めなくてもいいと思えた',         occurred_at:d(7,21), place:'',     people:[], tags:['キャリア','余白']},
+    {id:uid(),kind:'hard',  demo:1, body:'「急がなくていい」と言われて、肩の力が抜けた',      occurred_at:d(8,6),  place:'',     people:['ミナ'], tags:['余白','言葉']},
+    {id:uid(),kind:'effort',demo:1, body:'キャリア面談に行って、選択肢を並べた',             occurred_at:d(8,12), place:'渋谷', people:['カウンセラー'], tags:['キャリア']},
+    {id:uid(),kind:'effort',demo:1, body:'転職はまだ決めない、と決めた',                     occurred_at:d(8,13), place:'',     people:[], tags:['キャリア','自由']},
+    {id:uid(),kind:'moved', demo:1, body:'企画書の余白に、無意識に波線を描いていた',          occurred_at:d(8,20), place:'会社', people:[], tags:['制作','余白']},
+    {id:uid(),kind:'moved', demo:1, body:'小さい頃、絵や物語をつくる人になりたかった',        occurred_at:d(1,1),  place:'', people:[], tags:['創作','物語'], undated:true}
   ];
   S.months = {};
-  S.months[Y+'-06'] = {title:'知らない青に、立ち止まった'};
-  S.months[Y+'-07'] = {title:'急がなくていいと思えた'};
-  S.months[Y+'-08'] = {title:'感性を諦めなかった面談'};
-  S.years = {}; S.years[Y] = {title:'答えを決めず、自分の道を選び始めた年'};
+  S.months['2026-06'] = {title:'動きやすい形にした月'};
+  S.months['2026-07'] = {title:'急がなくていいと思えた月'};
+  S.months['2026-08'] = {title:'決めないことを、決めた月'};
+  S.years = {}; S.years['2026'] = {title:'答えを決めず、自分の道を選び始めた年'};
   S.futures = [
-    {id:uid(), body:'小さな展示をひらく',             mode:'by',      due:(+Y+1)+'-06-30', done_at:null},
+    {id:uid(), body:'小さな展示をひらく',             mode:'by',      due:'2027-06-30', done_at:null},
     {id:uid(), body:'週に一度、手を動かす時間をとる', mode:'anytime', due:null,            done_at:null}
   ];
-  S.ym = Y+'-08'; S.year = Y;
+  S.ym = '2026-08'; S.year = '2026';
   Store.saveLocal();
   if(Store.on()){
     Promise.all(S.logs.map(function(l){ return Store.putLog(l); })
       .concat(S.futures.map(function(f){ return Store.putFuture(f); }))
       .concat(Object.keys(S.months).map(function(k){ return Store.putMonth(k); }))
-      .concat([Store.putYear(Y)])).then(function(){ toast('サンプルを同期しました'); });
+      .concat([Store.putYear('2026')])).then(function(){ toast('サンプルを同期しました'); });
   }
   renderAll(); toast('サンプルデータを入れました');
 }
@@ -3336,6 +4156,7 @@ function boot(){
   $$('#mapTabs button').forEach(function(b){
     b.onclick=function(){
       S.mapMode=b.dataset.m;
+      S.cfg.lastMap=S.mapMode; Store.saveLocal();   /* 最後に選んだビューを覚える */
       $$('#mapTabs button').forEach(function(x){
         var on = (x===b); x.classList.toggle('on', on); x.setAttribute('aria-selected', on?'true':'false'); });
       Map3.show(S.mapMode);          /* タブ切替で選択・チップ・カードは解除される */
@@ -3352,7 +4173,11 @@ function boot(){
   $('#yNext').onclick=function(){ var y=allYears(), i=y.indexOf(S.year); if(i<y.length-1){ S.year=y[i+1]; renderList(); } };
   Map3.init();
   S.openYM[todayISO().slice(0,7)] = true;   /* 今月は最初からひらいておく */
-  if(!S.logs.length && !Store.on()) seedDemo();   /* 同期設定済みならサンプルは入れない */
+  if(S.cfg.lastMap) S.mapMode = S.cfg.lastMap;
+  var demoQ = /[?&]demo=1(&|$)/.test(location.search);
+  if(demoQ || (!S.logs.length && !Store.on())) seedDemo();   /* 同期設定済みならサンプルは入れない */
+  /* デモ表示のときだけ、中身を確かめるための窓を開けておく（本番の動作には影響しない） */
+  if(demoQ) window.__crin = {Insight:Insight, Map3:Map3, S:S, stageOf:stageOf, hypGet:hypGet, hypSet:hypSet};
   renderAll(); setView('log');
   if(Store.on()) Store.pull().then(function(){ renderAll(); }).catch(function(){});
 }
