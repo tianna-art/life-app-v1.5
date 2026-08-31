@@ -642,14 +642,20 @@ var Store = (function(){
   function local(){
     try{ return JSON.parse(localStorage.getItem(LS)) || null; }catch(e){ return null; }
   }
+  /* お試し表示(?demo=1)のあいだは、何ひとつ保存しない。
+     人の記録の上にサンプルを書き込まないための、いちばん外側の栓。 */
   function saveLocal(){
+    if(S.preview) return;
     try{
       localStorage.setItem(LS, JSON.stringify({
         logs:S.logs, months:S.months, years:S.years, futures:S.futures, cfg:S.cfg
       }));
     }catch(e){}
   }
-  function on(){ return !!(S.cfg.supabaseUrl && S.cfg.supabaseKey && S.cfg.userKey); }
+  function on(){
+    if(S.preview) return false;
+    return !!(S.cfg.supabaseUrl && S.cfg.supabaseKey && S.cfg.userKey);
+  }
   function url(path){ return S.cfg.supabaseUrl.replace(/\/$/,'') + '/rest/v1/' + path; }
   function hd(extra){
     var h = { 'apikey':S.cfg.supabaseKey, 'Content-Type':'application/json' };
@@ -4139,14 +4145,10 @@ function seedDemo(){
     {id:uid(), body:'週に一度、手を動かす時間をとる', mode:'anytime', due:null,            done_at:null}
   ];
   S.ym = '2026-08'; S.year = '2026';
-  Store.saveLocal();
-  if(Store.on()){
-    Promise.all(S.logs.map(function(l){ return Store.putLog(l); })
-      .concat(S.futures.map(function(f){ return Store.putFuture(f); }))
-      .concat(Object.keys(S.months).map(function(k){ return Store.putMonth(k); }))
-      .concat([Store.putYear('2026')])).then(function(){ toast('サンプルを同期しました'); });
-  }
-  renderAll(); toast('サンプルデータを入れました');
+  /* お試し表示のときは画面の中だけ。保存も同期もしない。 */
+  if(!S.preview) Store.saveLocal();
+  renderAll();
+  toast(S.preview ? 'お試し表示です。保存はされません' : 'サンプルデータを入れました');
 }
 
 /* ── 17. 起動 ───────────────────────────── */
@@ -4175,9 +4177,16 @@ function boot(){
   S.openYM[todayISO().slice(0,7)] = true;   /* 今月は最初からひらいておく */
   if(S.cfg.lastMap) S.mapMode = S.cfg.lastMap;
   var demoQ = /[?&]demo=1(&|$)/.test(location.search);
-  if(demoQ || (!S.logs.length && !Store.on())) seedDemo();   /* 同期設定済みならサンプルは入れない */
-  /* デモ表示のときだけ、中身を確かめるための窓を開けておく（本番の動作には影響しない） */
-  if(demoQ) window.__crin = {Insight:Insight, Map3:Map3, S:S, stageOf:stageOf, hypGet:hypGet, hypSet:hypSet};
+  if(demoQ){
+    /* ?demo=1 は「見るだけ」。画面の中にサンプルを置くだけで、
+       あなたの記録も、同期先のデータも、いっさい触らない。 */
+    S.preview = 1;
+    seedDemo();
+    window.__crin = {Insight:Insight, Map3:Map3, S:S, stageOf:stageOf, hypGet:hypGet, hypSet:hypSet};
+    renderAll(); setView('log');
+    return;
+  }
+  if(!S.logs.length && !Store.on()) seedDemo();   /* 何もない最初の一回だけ */
   renderAll(); setView('log');
   if(Store.on()) Store.pull().then(function(){ renderAll(); }).catch(function(){});
 }
