@@ -1864,6 +1864,8 @@ var Map3 = (function(){
   var stage, cv, ctx, layer, W=0, H=0, dpr=1;
   var G=null, view=null, cam={x:0,y:0,z:1,base:0,v:1}, sel=null, chip=null, raf=0, iraf=0, intro=0, built=false;
   var lvl=0;   /* 0=年 1=月 2=週 3=出来事 */
+  var opened={};   /* ひらいている中項目。最初はどれもたたまれている */
+  var carded=false;  /* いま詳細カードを出しているか */
   var nodeDrag=null;
   var stars=[], nebula=[];
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1991,6 +1993,19 @@ var Map3 = (function(){
     for(var t=0; t<SIMC.settle; t++) step(SIMC.DT * (t < SIMC.BURST0 ? 2.2 : 1), t < SIMC.settle*0.6 ? SIMC.spin : 0);
     sim.burst = 0; sim.quiet = 99;
   }
+  /* ひらいた小項目が、親のところから弧を描いて出てくる */
+  function stepFlight(){
+    var F = sim.flight; if(!F) return false;
+    var t = Math.min(1, (performance.now()-F.t0)/F.dur);
+    var k = 1 - Math.pow(1-t, 3);                  /* ease-out cubic */
+    F.items.forEach(function(it){
+      it.n.x = it.fx + (it.tx-it.fx)*k;
+      it.n.y = it.fy + (it.ty-it.fy)*k;
+      it.n.vx = 0; it.n.vy = 0;
+    });
+    if(t>=1){ sim.flight = null; return false; }
+    return true;
+  }
   function simWake(){                              /* 動きだす。触った瞬間ではなく、動かしたときだけ */
     sim.quiet = 0; sim.alpha = 1;                  /* 動かすたびに、また少し熱を持つ */
     if(!raf) raf = requestAnimationFrame(simStep);
@@ -1999,10 +2014,11 @@ var Map3 = (function(){
     raf = 0;
     if(!view || S.view!=='map'){ sim.quiet = 99; return; }
     if(sim.burst>0) sim.burst--;
+    var flying = stepFlight();
     /* 冷めるほど一歩が小さくなる。揺れ続けることがなく、動きも穏やかになる */
     if(!sim.drag) sim.alpha *= SIMC.cool;
     var v = step(SIMC.DT * Math.max(sim.alpha, 0.15), 0);
-    var done = !sim.drag && (v < SIMC.stop || sim.alpha < SIMC.cold);
+    var done = !sim.drag && !flying && (v < SIMC.stop || sim.alpha < SIMC.cold);
     if(done){ sim.list.forEach(function(m){ m.vx = 0; m.vy = 0; }); sim.alpha = 0; }
     draw(); syncDom();
     if(!done) raf = requestAnimationFrame(simStep);
@@ -2110,19 +2126,47 @@ var Map3 = (function(){
         if(n.level==='month') return lvl >= 1;
         return lvl >= 2;                                   /* 週 */
       }
-      if(n.kind==='evidence') return lvl >= 3;
+      /* 出来事は小項目。全てビューではピンチの深さで、
+         プライベート／キャリアでは中項目を押したときにひらく。 */
+      if(n.kind==='evidence') return mode!=='all' || lvl >= 3;
       return true;
     });
     pool.forEach(function(n){ n.display = displayScore(n, mode); });
-    /* 一度に出す星の数を抑える。深く覗くほど増える。
-       全部を同時に出すと、線も名前も読めなくなるため。 */
-    (function trim(){
-      var CAPN = mode==='all' ? [16,22,30,999][lvl] : 26;
+
+    /* 最初は中項目だけを枝として出す。押された中項目の下だけ、小項目がひらく。
+       いきなり全部を出すと、どこが幹でどこが枝葉か読めなくなるため。 */
+    (function fold(){
+      var by0={}; pool.forEach(function(n){ by0[n.id]=n; });
+      var t0 = buildTree(pool, by0, mode);
+      var show = {self:1}, mid = {}, sub = {};
+      /* 中項目＝自分から直接のびる枝。ここまでは常に見せる */
+      (t0.kids['self']||[]).forEach(function(id){ show[id]=1; mid[id]=1; });
+      /* ひらいた枝の下だけ、小項目をたどって見せる。
+         ただし年→月→週の連なりはピンチが決めるので、たたまない。 */
+      (function walk(x){
+        (t0.kids[x]||[]).forEach(function(c){
+          var period = by0[c] && by0[c].kind==='chapter';
+          if(!opened[x] && !period && x!=='self') return;
+          if(x!=='self'){ show[c]=1; if(!period) sub[c]=1; }
+          if(opened[c] || period) walk(c);
+        });
+      })('self');
+      /* たたまれている枝には、いくつ隠れているかを持たせる（点線の印を出すため）*/
+      pool.forEach(function(n){
+        var ks = t0.kids[n.id]||[];
+        n.hidden = show[n.id] ? ks.filter(function(c){ return !show[c]; }).length : 0;
+      });
+      pool = pool.filter(function(n){ return show[n.id]; });
+
+      /* 一度に出す星の数を抑える。読めなくなるのを防ぐ。
+         中項目と、いまひらいている小項目は削らない。 */
+      var CAPN = (mode==='all' ? [22,26,32,999][lvl] : 30) + Object.keys(sub).length;
       var keep = {}, rest = [];
       pool.forEach(function(n){
-        if(n.kind==='self' || n.kind==='chapter') keep[n.id]=1; else rest.push(n);
+        if(n.kind==='self' || n.kind==='chapter' || mid[n.id] || sub[n.id]) keep[n.id]=1;
+        else rest.push(n);
       });
-      rest.sort(function(a,b){ return b.display-a.display; });
+      rest.sort(function(x,y){ return y.display-x.display; });
       rest.slice(0, Math.max(0, CAPN - Object.keys(keep).length)).forEach(function(n){ keep[n.id]=1; });
       /* 残す星が参照している価値観は、線が切れないよう一緒に残す */
       pool.forEach(function(n){
@@ -2131,6 +2175,7 @@ var Map3 = (function(){
       });
       pool = pool.filter(function(n){ return keep[n.id]; });
     })();
+
     var byIdAll={}; pool.forEach(function(n){ byIdAll[n.id]=n; });
     var ranked = pool.slice().sort(function(a,b){ return b.display-a.display; });
     /* ラベルを出す顔ぶれ：ビューの主役を必ず1つずつ確保し、同じ種類が偏らないようにする */
@@ -2293,13 +2338,16 @@ var Map3 = (function(){
                    : view.primary;
     list.forEach(function(e){
       var on = sel && selKin[e.a.id] && selKin[e.b.id];   /* 道すじ全体が光る */
+      /* 参照線（同じ価値観に根がある、など）は、選んだときだけ出す。
+         いつも出すと点線だらけになって、幹がどれか分からなくなる。 */
+      if(!e.trunk && !on) return;
       var A={x:sx(e.a),y:sy(e.a)}, B={x:sx(e.b),y:sy(e.b)};
       var mx=(A.x+B.x)/2 + (B.y-A.y)*0.09, my=(A.y+B.y)/2 - (B.x-A.x)*0.09;
       ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.quadraticCurveTo(mx,my,B.x,B.y);
       ctx.strokeStyle = on ? (e.b.branch||'#C9B183') : mixHex(e.b.branch||'#39405E', '#232A44', .62);
       ctx.globalAlpha = (on ? .95 : (sel ? .10 : .78)) * Math.min(alphaOf(e.a),alphaOf(e.b)) * t;
-      ctx.lineWidth = on ? 1.6 : .9;
-      ctx.setLineDash(e.dashed && !e.trunk ? [2,4] : []);
+      ctx.lineWidth = on ? (e.trunk ? 1.6 : 1.1) : .9;
+      ctx.setLineDash(!e.trunk ? [2,5] : []);
       ctx.stroke(); ctx.setLineDash([]);
     });
     ctx.globalAlpha=1;
@@ -2344,6 +2392,14 @@ var Map3 = (function(){
           ctx.strokeStyle=sg[1]; ctx.beginPath(); ctx.arc(X,Y,rr,st,st+sw); ctx.stroke();
           st += sw + Math.PI*2*0.02;
         });
+      }
+      /* まだ小項目がたたまれている枝には、外側に点線の輪を出す。
+         「押すとひらく」ことが、見ただけで分かるようにする。 */
+      if(n.hidden){
+        ctx.globalAlpha = a*0.55; ctx.strokeStyle = n.branch || MAPCOL[n.kind] || '#8E97B5';
+        ctx.lineWidth = 1; ctx.setLineDash([2, 3.2]);
+        ctx.beginPath(); ctx.arc(X, Y, r+6.5, 0, 6.284); ctx.stroke();
+        ctx.setLineDash([]);
       }
       if(n.confirmed){ ctx.globalAlpha=a; ctx.strokeStyle='#D8B56A'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,r+4,0,6.284); ctx.stroke(); }
@@ -2449,7 +2505,10 @@ var Map3 = (function(){
     view.nodes.slice().sort(function(a,b){ return (a.display||0)-(b.display||0); }).forEach(function(n){
       var hit=document.createElement('button');
       hit.className='nhit'; hit.dataset.id=n.id; hit.type='button';
-      hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分')+'。ドラッグで動かせます');
+      hit.setAttribute('aria-label', (KINDJA[n.kind]||'')+'：'+(n.label||'いまの自分')+
+        (n.hidden ? '。押すと'+n.hidden+'件の内訳がひらきます' : '')+'。ドラッグで動かせます');
+      if(n.hidden) hit.setAttribute('aria-expanded','false');
+      else if(opened[n.id]) hit.setAttribute('aria-expanded','true');
       hit.onclick=function(ev){ ev.stopPropagation(); if(hit._sup){ hit._sup=false; return; } select(n); };
       hit.addEventListener('pointerdown', function(ev){
         ev.stopPropagation(); hit.setPointerCapture(ev.pointerId);
@@ -2499,9 +2558,44 @@ var Map3 = (function(){
 
   /* ---- 選択と詳細カード ---- */
   function select(n){
-    sel = (sel===n)?null:n; computeKin();
+    /* 1回目：小項目がひらく。2回目：くわしく読める。3回目：たたんで戻る。 */
+    if(n.id!=='self'){
+      if(n.hidden){                                  /* まだたたまれている → ひらく */
+        opened[n.id] = 1; sel = n; carded = false;
+        computeKin(); rebuildKeepSel(n); return;
+      }
+      if(opened[n.id] && sel===n && !carded){        /* ひらいている → くわしく読む */
+        carded = true; showCard(n); panIntoView(n); draw(); syncDom(); return;
+      }
+      if(opened[n.id] && sel===n && carded){         /* 読んだあと → たたんで戻る */
+        delete opened[n.id]; sel = null; carded = false;
+        computeKin(); rebuildKeepSel(n, false); return;
+      }
+    }
+    sel = (sel===n)?null:n; computeKin(); carded = !!sel;
     if(sel){ showCard(sel); panIntoView(sel); } else hideCard();
     draw(); syncDom();
+  }
+  /* ひらき直したあとも、選んだ星と、ひらいた小項目の見え方をそろえる */
+  function rebuildKeepSel(n, keep){
+    var id = n.id;
+    var beforeIds = {}; view.nodes.forEach(function(m){ beforeIds[m.id]=1; });
+    view = compose(S.mapMode);
+    sel = keep===false ? null : (view.byId[id] || null);
+    computeKin(); buildDom(); renderChips();
+    $('#mapSum').textContent = summarize(view);
+    fit();                       /* 先に、ひらいたあとの姿で画面に収める */
+    /* そのうえで、新しく出てきた小項目だけ親のところから咲くように出す */
+    var fresh = view.nodes.filter(function(m){ return !beforeIds[m.id]; });
+    if(fresh.length && !reduce && sel){
+      sim.flight = {t0: performance.now(), dur: 460, items: fresh.map(function(c){
+        return {n:c, fx:sel.x, fy:sel.y, tx:c.x, ty:c.y};
+      })};
+      fresh.forEach(function(c){ c.x = sel.x; c.y = sel.y; });
+    }
+    /* ひらいた直後はカードを出さない。まず枝が見える。もう一度押すと読める。 */
+    if(sel && !fresh.length){ showCard(sel); panIntoView(sel); } else hideCard();
+    simWake(); draw(); syncDom();
   }
   /* 選んだ星と、そこから中心へ戻る道すじが、カードに隠れないように寄せる */
   function panIntoView(n){
@@ -2634,7 +2728,7 @@ var Map3 = (function(){
       delete pts[e.pointerId]; if(Object.keys(pts).length<2) pinch=null;
       stage.classList.remove('grabbing');
       if(drag && drag.id===e.pointerId){
-        if(drag.moved<8 && e.target===stage){ sel=null; computeKin(); hideCard(); draw(); syncDom(); }
+        if(drag.moved<8 && e.target===stage){ sel=null; carded=false; computeKin(); hideCard(); draw(); syncDom(); }
         drag=null;
       }
     }
@@ -2686,8 +2780,8 @@ var Map3 = (function(){
     buildDom(); renderChips();
     $('#mapSum').textContent = summarize(view);
     $('#mapHint').textContent = S.mapMode==='all'
-      ? 'ピンチで 年 → 月 → 週 → 出来事。輪の色分けがその期間の内訳です'
-      : '星にふれると、そこへ至る道と記録がひらきます';
+      ? '点線の輪がある星を押すと内訳がひらき、もう一度押すとくわしく読めます'
+      : '点線の輪がある星を押すと内訳がひらき、もう一度押すとくわしく読めます';
     draw(); syncDom();
   }
   function animateIn(){
@@ -2707,10 +2801,10 @@ var Map3 = (function(){
       ctx=cv.getContext('2d'); seedSky(); bind();
       window.addEventListener('resize', resize);
       $('#mapReset').onclick=function(){
-        sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1,base:0,v:1}; lvl=0;
+        sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1,base:0,v:1}; lvl=0; opened={};
         Store.saveLocal(); rebuild();
       };
-      $('#ndClose').onclick=function(){ sel=null; computeKin(); hideCard(); draw(); syncDom(); };
+      $('#ndClose').onclick=function(){ carded=false; hideCard(); draw(); syncDom(); };
     },
     show:function(mode){
       if(!cv) return;
@@ -2725,7 +2819,7 @@ var Map3 = (function(){
         resize(); return;
       }
       if(e) e.remove();
-      cam={x:0,y:0,z:1,base:0,v:1}; lvl=0;
+      cam={x:0,y:0,z:1,base:0,v:1}; lvl=0; opened={};
       setTimeout(function(){ resize(); rebuild(); intro=0; animateIn(); }, 0);
     },
     resize:resize,
