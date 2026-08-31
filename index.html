@@ -1884,87 +1884,146 @@ var Map3 = (function(){
   /* ---- レイアウト（m-note と同じ、自分を根にした放射ツリー）----
      すべてのノードは必ず親を持ち、たどると「自分」に着く。
      角度を再帰的に分け合うので、点が重なりにくい。 */
-  var LINK = 94;                                 /* 枝の長さは、どの深さでも同じ */
-
-  /* ---- ばねの力で落ち着かせる ----
-     枝の長さは一定のまま、形だけが有機的に動く。
-     放射ツリーを初期形として置き、そこから力で解いていく。
-     同じ記録からは必ず同じ形になるよう、初期化から決まった回数だけ回す。 */
+  /* ---- レイアウト ----------------------------------------------
+     1. place() が親から子へ、角度と広がりと深さごとの半径で放射状に置く
+     2. step() が毎フレーム、斥力・ばね・中心への重力・減衰で解いていく
+     3. 星を選ぶと bloom() で、子が親の位置から弧を描いて開く
+     枝の自然長はどの深さでも同じなので、距離は変わらず形だけが有機的に動く。 */
+  var RAD  = [0, 94, 188, 282, 376, 470];        /* 深さごとの半径。間隔は一定 */
+  var LINK = 94;
   var SIMC = {
-    spring: 0.42,      /* 枝の長さを保つ強さ。強いほど距離が変わらない */
-    repel : 5600,      /* 星どうしが押し合う強さ */
-    repelMax: 26,      /* 一度に押し合う上限。飛び散らせない */
-    damp  : 0.80,      /* 速度の減衰 */
-    settle: 320,       /* 初期化のとき、内部で回す回数 */
-    stop  : 0.015      /* これ以下になったら静かになる */
+    DT      : 0.125,
+    BURST0  : 48,      /* 開いた直後だけ、計算を強めて一気に落ち着かせる */
+    repel   : 780,     /* 斥力 f = repel·qa·qb / d² */
+    repelCut: 300,     /* これ以上離れていたら押し合わない */
+    kTree   : 0.055,   /* 幹のばね */
+    kPost   : 0.045,   /* 根拠へのばね */
+    kOther  : 0.014,   /* ゆるい参照のばね */
+    spreadL : 1.0,     /* 自然長の倍率 */
+    grav    : 0.009,   /* 中心へ引き戻す弱い重力 */
+    damp    : 0.86,    /* 減衰（dt乗） */
+    spin    : 0.0009,  /* 親のまわりを子がわずかに回る */
+    carry   : 0.30,    /* 中心を動かしたとき、まわりが遅れて付いてくる度合い */
+    stop    : 0.06,    /* 速度がこれ以下になったら静かになる */
+    settle  : 260      /* 初期化のとき、内部で回す回数 */
   };
-  var sim = {edges:[], list:[], byId:null, alpha:0, drag:null, pin:{}};
+  var sim = {list:[], links:[], root:null, burst:0, quiet:0, drag:null, held:null, moving:false};
 
-  function simBuild(list, byId, tree, pinned){
-    var es=[];
+  function simBuild(list, byId, tree, edges){
+    var ls = [];
+    /* 幹：親から子へ。ここが形の芯 */
     Object.keys(tree.parentOf).forEach(function(cid){
       var p = byId[tree.parentOf[cid]], c = byId[cid];
-      if(p && c) es.push([p, c]);
+      if(p && c) ls.push({a:p, b:c, k:SIMC.kTree, len:LINK});
     });
-    sim.edges = es; sim.list = list; sim.byId = byId; sim.pin = pinned || {};
-    list.forEach(function(n){ n.vx = 0; n.vy = 0; });
+    /* 参照：根拠へは少し強く、価値観へはごくゆるく */
+    (edges||[]).forEach(function(e){
+      if(e.trunk || !e.a || !e.b) return;
+      var post = (e.b.kind==='evidence' || e.a.kind==='evidence');
+      ls.push({a:e.a, b:e.b, k: post ? SIMC.kPost : SIMC.kOther, len: post ? LINK*0.9 : LINK*1.6});
+    });
+    sim.links = ls; sim.list = list; sim.root = byId['self'] || null;
+    list.forEach(function(n){
+      n.vx = 0; n.vy = 0;
+      n.q  = 0.7 + Math.min(1, n.display||0)*1.3;   /* 大きい星ほど強く押す */
+    });
+    sim.burst = SIMC.BURST0; sim.quiet = 0; sim.drag = null; sim.held = null; sim.moving = false;
   }
-  function simTick(k){
-    var L = sim.list, n = L.length, i, j, a, b, dx, dy, d, f;
-    /* 押し合い：近すぎる星ほど強く離れる */
+
+  function step(dt){
+    var L = sim.list, n = L.length, i, j, a, b, dx, dy, d2, d, f, ux, uy;
+    var cx = sim.root ? sim.root.x : 0, cy = sim.root ? sim.root.y : 0;
+    var cut2 = SIMC.repelCut*SIMC.repelCut;
+
+    /* 斥力：総当たり。近いほど強く押し合う */
     for(i=0;i<n;i++){
       a = L[i];
       for(j=i+1;j<n;j++){
         b = L[j];
         dx = b.x-a.x; dy = b.y-a.y;
-        d = Math.sqrt(dx*dx+dy*dy);
-        if(d > 240) continue;
-        if(d < 0.01){ dx = hash01(a.id+b.id)-.5; dy = hash01(b.id+a.id)-.5; d = Math.sqrt(dx*dx+dy*dy)||1; }
-        f = Math.min(SIMC.repelMax, SIMC.repel/(d*d)) * k;
-        dx/=d; dy/=d;
-        a.vx -= dx*f; a.vy -= dy*f;
-        b.vx += dx*f; b.vy += dy*f;
+        d2 = dx*dx+dy*dy;
+        if(d2 >= cut2) continue;
+        if(d2 < 1){ dx = hash01(a.id+b.id)-.5; dy = hash01(b.id+a.id)-.5; d2 = dx*dx+dy*dy || 1; }
+        d = Math.sqrt(d2);
+        f = SIMC.repel * a.q * b.q / d2;
+        ux = dx/d; uy = dy/d;
+        a.vx -= ux*f; a.vy -= uy*f;
+        b.vx += ux*f; b.vy += uy*f;
       }
     }
-    /* 枝：長さを LINK に引き戻す。ここが「距離は変わらない」の芯 */
-    for(i=0;i<sim.edges.length;i++){
-      a = sim.edges[i][0]; b = sim.edges[i][1];
+    /* ばね：自然長へ引き戻す。枝の長さが変わらないのはここ */
+    for(i=0;i<sim.links.length;i++){
+      var e = sim.links[i];
+      a = e.a; b = e.b;
       dx = b.x-a.x; dy = b.y-a.y;
       d = Math.sqrt(dx*dx+dy*dy) || 0.01;
-      f = (d - LINK) * SIMC.spring * k * 0.5;
-      dx/=d; dy/=d;
-      a.vx += dx*f; a.vy += dy*f;
-      b.vx -= dx*f; b.vy -= dy*f;
+      f = (d - e.len*SIMC.spreadL) * e.k;
+      ux = dx/d; uy = dy/d;
+      a.vx += ux*f; a.vy += uy*f;
+      b.vx -= ux*f; b.vy -= uy*f;
+      /* 子は親のまわりをわずかに回る。形が固まりきらず、生きて見える */
+      if(e.k===SIMC.kTree){
+        b.vx += -uy*SIMC.spin*d; b.vy += ux*SIMC.spin*d;
+      }
     }
-    /* 進める。中心と、手で置いた星と、いま掴んでいる星は動かさない */
+    /* 中心への弱い重力。中心そのものは動かさない */
+    var damp = Math.pow(SIMC.damp, dt), maxv = 0;
     for(i=0;i<n;i++){
       a = L[i];
-      if(a.id==='self' || sim.pin[a.id] || (sim.drag && sim.drag===a.id)){
-        a.vx = 0; a.vy = 0;
-        if(a.id==='self'){ a.x = 0; a.y = 0; }
-        continue;
-      }
-      a.vx *= SIMC.damp; a.vy *= SIMC.damp;
-      a.x += a.vx; a.y += a.vy;
+      if(a === sim.root || (sim.drag && sim.drag === a.id)){ a.vx = 0; a.vy = 0; continue; }
+      a.vx += (cx - a.x)*SIMC.grav;
+      a.vy += (cy - a.y)*SIMC.grav;
+      a.vx *= damp; a.vy *= damp;
+      a.x += a.vx*dt; a.y += a.vy*dt;
+      var sp = Math.abs(a.vx)+Math.abs(a.vy);
+      if(sp > maxv) maxv = sp;
     }
+    return maxv;
   }
-  function simSettle(){                           /* 初期形を、決まった回数だけ解く */
-    var k = 1;
-    for(var t=0; t<SIMC.settle; t++){ simTick(k); k *= 0.992; }
-    sim.alpha = 0;
+
+  function simSettle(){                            /* 初期形を、決まった回数だけ解く */
+    for(var t=0; t<SIMC.settle; t++) step(SIMC.DT * (t < SIMC.BURST0 ? 2.2 : 1));
+    sim.burst = 0; sim.quiet = 99;
   }
-  function simWake(v){                            /* 触られたら、また少し動きだす */
-    sim.alpha = Math.max(sim.alpha, v==null ? .5 : v);
+  function simWake(){                              /* 動きだす。触った瞬間ではなく、動かしたときだけ */
+    sim.quiet = 0;
     if(!raf) raf = requestAnimationFrame(simStep);
   }
   function simStep(){
     raf = 0;
-    if(!view || S.view!=='map'){ sim.alpha = 0; return; }
-    simTick(sim.alpha);
-    sim.alpha *= 0.94;
+    if(!view || S.view!=='map'){ sim.quiet = 99; return; }
+    var boost = sim.burst>0 ? 2.2 : 1;
+    if(sim.burst>0) sim.burst--;
+    var v = step(SIMC.DT * boost);
+    stepFlight();
     draw(); syncDom();
-    if(sim.alpha > SIMC.stop || sim.drag) raf = requestAnimationFrame(simStep);
-    else sim.alpha = 0;
+    if(sim.drag || sim.flight || v > SIMC.stop) raf = requestAnimationFrame(simStep);
+    else sim.quiet = 99;
+  }
+
+  /* ---- 開く動き：選んだ星の子が、親の位置から弧を描いて出てくる ---- */
+  function bloom(n){
+    if(!view || !view.tree || reduce) return;
+    var kids = (view.tree.kids[n.id]||[]).map(function(id){ return view.byId[id]; }).filter(Boolean);
+    if(!kids.length) return;
+    sim.flight = {t0: performance.now(), dur: 420, items: kids.map(function(c){
+      return {n:c, fx:n.x, fy:n.y, tx:c.x, ty:c.y,
+              a0: Math.atan2(n.y-c.y, n.x-c.x), r: Math.sqrt((c.x-n.x)*(c.x-n.x)+(c.y-n.y)*(c.y-n.y))};
+    })};
+    simWake();
+  }
+  function stepFlight(){
+    var F = sim.flight; if(!F) return;
+    var t = Math.min(1, (performance.now()-F.t0)/F.dur);
+    var k = 1 - Math.pow(1-t, 3);                  /* ease-out cubic */
+    F.items.forEach(function(it){
+      var ang = it.a0 + Math.PI;                   /* 親から子へ向かう向き */
+      var r = it.r * k;
+      it.n.x = it.fx + Math.cos(ang)*r;
+      it.n.y = it.fy + Math.sin(ang)*r;
+      it.n.vx = 0; it.n.vy = 0;
+    });
+    if(t>=1) sim.flight = null;
   }
 
   function layout(mode, list, tree){
@@ -1976,20 +2035,19 @@ var Map3 = (function(){
       var t=0; ks.forEach(function(c){ t += count(c); });
       cnt[id]=t; return t;
     })('self');
-    (function place(id, x, y, from, to, depth){
+    (function place(id, ang, from, to, depth){
       var n = byId[id]; if(!n) return;
-      n.x=x; n.y=y; n.depth=depth;
+      var r = RAD[Math.min(depth, RAD.length-1)];
+      n.x = Math.cos(ang)*r; n.y = Math.sin(ang)*r; n.depth = depth;
       var ks = kids[id] || []; if(!ks.length) return;
-      var r = LINK;
       var total = 0; ks.forEach(function(c){ total += (cnt[c]||1); });
       var acc = from;
       ks.forEach(function(c){
-        var span = (to-from) * ((cnt[c]||1)/total);
-        var a = acc + span/2;
-        place(c, x+Math.cos(a)*r, y+Math.sin(a)*r, acc, acc+span, depth+1);
-        acc += span;
+        var spread = (to-from) * ((cnt[c]||1)/total);
+        place(c, acc + spread/2, acc, acc+spread, depth+1);
+        acc += spread;
       });
-    })('self', 0, 0, -Math.PI/2 - Math.PI, -Math.PI/2 + Math.PI, 0);
+    })('self', 0, -Math.PI/2 - Math.PI, -Math.PI/2 + Math.PI, 0);
     list.forEach(function(n){
       if(n.id!=='self' && n.x===undefined){
         var an = hash01(n.id)*Math.PI*2;
@@ -2155,10 +2213,7 @@ var Map3 = (function(){
     })();
 
     layout(mode, pool, tree);                              /* 放射ツリーを初期形に置く */
-    var savedPos = ((S.cfg.pos||{})[mode]) || {};          /* 手で置いた星は、そこに留める */
-    var pinned = {};
-    pool.forEach(function(n){ var q=savedPos[n.id]; if(q){ n.x=q[0]; n.y=q[1]; pinned[n.id]=1; } });
-    simBuild(pool, byIdAll, tree, pinned);
+    simBuild(pool, byIdAll, tree, edges);
     simSettle();                                           /* 力で解いて、有機的な形に落ち着かせる */
     return {mode:mode, nodes:pool, byId:byId, edges:edges, primary:primary, labelSet:labelSet, tree:tree,
             ranked:ranked, values: ranked.filter(function(n){ return n.kind==='value'; }).slice(0,3)};
@@ -2415,21 +2470,35 @@ var Map3 = (function(){
       hit.onclick=function(ev){ ev.stopPropagation(); if(hit._sup){ hit._sup=false; return; } select(n); };
       hit.addEventListener('pointerdown', function(ev){
         ev.stopPropagation(); hit.setPointerCapture(ev.pointerId);
-        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId};
-        sim.drag = n.id; simWake(.85);              /* 掴んだ星だけ固定し、まわりは追ってくる */
+        /* 触れた瞬間は、まだ何も動かさない。動かした瞬間から掴む。
+           ここで力を起こすと、掴もうとした星が逃げてしまう。 */
+        nodeDrag={n:n, x:ev.clientX, y:ev.clientY, moved:0, id:ev.pointerId, live:false};
+        sim.held = n.id;
       });
       hit.addEventListener('pointermove', function(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
         var dx=(ev.clientX-nodeDrag.x)/cam.z, dy=(ev.clientY-nodeDrag.y)/cam.z;
         nodeDrag.moved += Math.abs(ev.clientX-nodeDrag.x)+Math.abs(ev.clientY-nodeDrag.y);
-        n.x += dx; n.y += dy;                       /* 掴んだ星は指のとおりに */
         nodeDrag.x=ev.clientX; nodeDrag.y=ev.clientY;
-        simWake(.85);                               /* ばねで、枝ぜんぶが有機的に追ってくる */
+        if(!nodeDrag.live){
+          if(nodeDrag.moved < 3) return;            /* 指のふるえでは動かさない */
+          nodeDrag.live = true; sim.drag = n.id;
+        }
+        n.x += dx; n.y += dy;                       /* 掴んだ星は指のとおりに */
+        if(n === sim.root){
+          /* 中心を動かすと、まわりの星もふわ〜っと一緒に付いてくる */
+          sim.list.forEach(function(m){
+            if(m===n) return;
+            m.vx += dx*SIMC.carry; m.vy += dy*SIMC.carry;
+          });
+        }
+        simWake();                                  /* ばねで、枝ぜんぶが有機的に追ってくる */
       });
       function endDrag(ev){
         if(!nodeDrag || nodeDrag.id!==ev.pointerId) return;
-        if(nodeDrag.moved>=8){ hit._sup=true; savePos(n); sim.pin[n.id]=1; }
-        sim.drag = null; nodeDrag=null; simWake(.55);   /* 離すと、まわりが静かに整い直す */
+        if(nodeDrag.moved>=8) hit._sup=true;         /* 動かした星も固定しない。また流れてよい */
+        sim.drag = null; sim.held = null; nodeDrag=null;
+        simWake();                                  /* 離すと、まわりが静かに整い直す */
       }
       hit.addEventListener('pointerup', endDrag);
       hit.addEventListener('pointercancel', endDrag);
@@ -2445,18 +2514,10 @@ var Map3 = (function(){
     });
   }
 
-  /* 動かした位置を覚えておく（次に開いても同じ場所） */
-  function savePos(n){
-    S.cfg.pos = S.cfg.pos || {};
-    S.cfg.pos[S.mapMode] = S.cfg.pos[S.mapMode] || {};
-    S.cfg.pos[S.mapMode][n.id] = [Math.round(n.x), Math.round(n.y)];
-    Store.saveLocal();
-  }
-
   /* ---- 選択と詳細カード ---- */
   function select(n){
     sel = (sel===n)?null:n; computeKin();
-    if(sel){ showCard(sel); panIntoView(sel); } else hideCard();
+    if(sel){ showCard(sel); panIntoView(sel); bloom(sel); } else hideCard();
     draw(); syncDom();
   }
   /* 選んだ星と、そこから中心へ戻る道すじが、カードに隠れないように寄せる */
@@ -2523,8 +2584,9 @@ var Map3 = (function(){
       if(mix.outcome)  bits.push('それで結果が変わった記録が'+mix.outcome+'件');
       if(mix.praised)  bits.push('人から反応があった記録が'+mix.praised+'件');
       if(mix.violated) bits.push('侵されたときに痛んだ記録が'+mix.violated+'件');
-      if(mix.objects && mix.objects.length>=2) bits.push(mix.objects.slice(0,3).join('・')+'に共通して現れる');
       if(bits.length) why += ' '+bits.slice(0,3).join('、')+'あります。';
+      if(mix.objects && mix.objects.length>=2)
+        why += ' '+mix.objects.slice(0,3).join('・')+'に共通して現れています。';
     }
     h += '<div class="nd-sec"><h5>なぜここにある？</h5><p>'+esc(why)+'</p></div>';
     var evs=(n.evidenceIds||[]).slice(0,5).map(evLine).join('');
@@ -2663,7 +2725,6 @@ var Map3 = (function(){
       window.addEventListener('resize', resize);
       $('#mapReset').onclick=function(){
         sel=null; chip=null; hideCard(); G=null; cam={x:0,y:0,z:1,base:0,v:1}; lvl=0;
-        if(S.cfg.pos) delete S.cfg.pos[S.mapMode];     /* 手で動かした位置も戻す */
         Store.saveLocal(); rebuild();
       };
       $('#ndClose').onclick=function(){ sel=null; computeKin(); hideCard(); draw(); syncDom(); };
