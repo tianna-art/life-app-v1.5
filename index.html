@@ -2306,7 +2306,7 @@ var Map3 = (function(){
     return a;
   }
   function radiusOf(n){
-    var base = n.kind==='self' ? 9 : n.kind==='evidence' ? 2.4 : 3.4 + (n.display||0)*9.5;
+    var base = n.kind==='self' ? 4.5 : n.kind==='evidence' ? 1.2 : 1.7 + (n.display||0)*4.75;
     return base * (n===sel ? 1.25 : 1);
   }
   function draw(){
@@ -2384,7 +2384,7 @@ var Map3 = (function(){
       ctx.beginPath(); ctx.arc(X,Y,Math.max(r,1.2),0,6.284); ctx.fill();
       if(n.kind==='chapter' && n.trend && n.trend.n){
         var tr=n.trend, segs=[['moved',MAPCOL.interest],['effort',MAPCOL.strength],['pain',MAPCOL.tension]];
-        var rr=r+5.5, st=-Math.PI/2, tot=tr.moved+tr.effort+tr.pain || 1;
+        var rr=r+4, st=-Math.PI/2, tot=tr.moved+tr.effort+tr.pain || 1;
         ctx.lineWidth=2.4; ctx.globalAlpha=a*0.95;
         segs.forEach(function(sg){
           var v=tr[sg[0]]; if(!v) return;
@@ -2398,13 +2398,13 @@ var Map3 = (function(){
       if(n.hidden){
         ctx.globalAlpha = a*0.55; ctx.strokeStyle = n.branch || MAPCOL[n.kind] || '#8E97B5';
         ctx.lineWidth = 1; ctx.setLineDash([2, 3.2]);
-        ctx.beginPath(); ctx.arc(X, Y, r+6.5, 0, 6.284); ctx.stroke();
+        ctx.beginPath(); ctx.arc(X, Y, r+4.5, 0, 6.284); ctx.stroke();
         ctx.setLineDash([]);
       }
       if(n.confirmed){ ctx.globalAlpha=a; ctx.strokeStyle='#D8B56A'; ctx.lineWidth=1.4;
-        ctx.beginPath(); ctx.arc(X,Y,r+4,0,6.284); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(X,Y,r+3,0,6.284); ctx.stroke(); }
       if(n.kind==='tension'){ ctx.globalAlpha=a*.9; ctx.strokeStyle=MAPCOL.tension; ctx.lineWidth=1;
-        ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(X,Y,r+6,0,6.284); ctx.stroke(); ctx.setLineDash([]); }
+        ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(X,Y,r+4.5,0,6.284); ctx.stroke(); ctx.setLineDash([]); }
       if(n.tier==='seed' && n.kind!=='evidence' && n.kind!=='self'){
         ctx.globalAlpha=a*.35; ctx.strokeStyle=col; ctx.lineWidth=.8;
         ctx.beginPath(); ctx.arc(X,Y,r+3,0,6.284); ctx.stroke();
@@ -2432,7 +2432,7 @@ var Map3 = (function(){
         el.style.left=X+'px'; el.style.top=Y+'px';
       } else {
         var lx = Math.max(pad, Math.min(W-pad, X));
-        el.style.left=lx+'px'; el.style.top=(Y+r+7)+'px';
+        el.style.left=lx+'px'; el.style.top=(Y+r+9)+'px';
         el.style.opacity = String(alphaOf(n));
         var labelIt = view.labelSet[n.id] || n===sel ||
                       (sel && view.edges.some(function(e){ return (e.a===sel&&e.b===n)||(e.b===sel&&e.a===n); }));
