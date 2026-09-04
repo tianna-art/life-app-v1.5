@@ -3,7 +3,7 @@
  * the forbidden phrasing ("記録が足りません" etc.) cannot creep back in.
  */
 export const EMPTY_STATE = {
-  log: 'まだ何も残していません。＋から最初の点を置いてみる。',
+  log: 'まだ何も残していません。上の欄から、最初の点を置いてみる。',
   map: 'この月の空は、まだ静かです。',
   mapYear: 'この年の空は、まだ静かです。',
   list: 'この月には、まだ記録がありません。',
