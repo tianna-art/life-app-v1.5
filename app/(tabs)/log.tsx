@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
@@ -16,6 +17,9 @@ import { useCategories } from '@/hooks/useCategories';
 import { useCreateLog, useMonthLogs } from '@/hooks/useLogs';
 import { useMonthlyIntention, useSaveIntention } from '@/hooks/useIntention';
 import { formatMonthEyebrow, monthKeyOf } from '@/utils/period';
+import { signOutEverywhere } from '@/lib/session';
+import { useLocalStore } from '@/lib/env';
+import type { MenuItem } from '@components/log/LogMenu';
 
 /** Home. Open it and the field is already there. */
 export default function LogScreen() {
@@ -25,6 +29,7 @@ export default function LogScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [intentionDraft, setIntentionDraft] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const { data: logs } = useMonthLogs(currentMonth);
   const { data: intention } = useMonthlyIntention(currentMonth);
@@ -32,6 +37,30 @@ export default function LogScreen() {
   const createLog = useCreateLog();
 
   const recent = (logs ?? []).slice(0, 8);
+
+  // Signing out drops the cached rows with the session: the next person to
+  // open the app must not find someone else's month already on screen.
+  const handleSignOut = useCallback(() => {
+    void signOutEverywhere().finally(() => queryClient.clear());
+  }, [queryClient]);
+
+  const menuItems = useMemo<MenuItem[]>(() => {
+    const items: MenuItem[] = [
+      { label: 'カテゴリーの設定', onPress: () => router.push('/settings/categories') },
+      { label: 'この月をマップで見る', onPress: () => router.push('/map') },
+      { label: '一年を読み返す', onPress: () => router.push('/list') },
+    ];
+    // Local-store mode has no session, so it is not offered a way out of one.
+    if (!useLocalStore) {
+      items.push({
+        label: 'ログアウト',
+        onPress: handleSignOut,
+        separated: true,
+        confirmLabel: 'もう一度押すとログアウト',
+      });
+    }
+    return items;
+  }, [router, handleSignOut]);
 
   const handleSave = useCallback(
     (input: Parameters<typeof createLog.mutate>[0]) => {
@@ -109,6 +138,7 @@ export default function LogScreen() {
               categories={categories ?? []}
               onSave={handleSave}
               saving={createLog.isPending}
+              onOpenCategorySettings={() => router.push('/settings/categories')}
             />
           </View>
 
@@ -132,15 +162,7 @@ export default function LogScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <LogMenu
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        items={[
-          { label: 'カテゴリーの設定', onPress: () => router.push('/settings/categories') },
-          { label: 'この月をマップで見る', onPress: () => router.push('/map') },
-          { label: '一年を読み返す', onPress: () => router.push('/list') },
-        ]}
-      />
+      <LogMenu visible={menuOpen} onClose={() => setMenuOpen(false)} items={menuItems} />
 
       <Toast message={toast} onDone={() => setToast(null)} />
     </Screen>

@@ -1,3 +1,4 @@
+import type { CategoryIcon } from './icons';
 import type { CategoryInput } from '@/types';
 
 /**
@@ -12,11 +13,13 @@ export interface DefaultCategorySeed extends CategoryInput {
   slug: string;
   name: string;
   promptExamples: string[];
+  icon: CategoryIcon;
 }
 
 export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   {
     slug: 'tokimeki',
+    icon: 'starburst',
     name: '楽しかったこと',
     promptExamples: [
       '今日ちょっと「いいな」と思ったことは？',
@@ -26,6 +29,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'tsumiage',
+    icon: 'sun',
     name: 'できたこと',
     promptExamples: [
       '今日、少しでも手を動かしたことは？',
@@ -35,6 +39,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'kyokun',
+    icon: 'compass',
     name: '学び',
     promptExamples: [
       '今日の出来事から「次はこうしてみよう」と思ったことは？',
@@ -44,6 +49,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'hikkakari',
+    icon: 'spiral',
     name: 'モヤモヤ',
     promptExamples: [
       '今日、少し引っかかったことは？',
@@ -53,6 +59,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'kankeisei',
+    icon: 'orbit',
     name: '人間関係',
     promptExamples: [
       '今日、誰かとのやりとりで心地よかった / しんどかったことは？',
@@ -62,6 +69,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'sonota',
+    icon: 'crescent',
     name: 'その他',
     promptExamples: ['今残しておきたいことは？'],
   },

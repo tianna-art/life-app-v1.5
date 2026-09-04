@@ -11,6 +11,8 @@ interface InlineComposerProps {
   categories: Category[];
   onSave: (input: NewLogInput) => void;
   saving?: boolean;
+  /** Opens category settings from the mark beside the drawers. */
+  onOpenCategorySettings?: (() => void) | undefined;
 }
 
 /**
@@ -20,7 +22,12 @@ interface InlineComposerProps {
  *
  * The three requirements are unchanged: a type, a category, and a body.
  */
-export function InlineComposer({ categories, onSave, saving = false }: InlineComposerProps) {
+export function InlineComposer({
+  categories,
+  onSave,
+  saving = false,
+  onOpenCategorySettings,
+}: InlineComposerProps) {
   const [type, setType] = useState<LogType | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [body, setBody] = useState('');
@@ -74,6 +81,7 @@ export function InlineComposer({ categories, onSave, saving = false }: InlineCom
           setPromptSeed(Math.random());
           setShowErrors(false);
         }}
+        onOpenSettings={onOpenCategorySettings}
       />
 
       <CategoryPrompt prompt={prompt} />

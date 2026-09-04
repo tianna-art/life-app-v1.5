@@ -9,6 +9,7 @@ import { BrassButton } from '@components/ui/BrassButton';
 import { KeywordReview } from './KeywordReview';
 import { buildCategoryArticle } from '@/ai/article';
 import type { CategoryInsight, KeywordCandidate, LogWithAnalysis } from '@/types';
+import { PhoneOverlay } from '@components/ui/PhoneFrame';
 
 interface CategoryArticleProps {
   visible: boolean;
@@ -54,83 +55,85 @@ export function CategoryArticle({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={close} presentationStyle="fullScreen">
-      <View style={styles.root}>
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          <View style={styles.bar}>
-            <Pressable
-              testID="article-close"
-              onPress={close}
-              hitSlop={HIT_SLOP}
-              accessibilityRole="button"
-              accessibilityLabel="閉じる"
-              style={styles.barButton}
+      <PhoneOverlay>
+        <View style={styles.root}>
+          <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+            <View style={styles.bar}>
+              <Pressable
+                testID="article-close"
+                onPress={close}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel="閉じる"
+                style={styles.barButton}
+              >
+                <Text style={styles.barLabel}>‹　もどる</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+              testID="category-article"
             >
-              <Text style={styles.barLabel}>‹　もどる</Text>
-            </Pressable>
-          </View>
+              {loading ? (
+                <Text style={styles.loading}>読みこんでいます…</Text>
+              ) : (
+                <Markdown source={article} />
+              )}
 
-          <ScrollView
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-            testID="category-article"
-          >
-            {loading ? (
-              <Text style={styles.loading}>読みこんでいます…</Text>
-            ) : (
-              <Markdown source={article} />
-            )}
+              {logs.length > 0 ? (
+                <>
+                  <HairlineRule />
+                  <Text style={styles.sectionLabel}>ひとつずつ読む</Text>
+                  <View>
+                    {logs.map((log) => (
+                      <Pressable
+                        key={log.id}
+                        testID={`article-log-${log.id}`}
+                        onPress={() => onLogPress(log.id)}
+                        hitSlop={HIT_SLOP}
+                        accessibilityRole="button"
+                        accessibilityLabel={log.body}
+                        style={({ pressed }) => [styles.logRow, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.logDate}>{log.occurredOn.slice(5).replace('-', '/')}</Text>
+                        <Text style={styles.logBody} numberOfLines={2}>
+                          {log.body}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
 
-            {logs.length > 0 ? (
-              <>
-                <HairlineRule />
-                <Text style={styles.sectionLabel}>ひとつずつ読む</Text>
-                <View>
-                  {logs.map((log) => (
-                    <Pressable
-                      key={log.id}
-                      testID={`article-log-${log.id}`}
-                      onPress={() => onLogPress(log.id)}
-                      hitSlop={HIT_SLOP}
-                      accessibilityRole="button"
-                      accessibilityLabel={log.body}
-                      style={({ pressed }) => [styles.logRow, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.logDate}>{log.occurredOn.slice(5).replace('-', '/')}</Text>
-                      <Text style={styles.logBody} numberOfLines={2}>
-                        {log.body}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            ) : null}
-
-            {keywordsOpen && insight ? (
-              <>
-                <HairlineRule />
-                <Text style={styles.sectionLabel}>KEYWORDS</Text>
-                <KeywordReview
-                  keywords={insight.keywords}
-                  status={insight.status}
-                  onAccept={() => onKeywordAccept(insight.keywords.slice(0, 3))}
-                  onEditConfirm={onKeywordEdit}
-                  onSkip={onKeywordSkip}
-                  busy={reviewBusy}
+              {keywordsOpen && insight ? (
+                <>
+                  <HairlineRule />
+                  <Text style={styles.sectionLabel}>KEYWORDS</Text>
+                  <KeywordReview
+                    keywords={insight.keywords}
+                    status={insight.status}
+                    onAccept={() => onKeywordAccept(insight.keywords.slice(0, 3))}
+                    onEditConfirm={onKeywordEdit}
+                    onSkip={onKeywordSkip}
+                    busy={reviewBusy}
+                  />
+                </>
+              ) : (
+                <BrassButton
+                  testID="see-keywords"
+                  label={LABELS.seeKeywords}
+                  onPress={() => setKeywordsOpen(true)}
+                  disabled={!insight}
+                  style={styles.keywordButton}
+                  accessibilityHint="AIが抽出した最大3つのキーワードを表示します"
                 />
-              </>
-            ) : (
-              <BrassButton
-                testID="see-keywords"
-                label={LABELS.seeKeywords}
-                onPress={() => setKeywordsOpen(true)}
-                disabled={!insight}
-                style={styles.keywordButton}
-                accessibilityHint="AIが抽出した最大3つのキーワードを表示します"
-              />
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </View>
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </PhoneOverlay>
     </Modal>
   );
 }

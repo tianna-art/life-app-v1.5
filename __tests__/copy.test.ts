@@ -8,7 +8,10 @@ import { EMPTY_STATE, LABELS } from '@/constants/copy';
 
 describe('empty states', () => {
   it('use the exact approved wording', () => {
-    expect(EMPTY_STATE.log).toBe('まだ何も残していません。＋から最初の点を置いてみる。');
+    // The ＋ button is gone — the field is the page now, so the invitation
+    // has to point at something that exists.
+    expect(EMPTY_STATE.log).toBe('まだ何も残していません。上の欄から、最初の点を置いてみる。');
+    expect(EMPTY_STATE.log).not.toContain('＋');
     expect(EMPTY_STATE.map).toBe('この月の空は、まだ静かです。');
     expect(EMPTY_STATE.list).toBe('この月には、まだ記録がありません。');
   });

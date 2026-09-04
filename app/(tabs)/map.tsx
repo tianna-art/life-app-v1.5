@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -33,6 +34,19 @@ export default function MapScreen() {
   const setMode = useUiStore((s) => s.setMapMode);
   const setMonthKey = useUiStore((s) => s.setMapMonthKey);
   const setYearKey = useUiStore((s) => s.setMapYearKey);
+
+  // The figure is drawn to the box it is actually given, not to the window:
+  // on web the app sits inside a phone-width plate, so the window is wider
+  // than the canvas will ever be.
+  const [canvasBox, setCanvasBox] = useState<{ width: number; height: number } | null>(null);
+  const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width: w, height: h } = event.nativeEvent.layout;
+    setCanvasBox((current) =>
+      current && Math.abs(current.width - w) < 1 && Math.abs(current.height - h) < 1
+        ? current
+        : { width: w, height: h }
+    );
+  }, []);
 
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
@@ -128,8 +142,9 @@ export default function MapScreen() {
   };
 
   const label = mode === 'month' ? formatMonthEyebrow(monthKey) : yearKeyValue;
-  const canvasWidth = width - spacing.gallery * 2;
-  const canvasHeight = Math.max(340, height - 232);
+  // Until the first layout lands, the window is a good enough guess.
+  const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
+  const canvasHeight = Math.max(320, canvasBox?.height ?? height - 232);
 
   return (
     <Screen>
@@ -189,7 +204,7 @@ export default function MapScreen() {
       </View>
 
       <GestureDetector gesture={pan}>
-        <View style={styles.canvas} testID="map-canvas">
+        <View style={styles.canvas} testID="map-canvas" onLayout={onCanvasLayout}>
           {graphLogs.length === 0 ? (
             <EmptyState message={mode === 'month' ? EMPTY_STATE.map : EMPTY_STATE.mapYear} />
           ) : (

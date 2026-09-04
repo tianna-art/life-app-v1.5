@@ -45,6 +45,9 @@ export function OrbitGraph({
   );
 
   const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
+  // The MAP wears the mark the user picked, so the figure and the chip in the
+  // composer are the same thing seen twice.
+  const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const dust = useMemo(() => buildDust(periodKey, width, height), [periodKey, width, height]);
 
   const categoryNodes = graph.nodes.filter((n) => n.kind === 'category');
@@ -107,11 +110,12 @@ export function OrbitGraph({
 
         {categoryNodes.map((node) => {
           const open = node.categoryId ? expanded.has(node.categoryId) : false;
+          const category = node.categoryId ? categoryById.get(node.categoryId) : undefined;
           return (
             <G key={node.id} x={node.x} y={node.y}>
               <Circle r={node.r * 1.6} fill={colors.brass} opacity={open ? 0.09 : 0.05} />
               <CelestialGlyph
-                kind={glyphForKey(node.categoryId ?? node.label)}
+                kind={category?.icon ?? glyphForKey(node.categoryId ?? node.label)}
                 size={node.r * 2}
                 emphasis={node.weight}
                 active={open}

@@ -10,6 +10,7 @@ import { colors } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOutboxSync } from '@/hooks/useLogs';
 import { AuthGate } from '@components/ui/AuthGate';
+import { PhoneFrame } from '@components/ui/PhoneFrame';
 
 export default function RootLayout() {
   const queryClient = useMemo(() => createQueryClient(), []);
@@ -19,7 +20,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style="light" />
-          <AppShell />
+          <PhoneFrame>
+            <AppShell />
+          </PhoneFrame>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
