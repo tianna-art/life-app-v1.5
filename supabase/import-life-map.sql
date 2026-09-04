@@ -4,8 +4,9 @@
 -- 前提: 20260831000000 / 20260901000000 / 20260901000100 の3本を適用済みで、
 --       旧テーブルが logs_v15 / months_v15 / years_v15 に退避されていること。
 --
--- 使い方: 下の :target_email を自分のメールに書き換えて SQL Editor で実行。
---         新アプリでサインアップ済みである必要があります。
+-- 使い方: エディタを空にしてから、このファイルの中身を「全部」貼って Run。
+--         書き換えは不要です（722tomone@gmail.com が設定済み）。
+--         先に setup-life-map.sql を実行し、アプリでサインアップしておくこと。
 --         何度実行しても重複しません（本文一致でスキップ）。
 --
 -- 変換は不可逆です。旧モデルには 出来事 / つぶやき の区別と編集可能な
@@ -20,7 +21,7 @@
 
 do $$
 declare
-  target_email  text := 'CHANGE_ME@example.com';   -- ← ここを書き換える
+  target_email  text := '722tomone@gmail.com';   -- 設定済み（書き換え不要）
   target_user   uuid;
   inserted_logs int := 0;
   inserted_chap int := 0;
