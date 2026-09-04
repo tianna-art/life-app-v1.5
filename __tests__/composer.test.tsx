@@ -14,6 +14,7 @@ const categories: Category[] = [
     sortOrder: 0,
     isActive: true,
     isDefault: true,
+    icon: 'starburst',
     promptExamples: ['今日ちょっと「いいな」と思ったことは？'],
   },
   {
@@ -23,6 +24,7 @@ const categories: Category[] = [
     sortOrder: 1,
     isActive: true,
     isDefault: true,
+    icon: 'sun',
     promptExamples: ['今日、少しでも手を動かしたことは？'],
   },
 ];

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
+import type { CategoryIcon } from '@/constants/icons';
 import type { Category } from '@/types';
 
 export function useCategories(includeInactive = false) {
@@ -17,7 +18,7 @@ export function useCategoryMutations() {
   };
 
   const create = useMutation({
-    mutationFn: (input: { name: string; promptExamples?: string[] }) =>
+    mutationFn: (input: { name: string; promptExamples?: string[]; icon?: CategoryIcon }) =>
       getRepository().createCategory(input),
     onSuccess: invalidate,
   });
@@ -25,6 +26,12 @@ export function useCategoryMutations() {
   const rename = useMutation({
     mutationFn: (input: { id: string; name: string }) =>
       getRepository().renameCategory(input.id, input.name),
+    onSuccess: invalidate,
+  });
+
+  const setIcon = useMutation({
+    mutationFn: (input: { id: string; icon: CategoryIcon }) =>
+      getRepository().setCategoryIcon(input.id, input.icon),
     onSuccess: invalidate,
   });
 
@@ -40,7 +47,7 @@ export function useCategoryMutations() {
     onSuccess: invalidate,
   });
 
-  return { create, rename, setActive, reorder };
+  return { create, rename, setIcon, setActive, reorder };
 }
 
 /** Map of every category, active or not, so historic logs still render a name. */

@@ -1,4 +1,7 @@
 /** Domain types. Mirrors crincran_implementation_spec.md §14 and the SQL schema. */
+import type { CategoryIcon } from '@/constants/icons';
+
+export type { CategoryIcon };
 
 export type LogType = 'event' | 'thought';
 export type PeriodType = 'month' | 'year';
@@ -12,6 +15,8 @@ export interface Category {
   sortOrder: number;
   isActive: boolean;
   isDefault: boolean;
+  /** The mark this drawer wears, in the composer and on the MAP alike. */
+  icon: CategoryIcon;
   /** Light guidance questions shown, one at random, when the category is picked. */
   promptExamples: string[];
 }
@@ -85,4 +90,5 @@ export interface NewLogInput {
 export interface CategoryInput {
   name: string;
   promptExamples?: string[];
+  icon?: CategoryIcon;
 }

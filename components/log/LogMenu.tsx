@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
@@ -6,6 +7,15 @@ import { PhoneOverlay } from '@components/ui/PhoneFrame';
 export interface MenuItem {
   label: string;
   onPress: () => void;
+  /** Draws a hairline above this item — the end of the list, not a section. */
+  separated?: boolean;
+  /**
+   * Asks once before acting. The label becomes this on the first tap and the
+   * second tap goes through, which is enough of a guard for something that is
+   * merely inconvenient to undo. Anything actually destructive does not belong
+   * in this menu at all.
+   */
+  confirmLabel?: string;
 }
 
 /**
@@ -43,26 +53,46 @@ export function LogMenu({
   items: MenuItem[];
   onClose: () => void;
 }) {
+  const [armed, setArmed] = useState<string | null>(null);
+
+  // Closing the menu forgets the half-made decision, so reopening it never
+  // presents a control that is already one tap from firing.
+  useEffect(() => {
+    if (!visible) setArmed(null);
+  }, [visible]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <PhoneOverlay>
         <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
         <View style={styles.sheet} testID="log-menu">
-          {items.map((item) => (
-            <Pressable
-              key={item.label}
-              testID={`menu-${item.label}`}
-              onPress={() => {
-                onClose();
-                item.onPress();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-            >
-              <Text style={styles.itemLabel}>{item.label}</Text>
-            </Pressable>
-          ))}
+          {items.map((item) => {
+            const waiting = armed === item.label;
+            const label = waiting && item.confirmLabel ? item.confirmLabel : item.label;
+            return (
+              <Pressable
+                key={item.label}
+                testID={`menu-${item.label}`}
+                onPress={() => {
+                  if (item.confirmLabel && !waiting) {
+                    setArmed(item.label);
+                    return;
+                  }
+                  onClose();
+                  item.onPress();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                style={({ pressed }) => [
+                  styles.item,
+                  item.separated && styles.itemSeparated,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.itemLabel, waiting && styles.itemLabelArmed]}>{label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </PhoneOverlay>
     </Modal>
@@ -70,6 +100,12 @@ export function LogMenu({
 }
 
 const styles = StyleSheet.create({
+  itemSeparated: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.frameSoft,
+    marginTop: spacing.sm,
+  },
+  itemLabelArmed: { color: colors.brass },
   iconButton: {
     minWidth: MIN_TOUCH,
     minHeight: MIN_TOUCH,

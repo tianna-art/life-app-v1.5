@@ -10,6 +10,7 @@ import type {
   PeriodType,
   ReviewStatus,
 } from '@/types';
+import type { CategoryIcon } from '@/constants/icons';
 
 /**
  * Storage contract. Implemented twice: against Supabase (shipped) and against
@@ -21,8 +22,13 @@ export interface Repository {
   ensureBootstrapped(): Promise<void>;
 
   listCategories(includeInactive?: boolean): Promise<Category[]>;
-  createCategory(input: { name: string; promptExamples?: string[] }): Promise<Category>;
+  createCategory(input: {
+    name: string;
+    promptExamples?: string[];
+    icon?: CategoryIcon;
+  }): Promise<Category>;
   renameCategory(id: string, name: string): Promise<Category>;
+  setCategoryIcon(id: string, icon: CategoryIcon): Promise<Category>;
   /** Soft delete: is_active=false. Historic logs keep pointing at the row. */
   setCategoryActive(id: string, isActive: boolean): Promise<Category>;
   reorderCategories(orderedIds: string[]): Promise<Category[]>;

@@ -15,6 +15,7 @@ import { slugify, uuid } from '@/utils/id';
 import { monthKeyOfDate, todayIso, yearKeyOfDate } from '@/utils/period';
 import type { Repository } from './repository';
 import { mutateStore, readStore, type LocalStoreShape } from './localStore';
+import { fallbackIcon, type CategoryIcon } from '@/constants/icons';
 
 export const LOCAL_USER_ID = 'local-user';
 
@@ -49,6 +50,7 @@ export class LocalRepository implements Repository {
           sortOrder: index,
           isActive: true,
           isDefault: true,
+          icon: seed.icon,
           promptExamples: seed.promptExamples,
           createdAt: now,
         })) as Category[],
@@ -63,14 +65,20 @@ export class LocalRepository implements Repository {
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  async createCategory(input: { name: string; promptExamples?: string[] }): Promise<Category> {
+  async createCategory(input: {
+    name: string;
+    promptExamples?: string[];
+    icon?: CategoryIcon;
+  }): Promise<Category> {
+    const slug = slugify(input.name);
     const created: Category = {
       id: uuid(),
       name: input.name.trim(),
-      slug: slugify(input.name),
+      slug,
       sortOrder: 0,
       isActive: true,
       isDefault: false,
+      icon: input.icon ?? fallbackIcon(slug),
       promptExamples: input.promptExamples ?? [],
     };
     await mutateStore((store) => {
@@ -87,6 +95,20 @@ export class LocalRepository implements Repository {
       categories: store.categories.map((c) => {
         if (c.id !== id) return c;
         updated = { ...c, name: name.trim() };
+        return updated;
+      }),
+    }));
+    if (!updated) throw new Error(`Category not found: ${id}`);
+    return updated;
+  }
+
+  async setCategoryIcon(id: string, icon: CategoryIcon): Promise<Category> {
+    let updated: Category | undefined;
+    await mutateStore((store) => ({
+      ...store,
+      categories: store.categories.map((c) => {
+        if (c.id !== id) return c;
+        updated = { ...c, icon };
         return updated;
       }),
     }));

@@ -5,6 +5,7 @@
 import { buildGraph } from '@/map/graph';
 import { buildSemanticClusters } from '@/utils/similarity';
 import { buildCategoryArticle } from '@/ai/article';
+import { fallbackIcon } from '@/constants/icons';
 import type { Category, LogWithAnalysis } from '@/types';
 
 const categories: Category[] = [
@@ -21,6 +22,7 @@ const categories: Category[] = [
   sortOrder: index,
   isActive: true,
   isDefault: true,
+  icon: fallbackIcon(`slug-${index}`),
   promptExamples: [],
 }));
 

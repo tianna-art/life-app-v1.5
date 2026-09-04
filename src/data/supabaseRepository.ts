@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CATEGORIES } from '@/constants/categories';
+import { coerceIcon, type CategoryIcon } from '@/constants/icons';
 import type {
   Category,
   CategoryInsight,
@@ -25,6 +26,9 @@ interface CategoryRow {
   is_active: boolean;
   is_default: boolean;
   prompt_examples: string[] | null;
+  /** Optional on the wire: a database that has not run the icons migration
+   *  yet simply does not send it, and the row still reads fine. */
+  icon?: string | null;
 }
 
 interface LogRow {
@@ -71,6 +75,7 @@ function mapCategory(row: CategoryRow): Category {
     sortOrder: row.sort_order,
     isActive: row.is_active,
     isDefault: row.is_default,
+    icon: coerceIcon(row.icon, row.slug),
     promptExamples: row.prompt_examples ?? [],
   };
 }
@@ -160,6 +165,7 @@ export class SupabaseRepository implements Repository {
       sort_order: index,
       is_active: true,
       is_default: true,
+      icon: seed.icon,
       prompt_examples: seed.promptExamples,
     }));
     const { error: insertError } = await this.client
@@ -180,7 +186,11 @@ export class SupabaseRepository implements Repository {
     return (data as CategoryRow[]).map(mapCategory);
   }
 
-  async createCategory(input: { name: string; promptExamples?: string[] }): Promise<Category> {
+  async createCategory(input: {
+    name: string;
+    promptExamples?: string[];
+    icon?: CategoryIcon;
+  }): Promise<Category> {
     const userId = await this.userId();
     const { count } = await this.client
       .from('categories')
@@ -195,6 +205,7 @@ export class SupabaseRepository implements Repository {
         sort_order: count ?? 0,
         is_active: true,
         is_default: false,
+        icon: input.icon ?? coerceIcon(undefined, slugify(input.name)),
         prompt_examples: input.promptExamples ?? [],
       })
       .select()
@@ -207,6 +218,17 @@ export class SupabaseRepository implements Repository {
     const { data, error } = await this.client
       .from('categories')
       .update({ name: name.trim(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapCategory(data as CategoryRow);
+  }
+
+  async setCategoryIcon(id: string, icon: CategoryIcon): Promise<Category> {
+    const { data, error } = await this.client
+      .from('categories')
+      .update({ icon, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single();

@@ -6,6 +6,9 @@ import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { BrassButton } from '@components/ui/BrassButton';
 import { useCategories, useCategoryMutations } from '@/hooks/useCategories';
+import { CategoryMark } from '@components/ui/CategoryMark';
+import { IconPicker } from '@components/settings/IconPicker';
+import type { CategoryIcon } from '@/constants/icons';
 import type { Category } from '@/types';
 
 /**
@@ -15,7 +18,8 @@ import type { Category } from '@/types';
 export default function CategorySettingsScreen() {
   const router = useRouter();
   const { data: categories } = useCategories(true);
-  const { create, rename, setActive, reorder } = useCategoryMutations();
+  const { create, rename, setIcon, setActive, reorder } = useCategoryMutations();
+  const [iconEditing, setIconEditing] = useState<Category | null>(null);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -81,6 +85,17 @@ export default function CategorySettingsScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            <Pressable
+              testID={`edit-icon-${category.slug}`}
+              onPress={() => setIconEditing(category)}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel={`${category.name} のしるしを変える`}
+              style={({ pressed }) => [styles.markHit, pressed && styles.markPressed]}
+            >
+              <CategoryMark icon={category.icon} size={22} active={category.isActive} />
+            </Pressable>
 
             {editingId === category.id ? (
               <TextInput
@@ -155,6 +170,15 @@ export default function CategorySettingsScreen() {
           />
         </View>
       </ScrollView>
+      <IconPicker
+        visible={iconEditing !== null}
+        categoryName={iconEditing?.name ?? ''}
+        value={iconEditing?.icon ?? 'orbit'}
+        onPick={(icon: CategoryIcon) => {
+          if (iconEditing) setIcon.mutate({ id: iconEditing.id, icon });
+        }}
+        onClose={() => setIconEditing(null)}
+      />
     </Screen>
   );
 }
@@ -173,6 +197,13 @@ const styles = StyleSheet.create({
     minHeight: MIN_TOUCH,
   },
   reorder: { flexDirection: 'row' },
+  markHit: {
+    minWidth: MIN_TOUCH - 12,
+    minHeight: MIN_TOUCH - 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markPressed: { opacity: 0.6 },
   reorderHit: { width: 28, height: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   arrow: { color: colors.brassDim, fontSize: 15 },
   arrowDisabled: { color: colors.frame },
