@@ -25,3 +25,12 @@ jest.mock('expo-router', () => ({
 }));
 
 global.__DEV__ = true;
+
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+  openAuthSessionAsync: jest.fn(async () => ({ type: 'cancel' })),
+}));
+
+jest.mock('expo-linking', () => ({
+  createURL: (path) => `crincran://${path}`,
+}));

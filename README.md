@@ -72,6 +72,24 @@ npx supabase functions deploy period-title
 `LLM_PROVIDER` は `anthropic` / `openai` / `mock` から選べます。`mock` は
 API キー不要で、決めつけを含まない固定 JSON を返すため CI とローカルに向きます。
 
+### 4b. Google ログイン（任意）
+
+1. **Google Cloud Console** → APIs & Services → Credentials →
+   Create Credentials → **OAuth client ID** → Application type: **Web application**
+   - Authorized redirect URIs に **Supabase のコールバック**を追加：
+     `https://<project-ref>.supabase.co/auth/v1/callback`
+   - 初回は OAuth consent screen の設定を求められます（External / アプリ名 / 連絡先）
+2. **Supabase** → Authentication → Sign In / Providers → **Google** を有効化し、
+   Client ID と Client Secret を貼り付けて保存
+3. **Supabase** → Authentication → URL Configuration
+   - Site URL: 本番の URL
+   - Additional Redirect URLs に、プレビュー URL と `crincran://auth-callback` を追加
+     （後者がないと iOS / Android から戻ってこられません）
+
+アプリ側は実装済みです。web はページごとリダイレクトし、ネイティブは
+アプリ内ブラウザを開いて `crincran://auth-callback` で閉じ、受け取った code を
+PKCE で交換します（`src/lib/oauth.ts`）。
+
 ### 5. 起動
 
 ```bash
@@ -200,7 +218,7 @@ SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SEED_EMAIL=you@example.com \
 npm test
 ```
 
-63 件。仕様の受け入れ条件に対応しています。
+70 件。仕様の受け入れ条件に対応しています。
 
 | 観点 | ファイル |
 | --- | --- |
@@ -212,6 +230,7 @@ npm test
 | AI 失敗でログが消えない / 壊れた JSON の破棄 | `aiFailure.test.ts` |
 | オフラインキュー | `offline.queue.test.ts` |
 | 禁止表現がコードに存在しない | `copy.test.ts` |
+| Google ログイン（code 交換・キャンセル・web/native の分岐） | `oauth.test.ts` |
 
 `jest.forceExit` を有効にしています。jest-expo + RN 0.86 の組み合わせで
 テスト終了後もハンドルが 1 つ残るためで、テスト自体のリークではありません

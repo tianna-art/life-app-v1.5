@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
+import { signInWithProvider } from '@/lib/oauth';
 import { useLocalStore } from '@/lib/env';
 import { getRepository } from '@/data';
 
@@ -89,11 +90,25 @@ export function useAuth() {
     else setState((s) => ({ ...s, loading: false }));
   }, []);
 
+  /** Google sign-in. The session arrives through onAuthStateChange. */
+  const signInWithGoogle = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    const result = await signInWithProvider(supabase, 'google');
+    if (result.ok || result.cancelled) {
+      // A cancel is not an error; the user simply closed the window.
+      setState((s) => ({ ...s, loading: false, error: null }));
+    } else {
+      setState((s) => ({ ...s, loading: false, error: result.error ?? 'サインインできませんでした。' }));
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
     if (!supabase) return;
     await supabase.auth.signOut();
   }, []);
 
-  return { ...state, signIn, signUp, signOut, isLocalMode: useLocalStore };
+  return { ...state, signIn, signUp, signInWithGoogle, signOut, isLocalMode: useLocalStore };
 }

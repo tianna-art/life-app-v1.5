@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL, hasSupabaseConfig } from './env';
@@ -17,7 +18,13 @@ export function getSupabase(): SupabaseClient | null {
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        // PKCE keeps the OAuth code exchange safe on a device, where there is
+        // no server to hold a client secret.
+        flowType: 'pkce',
+        // On web the provider redirects back to the page itself, so the client
+        // picks the code out of the URL. On native we hand it over explicitly
+        // after the in-app browser closes.
+        detectSessionInUrl: Platform.OS === 'web',
       },
     });
   }
