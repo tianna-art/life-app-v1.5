@@ -8,6 +8,7 @@ import { KeywordReview } from './KeywordReview';
 import { formatShortDate } from '@/utils/period';
 import { truncate } from '@/utils/text';
 import type { CategoryInsight, KeywordCandidate, LogWithAnalysis } from '@/types';
+import { PhoneOverlay } from '@components/ui/PhoneFrame';
 
 interface CategoryInsightSheetProps {
   visible: boolean;
@@ -51,84 +52,86 @@ export function CategoryInsightSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-      <Pressable style={styles.scrim} onPress={close} accessibilityLabel="閉じる" />
-      <View style={styles.sheet} testID="category-insight-sheet">
-        <View style={styles.grip} />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.period}>{periodLabel}</Text>
-          <Text style={styles.title} accessibilityRole="header">
-            {categoryName}
-          </Text>
+      <PhoneOverlay>
+        <Pressable style={styles.scrim} onPress={close} accessibilityLabel="閉じる" />
+        <View style={styles.sheet} testID="category-insight-sheet">
+          <View style={styles.grip} />
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <Text style={styles.period}>{periodLabel}</Text>
+            <Text style={styles.title} accessibilityRole="header">
+              {categoryName}
+            </Text>
 
-          <HairlineRule />
+            <HairlineRule />
 
-          <Text style={styles.sectionLabel}>INSIGHT</Text>
-          <Text style={styles.insight}>
-            {loading
-              ? '…'
-              : (insight?.insight ??
-                'この期間のこのカテゴリーについては、まだ言葉にできることが多くありません。')}
-          </Text>
+            <Text style={styles.sectionLabel}>INSIGHT</Text>
+            <Text style={styles.insight}>
+              {loading
+                ? '…'
+                : (insight?.insight ??
+                  'この期間のこのカテゴリーについては、まだ言葉にできることが多くありません。')}
+            </Text>
 
-          <HairlineRule />
+            <HairlineRule />
 
-          <Text style={styles.sectionLabel}>関連する記録</Text>
-          <View style={styles.logList}>
-            {logs.map((log) => (
-              <Pressable
-                key={log.id}
-                onPress={() => onLogPress(log.id)}
-                hitSlop={HIT_SLOP}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatShortDate(log.occurredOn)} ${truncate(log.body, 40)}`}
-                style={({ pressed }) => [styles.logRow, pressed && styles.logRowPressed]}
-              >
-                <Text style={styles.logDate}>{formatShortDate(log.occurredOn)}</Text>
-                <Text style={styles.logBody} numberOfLines={1}>
-                  {truncate(log.body, 26)}
-                </Text>
-                <Text style={styles.logType}>
-                  {log.type === 'event' ? LABELS.event : LABELS.thought}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+            <Text style={styles.sectionLabel}>関連する記録</Text>
+            <View style={styles.logList}>
+              {logs.map((log) => (
+                <Pressable
+                  key={log.id}
+                  onPress={() => onLogPress(log.id)}
+                  hitSlop={HIT_SLOP}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${formatShortDate(log.occurredOn)} ${truncate(log.body, 40)}`}
+                  style={({ pressed }) => [styles.logRow, pressed && styles.logRowPressed]}
+                >
+                  <Text style={styles.logDate}>{formatShortDate(log.occurredOn)}</Text>
+                  <Text style={styles.logBody} numberOfLines={1}>
+                    {truncate(log.body, 26)}
+                  </Text>
+                  <Text style={styles.logType}>
+                    {log.type === 'event' ? LABELS.event : LABELS.thought}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-          {keywordsOpen && insight ? (
-            <>
-              <HairlineRule />
-              <Text style={styles.sectionLabel}>KEYWORDS</Text>
-              <KeywordReview
-                keywords={insight.keywords}
-                status={insight.status}
-                onAccept={() => onKeywordAccept(insight.keywords.slice(0, 3))}
-                onEditConfirm={onKeywordEdit}
-                onSkip={onKeywordSkip}
-                busy={reviewBusy}
+            {keywordsOpen && insight ? (
+              <>
+                <HairlineRule />
+                <Text style={styles.sectionLabel}>KEYWORDS</Text>
+                <KeywordReview
+                  keywords={insight.keywords}
+                  status={insight.status}
+                  onAccept={() => onKeywordAccept(insight.keywords.slice(0, 3))}
+                  onEditConfirm={onKeywordEdit}
+                  onSkip={onKeywordSkip}
+                  busy={reviewBusy}
+                />
+              </>
+            ) : (
+              <BrassButton
+                testID="see-keywords"
+                label={LABELS.seeKeywords}
+                onPress={() => setKeywordsOpen(true)}
+                style={styles.keywordButton}
+                disabled={!insight}
+                accessibilityHint="AIが抽出した最大3つのキーワードを表示します"
               />
-            </>
-          ) : (
-            <BrassButton
-              testID="see-keywords"
-              label={LABELS.seeKeywords}
-              onPress={() => setKeywordsOpen(true)}
-              style={styles.keywordButton}
-              disabled={!insight}
-              accessibilityHint="AIが抽出した最大3つのキーワードを表示します"
-            />
-          )}
+            )}
 
-          <Pressable
-            onPress={close}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="閉じる"
-            style={styles.closeRow}
-          >
-            <Text style={styles.close}>閉じる</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+            <Pressable
+              onPress={close}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="閉じる"
+              style={styles.closeRow}
+            >
+              <Text style={styles.close}>閉じる</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </PhoneOverlay>
     </Modal>
   );
 }

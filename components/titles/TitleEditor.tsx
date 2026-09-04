@@ -4,6 +4,7 @@ import { HIT_SLOP, colors, fonts, radii, spacing } from '@/theme';
 import { BrassButton } from '@components/ui/BrassButton';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import type { TitleCandidate } from '@/types';
+import { PhoneOverlay } from '@components/ui/PhoneFrame';
 
 interface TitleEditorProps {
   visible: boolean;
@@ -38,80 +39,82 @@ export function TitleEditor({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
-      <View style={styles.sheet} testID="title-editor">
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.heading} accessibilityRole="header">
-            {heading}
-          </Text>
+      <PhoneOverlay>
+        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
+        <View style={styles.sheet} testID="title-editor">
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <Text style={styles.heading} accessibilityRole="header">
+              {heading}
+            </Text>
 
-          <TextInput
-            testID="title-input"
-            value={draft}
-            onChangeText={(value) => {
-              setDraft(value);
-              setSource('manual');
-            }}
-            placeholder="この期間をどう呼びたい？"
-            placeholderTextColor={colors.ivoryFaint}
-            style={styles.input}
-            accessibilityLabel="タイトル"
-            multiline
-            maxLength={80}
-          />
-
-          {aiAvailable ? (
-            <>
-              <HairlineRule />
-              <BrassButton
-                testID="request-candidates"
-                label={loadingCandidates ? '考えています…' : 'AIに3案もらう'}
-                onPress={onRequestCandidates}
-                disabled={loadingCandidates}
-                style={styles.aiButton}
-              />
-              {candidates.map((candidate) => (
-                <Pressable
-                  key={candidate.title}
-                  testID={`candidate-${candidate.title}`}
-                  onPress={() => {
-                    setDraft(candidate.title);
-                    setSource('ai');
-                  }}
-                  hitSlop={HIT_SLOP}
-                  accessibilityRole="button"
-                  accessibilityLabel={candidate.title}
-                  style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
-                >
-                  <Text style={styles.candidateTitle}>{candidate.title}</Text>
-                  {candidate.reason ? (
-                    <Text style={styles.candidateReason}>{candidate.reason}</Text>
-                  ) : null}
-                </Pressable>
-              ))}
-            </>
-          ) : null}
-
-          <View style={styles.footer}>
-            <Pressable
-              onPress={onClose}
-              hitSlop={HIT_SLOP}
-              accessibilityRole="button"
-              accessibilityLabel="やめる"
-              style={styles.footerButton}
-            >
-              <Text style={styles.cancel}>やめる</Text>
-            </Pressable>
-            <BrassButton
-              testID="confirm-title"
-              label="このタイトルにする"
-              onPress={() => onConfirm(draft.trim(), source)}
-              disabled={draft.trim().length === 0}
-              variant="solid"
+            <TextInput
+              testID="title-input"
+              value={draft}
+              onChangeText={(value) => {
+                setDraft(value);
+                setSource('manual');
+              }}
+              placeholder="この期間をどう呼びたい？"
+              placeholderTextColor={colors.ivoryFaint}
+              style={styles.input}
+              accessibilityLabel="タイトル"
+              multiline
+              maxLength={80}
             />
-          </View>
-        </ScrollView>
-      </View>
+
+            {aiAvailable ? (
+              <>
+                <HairlineRule />
+                <BrassButton
+                  testID="request-candidates"
+                  label={loadingCandidates ? '考えています…' : 'AIに3案もらう'}
+                  onPress={onRequestCandidates}
+                  disabled={loadingCandidates}
+                  style={styles.aiButton}
+                />
+                {candidates.map((candidate) => (
+                  <Pressable
+                    key={candidate.title}
+                    testID={`candidate-${candidate.title}`}
+                    onPress={() => {
+                      setDraft(candidate.title);
+                      setSource('ai');
+                    }}
+                    hitSlop={HIT_SLOP}
+                    accessibilityRole="button"
+                    accessibilityLabel={candidate.title}
+                    style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.candidateTitle}>{candidate.title}</Text>
+                    {candidate.reason ? (
+                      <Text style={styles.candidateReason}>{candidate.reason}</Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={onClose}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel="やめる"
+                style={styles.footerButton}
+              >
+                <Text style={styles.cancel}>やめる</Text>
+              </Pressable>
+              <BrassButton
+                testID="confirm-title"
+                label="このタイトルにする"
+                onPress={() => onConfirm(draft.trim(), source)}
+                disabled={draft.trim().length === 0}
+                variant="solid"
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </PhoneOverlay>
     </Modal>
   );
 }

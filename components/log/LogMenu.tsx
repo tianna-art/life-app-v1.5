@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
+import { PhoneOverlay } from '@components/ui/PhoneFrame';
 
 export interface MenuItem {
   label: string;
@@ -44,24 +45,26 @@ export function LogMenu({
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
-      <View style={styles.sheet} testID="log-menu">
-        {items.map((item) => (
-          <Pressable
-            key={item.label}
-            testID={`menu-${item.label}`}
-            onPress={() => {
-              onClose();
-              item.onPress();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={item.label}
-            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-          >
-            <Text style={styles.itemLabel}>{item.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <PhoneOverlay>
+        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
+        <View style={styles.sheet} testID="log-menu">
+          {items.map((item) => (
+            <Pressable
+              key={item.label}
+              testID={`menu-${item.label}`}
+              onPress={() => {
+                onClose();
+                item.onPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+            >
+              <Text style={styles.itemLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </PhoneOverlay>
     </Modal>
   );
 }
