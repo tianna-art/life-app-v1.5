@@ -53,11 +53,11 @@ describe('log persistence', () => {
   it('seeds the six default categories and lets the user add one', async () => {
     const initial = await repository.listCategories();
     expect(initial.map((c) => c.name)).toEqual([
-      'ときめき',
-      '積み上げ',
-      '教訓',
-      'ひっかかり',
-      '関係性',
+      '楽しかったこと',
+      'できたこと',
+      '学び',
+      'モヤモヤ',
+      '人間関係',
       'その他',
     ]);
 

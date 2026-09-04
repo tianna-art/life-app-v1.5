@@ -3,13 +3,13 @@
  * ×/✓ controls behave as specified.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { LogComposer } from '@components/log/LogComposer';
+import { InlineComposer } from '@components/log/InlineComposer';
 import type { Category } from '@/types';
 
 const categories: Category[] = [
   {
     id: 'cat-1',
-    name: 'ときめき',
+    name: '楽しかったこと',
     slug: 'tokimeki',
     sortOrder: 0,
     isActive: true,
@@ -18,7 +18,7 @@ const categories: Category[] = [
   },
   {
     id: 'cat-2',
-    name: '積み上げ',
+    name: 'できたこと',
     slug: 'tsumiage',
     sortOrder: 1,
     isActive: true,
@@ -27,26 +27,22 @@ const categories: Category[] = [
   },
 ];
 
-describe('LogComposer', () => {
+describe('InlineComposer', () => {
   it('refuses to save without a category', () => {
     const onSave = jest.fn();
-    render(
-      <LogComposer visible categories={categories} onClose={jest.fn()} onSave={onSave} />
-    );
+    render(<InlineComposer categories={categories} onSave={onSave} />);
 
     fireEvent.press(screen.getByTestId('log-type-event'));
     fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
     fireEvent.press(screen.getByTestId('composer-save'));
 
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText('カテゴリーを選んでください。')).toBeTruthy();
+    expect(screen.getByText('どの引き出しに入れるか選んでください。')).toBeTruthy();
   });
 
   it('refuses to save without a type', () => {
     const onSave = jest.fn();
-    render(
-      <LogComposer visible categories={categories} onClose={jest.fn()} onSave={onSave} />
-    );
+    render(<InlineComposer categories={categories} onSave={onSave} />);
 
     fireEvent.press(screen.getByTestId('category-tokimeki'));
     fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
@@ -57,9 +53,7 @@ describe('LogComposer', () => {
 
   it('refuses to save an empty body', () => {
     const onSave = jest.fn();
-    render(
-      <LogComposer visible categories={categories} onClose={jest.fn()} onSave={onSave} />
-    );
+    render(<InlineComposer categories={categories} onSave={onSave} />);
 
     fireEvent.press(screen.getByTestId('log-type-thought'));
     fireEvent.press(screen.getByTestId('category-tokimeki'));
@@ -71,9 +65,7 @@ describe('LogComposer', () => {
 
   it('saves once type, category and body are all present', () => {
     const onSave = jest.fn();
-    render(
-      <LogComposer visible categories={categories} onClose={jest.fn()} onSave={onSave} />
-    );
+    render(<InlineComposer categories={categories} onSave={onSave} />);
 
     fireEvent.press(screen.getByTestId('log-type-thought'));
     fireEvent.press(screen.getByTestId('category-tsumiage'));
@@ -88,14 +80,29 @@ describe('LogComposer', () => {
   });
 
   it('shows one guidance prompt for the selected category', () => {
-    render(<LogComposer visible categories={categories} onClose={jest.fn()} onSave={jest.fn()} />);
+    render(<InlineComposer categories={categories} onSave={jest.fn()} />);
     expect(screen.queryByTestId('category-prompt')).toBeNull();
     fireEvent.press(screen.getByTestId('category-tokimeki'));
     expect(screen.getByTestId('category-prompt')).toBeTruthy();
   });
 
+  it('clears itself after a save, ready for the next one', () => {
+    const onSave = jest.fn();
+    render(<InlineComposer categories={categories} onSave={onSave} />);
+
+    fireEvent.press(screen.getByTestId('log-type-event'));
+    fireEvent.press(screen.getByTestId('category-tokimeki'));
+    fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
+    fireEvent.press(screen.getByTestId('composer-save'));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    // The field is on the page, so it has to be empty again immediately.
+    expect(screen.getByTestId('log-body-input').props.value).toBe('');
+    expect(screen.queryByTestId('category-prompt')).toBeNull();
+  });
+
   it('× clears the form', () => {
-    render(<LogComposer visible categories={categories} onClose={jest.fn()} onSave={jest.fn()} />);
+    render(<InlineComposer categories={categories} onSave={jest.fn()} />);
 
     fireEvent.press(screen.getByTestId('log-type-event'));
     fireEvent.press(screen.getByTestId('category-tokimeki'));

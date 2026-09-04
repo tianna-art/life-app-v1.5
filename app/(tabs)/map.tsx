@@ -8,18 +8,21 @@ import { EMPTY_STATE, LABELS } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { Eyebrow } from '@components/ui/Eyebrow';
 import { EmptyState } from '@components/ui/EmptyState';
-import { ConstellationMap } from '@components/map/ConstellationMap';
-import { CategoryInsightSheet } from '@components/map/CategoryInsightSheet';
+import { OrbitGraph } from '@components/map/OrbitGraph';
+import { CategoryArticle } from '@components/map/CategoryArticle';
 import { useCategories, useCategoryLookup } from '@/hooks/useCategories';
 import { useMonthLogs, useYearLogs } from '@/hooks/useLogs';
 import { useCategoryInsight, useKeywordReview } from '@/hooks/useInsight';
 import { useUiStore } from '@/state/uiStore';
-import { formatMonthEyebrow, shiftMonthKey, shiftYearKey, monthKeyOf, yearKeyOf } from '@/utils/period';
-import type { KeywordCandidate } from '@/types';
+import { formatMonthEyebrow, monthKeyOf, shiftMonthKey, shiftYearKey, yearKeyOf } from '@/utils/period';
+import type { KeywordCandidate, LogWithAnalysis } from '@/types';
+
+/** In the year view a category can hold hundreds of records; show the fullest. */
+const YEAR_LEAVES_PER_CATEGORY = 12;
 
 /**
- * The sky. Exactly one period is ever on screen: swiping moves between whole
- * months (or whole years) and never merges two of them.
+ * 自分 を中心にした放射図. Exactly one period is ever on screen: swiping moves
+ * between whole months (or whole years) and never merges two of them.
  */
 export default function MapScreen() {
   const router = useRouter();
@@ -30,9 +33,9 @@ export default function MapScreen() {
   const setMode = useUiStore((s) => s.setMapMode);
   const setMonthKey = useUiStore((s) => s.setMapMonthKey);
   const setYearKey = useUiStore((s) => s.setMapYearKey);
-  const openedLogIds = useUiStore((s) => s.openedLogIds);
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
 
   const { data: categories } = useCategories(true);
   const categoryLookup = useCategoryLookup();
@@ -40,10 +43,26 @@ export default function MapScreen() {
   const yearQuery = useYearLogs(yearKeyValue);
 
   const periodKey = mode === 'month' ? monthKey : yearKeyValue;
-  const logs = useMemo(
+  const allLogs = useMemo(
     () => (mode === 'month' ? (monthQuery.data ?? []) : (yearQuery.data ?? [])),
     [mode, monthQuery.data, yearQuery.data]
   );
+
+  // The year view thins each branch so the figure stays readable on a phone.
+  const graphLogs = useMemo<LogWithAnalysis[]>(() => {
+    if (mode === 'month') return allLogs;
+    const perCategory = new Map<string, LogWithAnalysis[]>();
+    for (const log of allLogs) {
+      const list = perCategory.get(log.categoryId) ?? [];
+      list.push(log);
+      perCategory.set(log.categoryId, list);
+    }
+    return [...perCategory.values()].flatMap((list) =>
+      [...list]
+        .sort((a, b) => b.body.length - a.body.length || a.id.localeCompare(b.id))
+        .slice(0, YEAR_LEAVES_PER_CATEGORY)
+    );
+  }, [mode, allLogs]);
 
   const canGoForward =
     mode === 'month' ? monthKey < monthKeyOf(new Date()) : yearKeyValue < yearKeyOf(new Date());
@@ -53,12 +72,12 @@ export default function MapScreen() {
       if (delta > 0 && !canGoForward) return;
       if (mode === 'month') setMonthKey(shiftMonthKey(monthKey, delta));
       else setYearKey(shiftYearKey(yearKeyValue, delta));
-      setSelectedCategoryId(null);
+      setExpanded(new Set());
+      setOpenCategoryId(null);
     },
     [mode, monthKey, yearKeyValue, canGoForward, setMonthKey, setYearKey]
   );
 
-  // Horizontal swipe: right = older, left = newer. One period per gesture.
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -72,19 +91,30 @@ export default function MapScreen() {
     [step]
   );
 
-  const selectedCategory = selectedCategoryId ? categoryLookup.get(selectedCategoryId) : undefined;
+  // A tap opens the branch and the article together: the records fan out
+  // behind the reading view, so closing it lands you on what was just opened.
+  const handleCategoryPress = useCallback((categoryId: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      next.add(categoryId);
+      return next;
+    });
+    setOpenCategoryId(categoryId);
+  }, []);
+
+  const selectedCategory = openCategoryId ? categoryLookup.get(openCategoryId) : undefined;
   const categoryLogs = useMemo(
-    () => logs.filter((l) => l.categoryId === selectedCategoryId),
-    [logs, selectedCategoryId]
+    () => allLogs.filter((l) => l.categoryId === openCategoryId),
+    [allLogs, openCategoryId]
   );
 
   const insightQuery = useCategoryInsight({
     periodType: mode,
     periodKey,
-    categoryId: selectedCategoryId ?? '',
+    categoryId: openCategoryId ?? '',
     categoryName: selectedCategory?.name ?? '',
     logs: categoryLogs,
-    enabled: Boolean(selectedCategoryId),
+    enabled: Boolean(openCategoryId),
   });
   const review = useKeywordReview();
 
@@ -97,8 +127,9 @@ export default function MapScreen() {
     review.mutate({ insight, status, finalKeywords });
   };
 
-  const mapHeight = Math.max(320, height * 0.52);
   const label = mode === 'month' ? formatMonthEyebrow(monthKey) : yearKeyValue;
+  const canvasWidth = width - spacing.gallery * 2;
+  const canvasHeight = Math.max(340, height - 232);
 
   return (
     <Screen>
@@ -112,7 +143,8 @@ export default function MapScreen() {
                 testID={`map-mode-${value}`}
                 onPress={() => {
                   setMode(value);
-                  setSelectedCategoryId(null);
+                  setExpanded(new Set());
+                  setOpenCategoryId(null);
                 }}
                 hitSlop={HIT_SLOP}
                 accessibilityRole="tab"
@@ -158,36 +190,38 @@ export default function MapScreen() {
 
       <GestureDetector gesture={pan}>
         <View style={styles.canvas} testID="map-canvas">
-          {logs.length === 0 ? (
+          {graphLogs.length === 0 ? (
             <EmptyState message={mode === 'month' ? EMPTY_STATE.map : EMPTY_STATE.mapYear} />
           ) : (
-            <ConstellationMap
-              mode={mode}
+            <OrbitGraph
               periodKey={periodKey}
-              width={width - spacing.gallery * 2}
-              height={mapHeight}
+              width={canvasWidth}
+              height={canvasHeight}
               categories={categories ?? []}
-              logs={logs}
-              openedLogIds={new Set(openedLogIds)}
-              onCategoryPress={setSelectedCategoryId}
+              logs={graphLogs}
+              expanded={expanded}
+              onCategoryPress={handleCategoryPress}
               onLogPress={(id) => router.push(`/log/${id}`)}
             />
           )}
         </View>
       </GestureDetector>
 
-      <Text style={styles.hint}>横にスワイプすると、前後の{mode === 'month' ? '月' : '年'}へ移ります。</Text>
+      <Text style={styles.hint}>
+        引き出しをタップすると、まとめが記事として開きます。横スワイプで前後の
+        {mode === 'month' ? '月' : '年'}へ。
+      </Text>
 
-      <CategoryInsightSheet
-        visible={Boolean(selectedCategoryId)}
+      <CategoryArticle
+        visible={Boolean(openCategoryId)}
         categoryName={selectedCategory?.name ?? ''}
         periodLabel={label}
         insight={insightQuery.data ?? null}
         loading={insightQuery.isLoading}
         logs={categoryLogs}
-        onClose={() => setSelectedCategoryId(null)}
+        onClose={() => setOpenCategoryId(null)}
         onLogPress={(id) => {
-          setSelectedCategoryId(null);
+          setOpenCategoryId(null);
           router.push(`/log/${id}`);
         }}
         onKeywordAccept={(keywords) => applyReview('accepted', keywords)}
@@ -200,17 +234,17 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: spacing.lg, gap: spacing.md },
+  header: { paddingTop: spacing.md, gap: spacing.sm },
   toggle: { flexDirection: 'row', gap: spacing.lg },
-  toggleItem: { minHeight: MIN_TOUCH - 8, justifyContent: 'center', gap: 4 },
-  toggleLabel: { fontFamily: fonts.serif, fontSize: 17, color: colors.ivoryFaint },
+  toggleItem: { minHeight: MIN_TOUCH - 10, justifyContent: 'center', gap: 4 },
+  toggleLabel: { fontFamily: fonts.serif, fontSize: 16, color: colors.ivoryFaint },
   toggleLabelActive: { color: colors.ivory },
   toggleRule: { height: 1, backgroundColor: 'transparent' },
   toggleRuleActive: { backgroundColor: colors.brass },
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   arrowHit: {
     minWidth: MIN_TOUCH,
-    minHeight: MIN_TOUCH,
+    minHeight: MIN_TOUCH - 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -220,8 +254,9 @@ const styles = StyleSheet.create({
   hint: {
     fontFamily: fonts.sans,
     fontSize: 11,
+    lineHeight: 18,
     color: colors.ivoryFaint,
     textAlign: 'center',
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
 });

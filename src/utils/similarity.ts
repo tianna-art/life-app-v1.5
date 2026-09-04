@@ -68,3 +68,64 @@ export function buildSemanticEdges(
   }
   return accepted;
 }
+
+export interface SemanticCluster {
+  /** Tags shared by every log in the cluster, most common first. */
+  sharedTags: string[];
+  logIds: string[];
+}
+
+/**
+ * Connected components over the meaning links: groups of records that keep
+ * circling the same thing. Singletons are dropped — one record is not a
+ * pattern, and presenting it as one would be the kind of claim the spec forbids.
+ */
+export function buildSemanticClusters(logs: LogWithAnalysis[]): SemanticCluster[] {
+  const edges = buildSemanticEdges(logs);
+  if (edges.length === 0) return [];
+
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    const seen = parent.get(id);
+    if (seen === undefined || seen === id) return id;
+    const root = find(seen);
+    parent.set(id, root);
+    return root;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  for (const log of logs) parent.set(log.id, log.id);
+  for (const edge of edges) union(edge.sourceLogId, edge.targetLogId);
+
+  const groups = new Map<string, string[]>();
+  for (const log of logs) {
+    if (!parent.has(log.id)) continue;
+    const root = find(log.id);
+    const list = groups.get(root);
+    if (list) list.push(log.id);
+    else groups.set(root, [log.id]);
+  }
+
+  const byId = new Map(logs.map((l) => [l.id, l]));
+  return [...groups.values()]
+    .filter((ids) => ids.length > 1)
+    .map((ids) => {
+      const counts = new Map<string, number>();
+      for (const id of ids) {
+        for (const tag of byId.get(id)?.analysis?.semanticTags ?? []) {
+          counts.set(tag, (counts.get(tag) ?? 0) + 1);
+        }
+      }
+      const sharedTags = [...counts.entries()]
+        .filter(([, n]) => n > 1)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([tag]) => tag)
+        .slice(0, 4);
+      return { sharedTags, logIds: ids };
+    })
+    .sort((a, b) => b.logIds.length - a.logIds.length);
+}
