@@ -9,7 +9,7 @@ import type { Category } from '@/types';
 const categories: Category[] = [
   {
     id: 'cat-1',
-    name: 'ときめき',
+    name: '楽しかったこと',
     slug: 'tokimeki',
     sortOrder: 0,
     isActive: true,
@@ -18,7 +18,7 @@ const categories: Category[] = [
   },
   {
     id: 'cat-2',
-    name: '積み上げ',
+    name: 'できたこと',
     slug: 'tsumiage',
     sortOrder: 1,
     isActive: true,

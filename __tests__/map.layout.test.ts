@@ -8,11 +8,11 @@ import { shiftMonthKey, shiftYearKey, monthKeyOfDate } from '@/utils/period';
 import type { Category, LogWithAnalysis } from '@/types';
 
 const categories: Category[] = [
-  'ときめき',
-  '積み上げ',
-  '教訓',
-  'ひっかかり',
-  '関係性',
+  '楽しかったこと',
+  'できたこと',
+  '学び',
+  'モヤモヤ',
+  '人間関係',
   'その他',
 ].map((name, index) => ({
   id: `cat-${index}`,
@@ -61,10 +61,10 @@ describe('monthly map', () => {
     });
 
     const shown = layout.categoryNodes.map((n) => n.name).sort();
-    expect(shown).toEqual(['ときめき', '関係性', '積み上げ'].sort());
+    expect(shown).toEqual(['楽しかったこと', '人間関係', 'できたこと'].sort());
     // 教訓 / ひっかかり / その他 were not used, so they never appear.
-    expect(shown).not.toContain('教訓');
-    expect(shown).not.toContain('ひっかかり');
+    expect(shown).not.toContain('学び');
+    expect(shown).not.toContain('モヤモヤ');
     expect(shown).not.toContain('その他');
   });
 
@@ -176,7 +176,7 @@ describe('yearly map', () => {
       categories,
       logs: [log('y1', 'cat-2', '2026-05-02')],
     });
-    expect(layout.categoryNodes.map((n) => n.name)).toEqual(['教訓']);
+    expect(layout.categoryNodes.map((n) => n.name)).toEqual(['学び']);
   });
 });
 

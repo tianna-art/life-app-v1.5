@@ -3,6 +3,10 @@ import type { CategoryInput } from '@/types';
 /**
  * Initial categories (spec §3.4). These are drawers the user chooses from,
  * NOT diagnostic axes: they are seeded per user and fully editable afterwards.
+ *
+ * The slugs are deliberately frozen at their original values. A slug is the
+ * stable key that existing rows — and every log pointing at them — are joined
+ * on, so renaming a category changes only what the user reads.
  */
 export interface DefaultCategorySeed extends CategoryInput {
   slug: string;
@@ -13,7 +17,7 @@ export interface DefaultCategorySeed extends CategoryInput {
 export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   {
     slug: 'tokimeki',
-    name: 'ときめき',
+    name: '楽しかったこと',
     promptExamples: [
       '今日ちょっと「いいな」と思ったことは？',
       'つい時間を使ってしまったものは？',
@@ -22,7 +26,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'tsumiage',
-    name: '積み上げ',
+    name: 'できたこと',
     promptExamples: [
       '今日、少しでも手を動かしたことは？',
       '小さく前に進んだと思えることは？',
@@ -31,7 +35,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'kyokun',
-    name: '教訓',
+    name: '学び',
     promptExamples: [
       '今日の出来事から「次はこうしてみよう」と思ったことは？',
       '次回は少し変えてみたいことは？',
@@ -40,7 +44,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'hikkakari',
-    name: 'ひっかかり',
+    name: 'モヤモヤ',
     promptExamples: [
       '今日、少し引っかかったことは？',
       'ちょっと悔しかったことは？',
@@ -49,7 +53,7 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
   },
   {
     slug: 'kankeisei',
-    name: '関係性',
+    name: '人間関係',
     promptExamples: [
       '今日、誰かとのやりとりで心地よかった / しんどかったことは？',
       'どんな関わり方だと自分は力を出しやすかった？',

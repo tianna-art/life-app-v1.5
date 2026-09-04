@@ -37,15 +37,15 @@ begin
 
   insert into public.categories (user_id, name, slug, sort_order, is_active, is_default, prompt_examples)
   values
-    (target_user, 'ときめき',   'tokimeki',  0, true, true,
+    (target_user, '楽しかったこと',   'tokimeki',  0, true, true,
      '["今日ちょっと「いいな」と思ったことは？","つい時間を使ってしまったものは？","また触れたいと思ったものは？"]'::jsonb),
-    (target_user, '積み上げ',   'tsumiage',  1, true, true,
+    (target_user, 'できたこと',   'tsumiage',  1, true, true,
      '["今日、少しでも手を動かしたことは？","小さく前に進んだと思えることは？","昨日までより少しできたことは？"]'::jsonb),
-    (target_user, '教訓',       'kyokun',    2, true, true,
+    (target_user, '学び',       'kyokun',    2, true, true,
      '["今日の出来事から「次はこうしてみよう」と思ったことは？","次回は少し変えてみたいことは？","今日わかった「こうすると良さそう」は？"]'::jsonb),
-    (target_user, 'ひっかかり', 'hikkakari', 3, true, true,
+    (target_user, 'モヤモヤ', 'hikkakari', 3, true, true,
      '["今日、少し引っかかったことは？","ちょっと悔しかったことは？","「なんか違う」と感じたことは？"]'::jsonb),
-    (target_user, '関係性',     'kankeisei', 4, true, true,
+    (target_user, '人間関係',     'kankeisei', 4, true, true,
      '["今日、誰かとのやりとりで心地よかった / しんどかったことは？","どんな関わり方だと自分は力を出しやすかった？","誰といる時、自然に動けた？"]'::jsonb),
     (target_user, 'その他',     'sonota',    5, true, true,
      '["今残しておきたいことは？"]'::jsonb)
