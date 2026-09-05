@@ -113,12 +113,31 @@ export default function MapScreen() {
     [step]
   );
 
-  // One tap does both things: the trail extends on the canvas behind, and the
-  // sheet opens over it. Closing the sheet leaves the trail showing.
-  const handleSelect = useCallback((id: string) => {
+  // One tap opens what is under a point, and closes it again. It changes the
+  // sky and nothing else — asking "what happened here" should not also put a
+  // sheet over the thing you were looking at.
+  const handleToggle = useCallback((id: string) => {
+    setExpandedId((current) => (current === id ? null : id));
+  }, []);
+
+  // Two taps ask what the point is, which is the sheet's question.
+  const handleOpenPoint = useCallback((id: string) => {
     setExpandedId(id);
     setOpenId(id);
   }, []);
+
+  // Two taps on a branch: the records it was read from. One goes straight to
+  // the record; several open the month's list filtered to them, because a
+  // reading standing on four records is only checkable against all four.
+  const handleOpenBranch = useCallback(
+    (logIds: readonly string[]) => {
+      const first = logIds[0];
+      if (!first) return;
+      if (logIds.length === 1) router.push(`/log/${first}`);
+      else router.push(`/records/${logIds.join(',')}`);
+    },
+    [router]
+  );
 
   const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
   const canvasHeight = Math.max(320, canvasBox?.height ?? height - 260);
@@ -162,8 +181,9 @@ export default function MapScreen() {
               height={canvasHeight}
               lead={monthMap ?? null}
               watched={watched}
-              onSelect={handleSelect}
-              onSelectStep={(logId) => router.push(`/log/${logId}`)}
+              onToggle={handleToggle}
+              onOpenPoint={handleOpenPoint}
+              onOpenBranch={handleOpenBranch}
             />
           )}
         </View>

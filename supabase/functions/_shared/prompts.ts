@@ -327,9 +327,22 @@ export const MONTH_MAP_SYSTEM = `${GUARDRAILS}
     - 繰り返しはあるが、記録が足りずProgressionになっていないもの
     ## 判断できないこと
     - 記録が足りず、まだ言えないこと
-- points : MAPに出す点のidを、出す順に並べた配列。最大5件
+- points : MAPに出す点。出す順に並べた配列。最大5件
+    [{"progression_id":"", "branches":[
+       {"label":"", "summary":"", "log_ids":[""]}
+     ]}]
 - lead_progression_id : その1つ目
 - lead_reason : 先頭の点の下に出す1文（45字以内）
+
+branches（点の下に出る枝）:
+- **1つの点につき必ず2つ以上**。2つに分けられない点は、点として出さない。
+  その記録を、関係の近い別の点の枝に入れる。統合して数を減らしてよい。
+- label : その枝が何なのか。本人の言葉で15字以内
+- summary : なぜそれが、本人の言った「なりたい姿・方向性」に関わるのか。30字以内
+- log_ids : その枝を読み取ったもとの記録。渡されたidのみ。空にしない
+
+枝は記録そのものではなく、**記録をまとめた観点**です。
+同じ記録を別の枝に入れてもよいが、枝どうしは違うことを言っていること。
 
 points の選び方（ここが一番重要）:
 渡されたidの中から、**本人が今年どうなりたいと言っていたか（方向性・
@@ -365,7 +378,7 @@ lead_reason の悪い例:
 「よく頑張りました」（評価）
 
 出力JSON:
-{"brief_markdown":"","lead_progression_id":"","lead_reason":"","points":[""]}`;
+{"brief_markdown":"","lead_progression_id":"","lead_reason":"","points":[{"progression_id":"","branches":[{"label":"","summary":"","log_ids":[""]}]}]}`;
 
 /** §26 — the year-end reading. The same comparison, one scale up. */
 export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}

@@ -21,6 +21,7 @@
  */
 import type {
   MonthMap,
+  MonthMapBranch,
   MonthProgression,
   ProgressionMaturity,
   ProgressionPattern,
@@ -49,11 +50,19 @@ export interface ProgressionNode {
   evidenceCount: number;
 }
 
-/** One record of that month, hanging off the point it moved (level 3). */
+/**
+ * One thing that happened under a point (level 3).
+ *
+ * Not a record but a grouping of them: the 観点 the month needed those
+ * records read under. It carries the records it stands on, so opening it can
+ * always show what it was read from.
+ */
 export interface StepNode {
   id: string;
   progressionId: string;
-  logId: string;
+  label: string;
+  summary: string;
+  logIds: string[];
   x: number;
   y: number;
   r: number;
@@ -112,14 +121,25 @@ const STEP_RADIUS = 2.4;
 /** At most five points leave ME. More than that and the month reads as a list. */
 export const MAX_POINTS = 5;
 
-/** How many records may hang off one point before it stops being legible. */
+/** How many branches may hang off one point before it stops being legible. */
 export const MAX_BRANCHES_PER_POINT = 4;
 
 /**
- * A month worth looking at has more than one thing happening in it, so the
- * selection makes sure at least this many points carry records of their own.
+ * A point has to be tellable apart into at least this many things.
+ *
+ * One branch is not a branch — it is the point restated. A progression whose
+ * month cannot be read as two things belongs inside another point, not beside
+ * it, so it is not drawn and the map gets smaller instead.
  */
-export const MIN_BRANCHING_POINTS = 2;
+export const MIN_BRANCHES_PER_POINT = 2;
+
+/**
+ * The cap once anything has been folded away.
+ *
+ * Merging is meant to reduce, so a map that had to drop a point does not
+ * quietly refill the space from further down the order.
+ */
+export const MAX_POINTS_AFTER_MERGE = 4;
 
 /**
  * How far out a progression sits.
@@ -159,49 +179,50 @@ export interface SelectMonthPointsOptions {
    * what is allowed to exist.
    */
   watched?: readonly ProgressionPattern[];
-  /** The five the brief chose, having read the direction itself. */
-  brief?: readonly string[];
+  /** The month's brief, which decided the points and what is under each. */
+  brief?: MonthMap | null;
   limit?: number;
+}
+
+/** What the brief said hangs off a point, if it said anything. */
+export function branchesFor(brief: MonthMap | null | undefined, id: string): MonthMapBranch[] {
+  return (
+    brief?.points
+      .find((point) => point.progressionId === id)
+      ?.branches.slice(0, MAX_BRANCHES_PER_POINT) ?? []
+  );
 }
 
 /**
  * Which of the month's progressions get a point, and in what order.
  *
- * Three things decide it, in this order.
+ * A point has to be tellable apart into two things. Where the brief has read
+ * the month, that means two branches; a progression it could only restate is
+ * folded away rather than drawn beside the others, and the map is capped
+ * lower afterwards so the space it left is not refilled from further down.
+ * Merging is meant to reduce.
  *
- * The brief first, when there is one: it has read the year's direction and
- * the cards, and choosing the five that bear on them is exactly the judgement
- * a model is for. It may only choose from what the month holds — a
- * progression with no records this month is not a candidate and no reasoning
- * can make it one.
+ * Order, where points are eligible: the brief first — it read the direction
+ * and the cards, and choosing which points bear on them is the judgement a
+ * model is for. Then the lens, which moves a watched pattern up but never
+ * keeps anything off (§19). Then what the month itself holds.
  *
- * Then the lens: a progression whose pattern is one the person's cards made
- * worth watching comes before one that does not. This is priority, never a
- * filter (§19) — repeated "enjoyed" growing outside the year's direction is
- * exactly the thing that must not be filtered away.
- *
- * Then what the month actually holds: its own records, then how settled the
- * progression was by the end of it. A progression that ran all year but was
- * touched once in August does not lead August.
- *
- * Finally the branching rule: a month whose points all stand alone is a month
- * that looks like a list. If the ordering would leave fewer than two points
- * carrying records of their own, ones that do are pulled up into the five,
- * replacing the ones that do not. Nothing is invented to make this true — a
- * month with only one such progression keeps only one.
+ * Before any brief exists there are no branches to count, so nothing is
+ * folded and the month is ordered on its own terms.
  */
 export function selectMonthPoints(
   progressions: readonly MonthProgression[],
   options: SelectMonthPointsOptions | number = {}
 ): MonthProgression[] {
-  const { watched = [], brief = [], limit = MAX_POINTS } =
+  const { watched = [], brief = null, limit = MAX_POINTS } =
     typeof options === 'number' ? { limit: options } : options;
 
   const watchedSet = new Set(watched);
-  const briefOrder = new Map(brief.map((id, index) => [id, index]));
+  const briefOrder = new Map(
+    (brief?.points ?? []).map((point, index) => [point.progressionId, index])
+  );
 
   const ordered = [...progressions].sort((a, b) => {
-    // The brief's own choice, where it named one.
     const aBrief = briefOrder.get(a.progression.id) ?? Number.POSITIVE_INFINITY;
     const bBrief = briefOrder.get(b.progression.id) ?? Number.POSITIVE_INFINITY;
     if (aBrief !== bBrief) return aBrief - bBrief;
@@ -217,27 +238,13 @@ export function selectMonthPoints(
     return b.progression.confidence - a.progression.confidence;
   });
 
-  const chosen = ordered.slice(0, limit);
-  const branching = (list: readonly MonthProgression[]) =>
-    list.filter((item) => item.evidenceLogIds.length > 0).length;
+  if (!brief) return ordered.slice(0, limit);
 
-  if (branching(chosen) >= MIN_BRANCHING_POINTS) return chosen;
-
-  const spare = ordered
-    .slice(limit)
-    .filter((item) => item.evidenceLogIds.length > 0);
-
-  for (const candidate of spare) {
-    if (branching(chosen) >= MIN_BRANCHING_POINTS) break;
-    // Drop from the back: the last of the five is the least of the month.
-    const replaceable = [...chosen]
-      .reverse()
-      .find((item) => item.evidenceLogIds.length === 0);
-    if (!replaceable) break;
-    chosen[chosen.indexOf(replaceable)] = candidate;
-  }
-
-  return chosen;
+  const tellable = ordered.filter(
+    (item) => branchesFor(brief, item.progression.id).length >= MIN_BRANCHES_PER_POINT
+  );
+  const folded = ordered.length - tellable.length;
+  return tellable.slice(0, folded > 0 ? Math.min(limit, MAX_POINTS_AFTER_MERGE) : limit);
 }
 
 export function buildProgressionGraph({
@@ -254,14 +261,7 @@ export function buildProgressionGraph({
   const cy = height / 2;
   const me: MeNode = { x: cx, y: cy, r: ME_RADIUS };
 
-  const points = selectMonthPoints(progressions, {
-    watched,
-    // The brief's order, with its lead first — it read the direction to
-    // arrive at both.
-    brief: lead?.leadProgressionId
-      ? [lead.leadProgressionId, ...lead.points.filter((id) => id !== lead.leadProgressionId)]
-      : (lead?.points ?? []),
-  });
+  const points = selectMonthPoints(progressions, { watched, brief: lead });
   if (points.length === 0 || width <= 0 || height <= 0) {
     return { me, progressions: [], steps: [], edges: [] };
   }
@@ -315,18 +315,20 @@ export function buildProgressionGraph({
       kind: 'branch',
     });
 
-    layoutBranches({
-      node: nodes[nodes.length - 1] as ProgressionNode,
-      logIds: item.evidenceLogIds,
-      rng,
-      reach,
-      edges,
-      out: steps,
-    });
+    // Only an opened point shows what is under it. Everything else would put
+    // twenty labels on one sky.
+    if (expandedId === item.progression.id) {
+      layoutBranches({
+        node: nodes[nodes.length - 1] as ProgressionNode,
+        branches: branchesFor(lead, item.progression.id),
+        rng,
+        reach,
+        edges,
+        out: steps,
+      });
+    }
   });
 
-  // Emphasis only. Opening a point used to grow the picture a level deeper;
-  // now it opens the sheet and the sky stays where it was.
   if (expandedId) {
     for (const node of nodes) {
       if (node.id !== expandedId) continue;
@@ -338,56 +340,56 @@ export function buildProgressionGraph({
 }
 
 /**
- * The month's records for one point, fanned out beyond it.
+ * What is under one point, fanned out beyond it.
  *
- * A fan rather than a chain: each record answers to the point it moved, not to
- * the record before it. Chained, the picture grew a level for every record and
- * a busy month reached off the canvas; fanned, the depth is fixed at three no
- * matter how much was written.
+ * A fan rather than a chain: each branch answers to the point it belongs to,
+ * not to the branch before it. Chained, the picture grew a level for every
+ * one; fanned, the depth is fixed at three however much the month held.
  */
 function layoutBranches({
   node,
-  logIds,
+  branches,
   rng,
   reach,
   edges,
   out,
 }: {
   node: ProgressionNode;
-  logIds: readonly string[];
+  branches: readonly MonthMapBranch[];
   rng: () => number;
   reach: number;
   edges: GraphEdge[];
   out: StepNode[];
 }): void {
-  const shown = logIds.slice(0, MAX_BRANCHES_PER_POINT);
-  if (shown.length === 0) return;
+  if (branches.length === 0) return;
 
-  const gap = Math.max(16, Math.min(30, reach * 0.22));
+  const gap = Math.max(18, Math.min(34, reach * 0.26));
   // The fan opens along the branch's own direction, so the eye keeps going
   // the way it was already going.
-  const spread = shown.length === 1 ? 0 : Math.PI / 5;
+  const spread = branches.length === 1 ? 0 : Math.PI / 4;
 
-  shown.forEach((logId, index) => {
+  branches.forEach((branch, index) => {
     const offset =
-      shown.length === 1 ? 0 : -spread / 2 + (spread / (shown.length - 1)) * index;
-    const angle = node.angle + offset + (rng() - 0.5) * 0.12;
-    const distance = gap * (0.8 + rng() * 0.4);
+      branches.length === 1 ? 0 : -spread / 2 + (spread / (branches.length - 1)) * index;
+    const angle = node.angle + offset + (rng() - 0.5) * 0.1;
+    const distance = gap * (0.85 + rng() * 0.3);
 
     const x = node.x + Math.cos(angle) * distance;
     const y = node.y + Math.sin(angle) * distance;
 
     out.push({
-      id: `step:${node.id}:${logId}`,
+      id: `branch:${node.id}:${index}`,
       progressionId: node.id,
-      logId,
+      label: branch.label,
+      summary: branch.summary,
+      logIds: branch.logIds,
       x,
       y,
       r: STEP_RADIUS,
     });
 
     edges.push({
-      id: `step-edge:${node.id}:${logId}`,
+      id: `branch-edge:${node.id}:${index}`,
       fromX: node.x,
       fromY: node.y,
       toX: x,
