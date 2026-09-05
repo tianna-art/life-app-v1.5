@@ -238,6 +238,24 @@ describe("a month's map", () => {
     expect(JSON.stringify(graph.progressions)).not.toContain('なりたい姿');
   });
 
+  it('draws the month anyway when the brief is unusable', () => {
+    // A brief written under an older shape, or one the model had nothing to
+    // say in, must not empty the sky. An empty sky claims nothing happened,
+    // and here that claim would be the app's mistake rather than the truth.
+    const graph = buildProgressionGraph({
+      monthKey: '2026-09',
+      progressions: [item('p1', ['a']), item('p2', ['b'])],
+      lead: {
+        periodKey: '2026-09',
+        leadReason: 'なりたい姿に近い記録が続いています',
+        points: [],
+        generatedAt: '2026-09-30T00:00:00.000Z',
+      },
+      ...size,
+    });
+    expect(graph.progressions.map((n) => n.id).sort()).toEqual(['p1', 'p2']);
+  });
+
   it('draws the same month the same way twice', () => {
     const build = () =>
       buildProgressionGraph({
