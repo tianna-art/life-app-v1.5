@@ -76,6 +76,23 @@ export function ProgressionSheet({
               contentContainerStyle={styles.scroll}
               keyboardShouldPersistTaps="handled"
             >
+              {/* Closing was only the scrim behind the sheet and the system
+                  back gesture. Neither is visible, so on a screen that opens
+                  by tapping a point there was nothing that looked like a way
+                  out. It sits above the title rather than beside it: the
+                  title runs to two lines often enough that anything sharing
+                  its row would move around. */}
+              <Pressable
+                testID="sheet-close"
+                onPress={onClose}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel={LABELS.close}
+                style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+              >
+                <Text style={styles.closeGlyph}>×</Text>
+              </Pressable>
+
               {editing ? (
                 <TextInput
                   testID="progression-title-input"
@@ -240,6 +257,16 @@ const styles = StyleSheet.create({
     borderColor: colors.frame,
   },
   scroll: { padding: spacing.gallery, gap: spacing.md },
+  close: {
+    alignSelf: 'flex-start',
+    minWidth: MIN_TOUCH,
+    minHeight: MIN_TOUCH,
+    marginTop: -spacing.sm,
+    marginLeft: -spacing.sm,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  closeGlyph: { fontSize: 24, lineHeight: 28, color: colors.ivoryFaint },
   title: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 34, color: colors.ivory },
   titleInput: {
     fontFamily: fonts.serif,

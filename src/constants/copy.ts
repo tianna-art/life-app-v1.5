@@ -72,6 +72,7 @@ export const LABELS = {
   openMap: 'MAPを見にいく',
   regenerateMap: 'MAPを再生成する',
   new: 'NEW',
+  close: '閉じる',
   back: '戻る',
 } as const;
 
