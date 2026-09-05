@@ -1,0 +1,19 @@
+-- crincran — the role a record plays on its own: friction, not a setback.
+--
+-- §7 renamed this in September 2026. The rename reached
+-- public.progression_evidence_role in 20260907000000_lens_enums.sql, and it
+-- reached the prompt, the type and the guard — but it never reached
+-- public.journey_role. So the model was asked for 'friction', the app accepted
+-- 'friction', and Postgres refused it:
+--
+--   invalid input value for enum journey_role: "friction"
+--
+-- Every record whose reading landed on that role failed to store. Until the
+-- write started being checked (#27) the failure was silent, which is why five
+-- of twenty records stayed unread with nothing on screen to say so.
+--
+-- 'setback' stays valid: rows written under v3 mean what they meant.
+--
+-- Outside a DO block on purpose — ALTER TYPE ... ADD VALUE is not allowed
+-- inside one. IF NOT EXISTS makes it re-runnable.
+alter type public.journey_role add value if not exists 'friction';
