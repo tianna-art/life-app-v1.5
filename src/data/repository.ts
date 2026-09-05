@@ -1,44 +1,69 @@
 import type {
-  Clarification,
-  EntryWithAnalysis,
-  JournalEntry,
+  DailyLog,
+  Gain,
+  LogWithAnalysis,
   MonthProgression,
   MonthReview,
-  NewEntryInput,
+  MonthTheme,
+  NewLogInput,
   Progression,
   ProgressionDetail,
   ProgressionVerdict,
+  YearDirection,
+  YearReview,
 } from '@/types';
 
 /**
  * Storage contract. Implemented twice: against Supabase (shipped) and against
  * on-device AsyncStorage (development fallback / offline mirror).
  *
- * Progressions, evidence and gains are written by the Edge Functions and are
- * read-only here, with two exceptions the person owns: their verdict on a
- * progression (§28) and their answer to a clarification (§14).
+ * The split that matters: the lens is the person's — they pick the areas, the
+ * cards and the themes, so those are written from here. Progressions, evidence
+ * and gains are produced by the Edge Functions and are read-only, with one
+ * exception the person owns: their verdict on a progression.
  */
 export interface Repository {
   readonly name: 'supabase' | 'local';
 
   ensureBootstrapped(): Promise<void>;
 
-  listEntriesByMonth(monthKey: string): Promise<EntryWithAnalysis[]>;
-  listEntriesByYear(yearKey: string): Promise<EntryWithAnalysis[]>;
-  getEntry(id: string): Promise<EntryWithAnalysis | null>;
-  createEntry(input: NewEntryInput): Promise<JournalEntry>;
-  deleteEntry(id: string): Promise<void>;
+  // -- The lens (§2-§7) ------------------------------------------------------
 
-  /** Every progression still standing on its own (merged ones resolve away). */
+  getYearDirection(year: number): Promise<YearDirection | null>;
+  saveYearDirection(input: {
+    year: number;
+    selectedAreas: string[];
+    desiredSelfCards: string[];
+    progressionLenses: string[];
+    initialTheme?: string;
+    finalTheme?: string;
+  }): Promise<YearDirection>;
+
+  getMonthTheme(year: number, month: number): Promise<MonthTheme | null>;
+  listMonthThemes(year: number): Promise<MonthTheme[]>;
+  saveMonthTheme(input: {
+    year: number;
+    month: number;
+    initialTheme?: string;
+    finalTheme?: string;
+    source: MonthTheme['source'];
+    candidates?: MonthTheme['candidates'];
+  }): Promise<MonthTheme>;
+
+  // -- Daily evidence (§8-§14) ----------------------------------------------
+
+  listLogsByMonth(monthKey: string): Promise<LogWithAnalysis[]>;
+  listLogsByYear(yearKey: string): Promise<LogWithAnalysis[]>;
+  getLog(id: string): Promise<LogWithAnalysis | null>;
+  createLog(input: NewLogInput): Promise<DailyLog>;
+  deleteLog(id: string): Promise<void>;
+
+  // -- Progression (§17-§23) ------------------------------------------------
+
   listProgressions(): Promise<Progression[]>;
-  /**
-   * The month's sky: which progressions this month's records moved, and how
-   * far along each one stood at the end of that month rather than today (§24).
-   */
+  /** The month's sky: how far each progression stood at that month's end. */
   listMonthProgressions(monthKey: string): Promise<MonthProgression[]>;
-  /** Progression plus its path and whatever remains, oldest first (§21). */
   getProgressionDetail(id: string): Promise<ProgressionDetail | null>;
-  /** 納得した / 少し違う — and, for 少し違う, the person's own wording (§28). */
   setProgressionVerdict(input: {
     progressionId: string;
     verdict: ProgressionVerdict;
@@ -46,12 +71,15 @@ export interface Repository {
     summary?: string;
   }): Promise<Progression>;
 
-  /** The single unanswered question, if the model asked one (§14). */
-  getPendingClarification(): Promise<Clarification | null>;
-  /** Answering and skipping are both answers; neither is asked twice. */
-  answerClarification(input: { id: string; answer: string | null }): Promise<void>;
+  /** Everything that has settled, for the year's reading. */
+  listGains(): Promise<Gain[]>;
+
+  // -- Month & year (§25, §26) ----------------------------------------------
 
   getMonthReview(periodKey: string): Promise<MonthReview | null>;
   listMonthReviews(yearKey: string): Promise<MonthReview[]>;
   saveMonthReview(review: MonthReview): Promise<MonthReview>;
+
+  getYearReview(year: number): Promise<YearReview | null>;
+  saveYearReview(review: YearReview): Promise<YearReview>;
 }

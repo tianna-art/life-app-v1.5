@@ -1,60 +1,81 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  Clarification,
-  EntryAnalysis,
-  EntrySignals,
-  EntryType,
-  EntryWithAnalysis,
+  DailyLog,
   Gain,
-  JournalEntry,
+  GainCategory,
   JourneyRole,
+  LogAnalysis,
+  LogType,
+  LogWithAnalysis,
+  MomentTag,
   MonthProgression,
   MonthReview,
-  MonthReviewProgression,
-  NewEntryInput,
+  MonthReviewChange,
+  MonthReviewGain,
+  MonthTheme,
+  MonthThemeCandidate,
+  NewLogInput,
   Progression,
   ProgressionDetail,
   ProgressionEvidenceRole,
   ProgressionMaturity,
+  ProgressionPattern,
   ProgressionRef,
   ProgressionStep,
   ProgressionType,
   ProgressionVerdict,
-  SubjectiveSignal,
+  ThemeSource,
+  YearDirection,
+  YearReview,
 } from '@/types';
 import { requireSupabase } from '@/lib/supabase';
 import { monthRange } from '@/utils/period';
-import { emptySignals, maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progressionRules';
+import { logTypeForLegacy } from '@/constants/log';
+import { maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progressionRules';
 import type { Repository } from './repository';
 
-const LOG_COLUMNS = 'id, user_id, occurred_on, occurred_at, type, subjective_signal, body, created_at';
+const LOG_COLUMNS =
+  'id, user_id, occurred_on, occurred_at, type, moment_tags, ai_question, optional_answer, body, created_at';
+const REVIEW_COLUMNS =
+  'period_key, initial_theme, what_actually_happened, progressions, gained, title_candidates, title, subtitle, created_at';
+const YEAR_REVIEW_COLUMNS =
+  'year, initial_theme, actual_story, progressions, gained, title_candidates, created_at';
 const ANALYSIS_COLUMNS =
-  'log_id, event_summary, topics, actors, environment, action, outcome, reaction, hypothesis, future_intention, journey_role, signals, confidence, updated_at';
+  'log_id, event_summary, topics, actors, action, outcome, friction, discovery, adaptation, choice, environment_note, interest_signal, journey_role, confidence, updated_at';
 
 interface LogRow {
   id: string;
   user_id: string;
   occurred_on: string;
   occurred_at: string;
-  type: EntryType;
-  subjective_signal: SubjectiveSignal;
-  body: string;
+  type: string;
+  moment_tags: MomentTag[] | null;
+  ai_question: string | null;
+  optional_answer: string | null;
+  body: string | null;
   created_at: string;
 }
 
+/**
+ * Two v3 columns keep their names because they already mean what v4 needs, and
+ * renaming them would make the rows written before this release unreadable for
+ * nothing: `topics` is themes and `actors` is people. Everything else has its
+ * own column.
+ */
 interface AnalysisRow {
   log_id: string;
   event_summary: string | null;
   topics: string[] | null;
   actors: string[] | null;
-  environment: string[] | null;
   action: string | null;
   outcome: string | null;
-  reaction: string | null;
-  hypothesis: string | null;
-  future_intention: string | null;
+  friction: string | null;
+  discovery: string | null;
+  adaptation: string | null;
+  choice: string | null;
+  environment_note: string | null;
+  interest_signal: string | null;
   journey_role: JourneyRole | null;
-  signals: Partial<EntrySignals> | null;
   confidence: number | null;
   updated_at?: string | null;
 }
@@ -63,12 +84,14 @@ interface ProgressionRow {
   id: string;
   user_id: string;
   type: ProgressionType;
+  pattern: ProgressionPattern | null;
   title: string;
   from_state: string | null;
   current_state: string | null;
   summary: string;
   maturity: ProgressionMaturity;
   confidence: number;
+  goal_external: boolean;
   first_detected_at: string;
   last_updated_at: string;
   verdict: ProgressionVerdict | null;
@@ -86,6 +109,7 @@ interface EvidenceRow {
 interface GainRow {
   id: string;
   progression_id: string;
+  category: GainCategory | null;
   label: string;
   description: string | null;
   confidence: number;
@@ -93,52 +117,81 @@ interface GainRow {
   last_detected_at: string;
 }
 
-interface ClarificationRow {
+interface YearDirectionRow {
   id: string;
-  log_id: string;
-  question: string;
-  options: string[] | null;
-  answer: string | null;
+  user_id: string;
+  year: number;
+  selected_areas: string[] | null;
+  desired_self_cards: string[] | null;
+  progression_lenses: string[] | null;
+  initial_theme: string | null;
+  final_theme: string | null;
+}
+
+interface MonthThemeRow {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  initial_theme: string | null;
+  final_theme: string | null;
+  source: ThemeSource;
+  candidates: MonthThemeCandidate[] | null;
 }
 
 interface MonthReviewRow {
   period_key: string;
+  initial_theme: string | null;
+  what_actually_happened: string | null;
+  progressions: MonthReviewChange[] | null;
+  gained: MonthReviewGain[] | null;
+  title_candidates: string[] | null;
   title: string;
   subtitle: string;
-  progressions: MonthReviewProgression[] | null;
-  carrying_forward: string;
   created_at: string;
 }
 
-function mapEntry(row: LogRow, analysis?: AnalysisRow): EntryWithAnalysis {
-  const base: JournalEntry = {
+interface YearReviewRow {
+  year: number;
+  initial_theme: string;
+  actual_story: string;
+  progressions: MonthReviewChange[] | null;
+  gained: MonthReviewGain[] | null;
+  title_candidates: string[] | null;
+  created_at: string;
+}
+
+function mapLog(row: LogRow, analysis?: AnalysisRow): LogWithAnalysis {
+  const base: DailyLog = {
     id: row.id,
     userId: row.user_id,
     occurredAt: row.occurred_at,
     occurredOn: row.occurred_on,
-    type: row.type,
-    body: row.body,
-    subjectiveSignal: row.subjective_signal,
+    logType: logTypeForLegacy(row.type),
+    momentTags: row.moment_tags ?? [],
+    aiQuestion: row.ai_question ?? undefined,
+    optionalAnswer: row.optional_answer ?? undefined,
+    body: row.body ?? undefined,
     createdAt: row.created_at,
   };
   return analysis ? { ...base, analysis: mapAnalysis(analysis) } : base;
 }
 
-function mapAnalysis(row: AnalysisRow): EntryAnalysis {
-  const signals = { ...emptySignals(), ...(row.signals ?? {}) } as EntrySignals;
+function mapAnalysis(row: AnalysisRow): LogAnalysis {
   return {
     logId: row.log_id,
     eventSummary: row.event_summary ?? '',
-    topics: row.topics ?? [],
-    actors: row.actors ?? [],
-    environment: row.environment ?? [],
+    themes: row.topics ?? [],
+    people: row.actors ?? [],
     action: row.action ?? undefined,
     outcome: row.outcome ?? undefined,
-    reaction: row.reaction ?? undefined,
-    hypothesis: row.hypothesis ?? undefined,
-    futureIntention: row.future_intention ?? undefined,
-    journeyRole: row.journey_role ?? 'neutral',
-    signals,
+    friction: row.friction ?? undefined,
+    discovery: row.discovery ?? undefined,
+    adaptation: row.adaptation ?? undefined,
+    choice: row.choice ?? undefined,
+    environment: row.environment_note ?? undefined,
+    interestSignal: row.interest_signal ?? undefined,
+    journeyRole: row.journey_role ?? undefined,
     confidence: row.confidence ?? 0,
     analyzedAt: row.updated_at ?? undefined,
   };
@@ -149,12 +202,14 @@ function mapProgression(row: ProgressionRow, evidenceCount = 0): Progression {
     id: row.id,
     userId: row.user_id,
     type: row.type,
+    pattern: row.pattern ?? undefined,
     title: row.title,
     fromState: row.from_state ?? undefined,
     currentState: row.current_state ?? undefined,
     summary: row.summary,
     maturity: row.maturity,
     confidence: row.confidence,
+    goalExternal: row.goal_external ?? false,
     firstDetectedAt: row.first_detected_at,
     lastUpdatedAt: row.last_updated_at,
     verdict: row.verdict ?? undefined,
@@ -168,6 +223,9 @@ function mapGain(row: GainRow): Gain {
   return {
     id: row.id,
     progressionId: row.progression_id,
+    // v3 rows predate the seven categories; `evidence` is the widest of them
+    // and the only one that claims nothing beyond "this happened".
+    category: row.category ?? 'evidence',
     label: row.label,
     description: row.description ?? undefined,
     confidence: row.confidence,
@@ -176,22 +234,59 @@ function mapGain(row: GainRow): Gain {
   };
 }
 
+function mapYearDirection(row: YearDirectionRow): YearDirection {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    year: row.year,
+    selectedAreas: row.selected_areas ?? [],
+    desiredSelfCards: row.desired_self_cards ?? [],
+    progressionLenses: row.progression_lenses ?? [],
+    initialTheme: row.initial_theme ?? undefined,
+    finalTheme: row.final_theme ?? undefined,
+  };
+}
+
+function mapMonthTheme(row: MonthThemeRow): MonthTheme {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    year: row.year,
+    month: row.month,
+    initialTheme: row.initial_theme ?? undefined,
+    finalTheme: row.final_theme ?? undefined,
+    source: row.source,
+    candidates: row.candidates ?? [],
+  };
+}
+
 function mapReview(row: MonthReviewRow): MonthReview {
   return {
     periodKey: row.period_key,
+    initialTheme: row.initial_theme ?? '',
+    whatActuallyHappened: row.what_actually_happened ?? '',
+    changed: (row.progressions ?? []).slice(0, 3),
+    gained: (row.gained ?? []).slice(0, 3),
+    titleCandidates: row.title_candidates ?? [],
     title: row.title,
     subtitle: row.subtitle,
-    progressions: (row.progressions ?? []).slice(0, 3),
-    carryingForward: row.carrying_forward ?? '',
     createdAt: row.created_at,
   };
 }
 
-/** A merged progression resolves to whatever now stands for it (§30). */
-function resolveMerged(
-  progression: Progression,
-  byId: Map<string, Progression>
-): Progression {
+function mapYearReview(row: YearReviewRow): YearReview {
+  return {
+    year: row.year,
+    initialTheme: row.initial_theme,
+    actualStory: row.actual_story,
+    progressions: row.progressions ?? [],
+    gained: row.gained ?? [],
+    titleCandidates: row.title_candidates ?? [],
+    createdAt: row.created_at,
+  };
+}
+
+function resolveMerged(progression: Progression, byId: Map<string, Progression>): Progression {
   const seen = new Set<string>();
   let current = progression;
   while (current.mergedIntoId && !seen.has(current.id)) {
@@ -207,10 +302,7 @@ function resolveMerged(
  * Supabase-backed storage.
  *
  * Row level security scopes every read to the signed-in person, so nothing
- * here filters by user id except the writes that have to name one. What the
- * Edge Functions produce — progressions, evidence, gains — is read-only from
- * the app, with the two exceptions the person owns: their verdict and their
- * answer to a clarification.
+ * here filters by user id except the writes that have to name one.
  */
 export class SupabaseRepository implements Repository {
   readonly name = 'supabase' as const;
@@ -227,10 +319,6 @@ export class SupabaseRepository implements Repository {
     return data.user.id;
   }
 
-  /**
-   * Nothing to seed: no categories, no drawers, no onboarding. The profile row
-   * comes from a signup trigger; this only repairs an account predating it.
-   */
   async ensureBootstrapped(): Promise<void> {
     const userId = await this.userId();
     await this.client
@@ -239,10 +327,105 @@ export class SupabaseRepository implements Repository {
   }
 
   // -------------------------------------------------------------------------
-  // Entries
+  // The lens
   // -------------------------------------------------------------------------
 
-  private async listEntriesBetween(from: string, to: string): Promise<EntryWithAnalysis[]> {
+  async getYearDirection(year: number): Promise<YearDirection | null> {
+    const { data, error } = await this.client
+      .from('year_directions')
+      .select('*')
+      .eq('year', year)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapYearDirection(data as YearDirectionRow) : null;
+  }
+
+  async saveYearDirection(input: {
+    year: number;
+    selectedAreas: string[];
+    desiredSelfCards: string[];
+    progressionLenses: string[];
+    initialTheme?: string;
+    finalTheme?: string;
+  }): Promise<YearDirection> {
+    const userId = await this.userId();
+    const { data, error } = await this.client
+      .from('year_directions')
+      .upsert(
+        {
+          user_id: userId,
+          year: input.year,
+          selected_areas: input.selectedAreas,
+          desired_self_cards: input.desiredSelfCards,
+          progression_lenses: input.progressionLenses,
+          // Only written when given: a later save must not erase the opening
+          // theme, because the year-end reading compares against it (§26).
+          ...(input.initialTheme !== undefined ? { initial_theme: input.initialTheme } : {}),
+          ...(input.finalTheme !== undefined ? { final_theme: input.finalTheme } : {}),
+        },
+        { onConflict: 'user_id,year' }
+      )
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapYearDirection(data as YearDirectionRow);
+  }
+
+  async getMonthTheme(year: number, month: number): Promise<MonthTheme | null> {
+    const { data, error } = await this.client
+      .from('month_themes')
+      .select('*')
+      .eq('year', year)
+      .eq('month', month)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapMonthTheme(data as MonthThemeRow) : null;
+  }
+
+  async listMonthThemes(year: number): Promise<MonthTheme[]> {
+    const { data, error } = await this.client
+      .from('month_themes')
+      .select('*')
+      .eq('year', year)
+      .order('month', { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as MonthThemeRow[]).map(mapMonthTheme);
+  }
+
+  async saveMonthTheme(input: {
+    year: number;
+    month: number;
+    initialTheme?: string;
+    finalTheme?: string;
+    source: ThemeSource;
+    candidates?: MonthThemeCandidate[];
+  }): Promise<MonthTheme> {
+    const userId = await this.userId();
+    const { data, error } = await this.client
+      .from('month_themes')
+      .upsert(
+        {
+          user_id: userId,
+          year: input.year,
+          month: input.month,
+          source: input.source,
+          ...(input.initialTheme !== undefined ? { initial_theme: input.initialTheme } : {}),
+          ...(input.finalTheme !== undefined ? { final_theme: input.finalTheme } : {}),
+          ...(input.candidates !== undefined ? { candidates: input.candidates } : {}),
+        },
+        { onConflict: 'user_id,year,month' }
+      )
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapMonthTheme(data as MonthThemeRow);
+  }
+
+  // -------------------------------------------------------------------------
+  // Daily evidence
+  // -------------------------------------------------------------------------
+
+  private async listLogsBetween(from: string, to: string): Promise<LogWithAnalysis[]> {
     const { data, error } = await this.client
       .from('logs')
       .select(LOG_COLUMNS)
@@ -264,19 +447,19 @@ export class SupabaseRepository implements Repository {
     if (analysisError) throw analysisError;
 
     const byLog = new Map(((analyses ?? []) as AnalysisRow[]).map((a) => [a.log_id, a]));
-    return rows.map((row) => mapEntry(row, byLog.get(row.id)));
+    return rows.map((row) => mapLog(row, byLog.get(row.id)));
   }
 
-  async listEntriesByMonth(monthKey: string): Promise<EntryWithAnalysis[]> {
+  async listLogsByMonth(monthKey: string): Promise<LogWithAnalysis[]> {
     const { from, to } = monthRange(monthKey);
-    return this.listEntriesBetween(from, to);
+    return this.listLogsBetween(from, to);
   }
 
-  async listEntriesByYear(yearKey: string): Promise<EntryWithAnalysis[]> {
-    return this.listEntriesBetween(`${yearKey}-01-01`, `${yearKey}-12-31`);
+  async listLogsByYear(yearKey: string): Promise<LogWithAnalysis[]> {
+    return this.listLogsBetween(`${yearKey}-01-01`, `${yearKey}-12-31`);
   }
 
-  async getEntry(id: string): Promise<EntryWithAnalysis | null> {
+  async getLog(id: string): Promise<LogWithAnalysis | null> {
     const { data, error } = await this.client
       .from('logs')
       .select(LOG_COLUMNS)
@@ -293,9 +476,9 @@ export class SupabaseRepository implements Repository {
         .eq('log_id', id),
     ]);
 
-    const entry = mapEntry(data as LogRow, (analysis as AnalysisRow | null) ?? undefined);
+    const log = mapLog(data as LogRow, (analysis as AnalysisRow | null) ?? undefined);
     const rows = (evidence ?? []) as EvidenceRow[];
-    if (rows.length === 0) return entry;
+    if (rows.length === 0) return log;
 
     const byId = await this.progressionsById();
     const refs: ProgressionRef[] = [];
@@ -306,10 +489,10 @@ export class SupabaseRepository implements Repository {
       if (refs.some((r) => r.id === resolved.id)) continue;
       refs.push({ id: resolved.id, title: resolved.title, role: row.role });
     }
-    return { ...entry, progressions: refs };
+    return { ...log, progressions: refs };
   }
 
-  async createEntry(input: NewEntryInput): Promise<JournalEntry> {
+  async createLog(input: NewLogInput): Promise<DailyLog> {
     const userId = await this.userId();
     const occurredAt = input.occurredAt ?? new Date().toISOString();
     const { data, error } = await this.client
@@ -318,23 +501,24 @@ export class SupabaseRepository implements Repository {
         user_id: userId,
         occurred_at: occurredAt,
         occurred_on: occurredAt.slice(0, 10),
-        type: input.type,
-        subjective_signal: input.subjectiveSignal,
-        body: input.body.trim(),
+        type: input.logType,
+        moment_tags: input.momentTags,
+        ai_question: input.aiQuestion ?? null,
+        optional_answer: input.optionalAnswer?.trim() || null,
       })
       .select(LOG_COLUMNS)
       .single();
     if (error) throw error;
-    return mapEntry(data as LogRow);
+    return mapLog(data as LogRow);
   }
 
-  async deleteEntry(id: string): Promise<void> {
+  async deleteLog(id: string): Promise<void> {
     const { error } = await this.client.from('logs').delete().eq('id', id);
     if (error) throw error;
   }
 
   // -------------------------------------------------------------------------
-  // Progressions
+  // Progression
   // -------------------------------------------------------------------------
 
   private async progressionsById(): Promise<Map<string, Progression>> {
@@ -380,8 +564,6 @@ export class SupabaseRepository implements Repository {
     const monthLogIds = new Set(((logs ?? []) as { id: string }[]).map((l) => l.id));
     if (monthLogIds.size === 0) return [];
 
-    // The whole path, not just this month's slice: §24 asks where each
-    // progression stood at the end of the month, which needs its history too.
     const { data: evidence, error: evidenceError } = await this.client
       .from('progression_evidence')
       .select('progression_id, log_id, role, occurred_at');
@@ -472,9 +654,10 @@ export class SupabaseRepository implements Repository {
           logId: log.id,
           occurredOn: log.occurred_on,
           role: row.role,
-          eventSummary: summaryById.get(log.id) || log.body.slice(0, 80),
-          entryType: log.type,
-          subjectiveSignal: log.subjective_signal,
+          eventSummary:
+            summaryById.get(log.id) || log.optional_answer?.slice(0, 80) || log.body?.slice(0, 80) || '',
+          logType: logTypeForLegacy(log.type),
+          momentTags: log.moment_tags ?? [],
         },
       ];
     });
@@ -492,7 +675,6 @@ export class SupabaseRepository implements Repository {
     title?: string;
     summary?: string;
   }): Promise<Progression> {
-    // Only a rewrite counts as an edit; agreeing does not freeze the wording.
     const rewrote = input.verdict === 'adjusted' && Boolean(input.title || input.summary);
     const { data, error } = await this.client
       .from('progressions')
@@ -510,47 +692,20 @@ export class SupabaseRepository implements Repository {
     return mapProgression(data as ProgressionRow);
   }
 
-  // -------------------------------------------------------------------------
-  // Clarification (§14)
-  // -------------------------------------------------------------------------
-
-  async getPendingClarification(): Promise<Clarification | null> {
-    const { data, error } = await this.client
-      .from('clarifications')
-      .select('id, log_id, question, options, answer')
-      .is('answer', null)
-      .order('asked_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  async listGains(): Promise<Gain[]> {
+    const { data, error } = await this.client.from('gains').select('*').not('progression_id', 'is', null);
     if (error) throw error;
-    if (!data) return null;
-    const row = data as ClarificationRow;
-    return {
-      id: row.id,
-      logId: row.log_id,
-      question: row.question,
-      options: row.options ?? [],
-      answer: row.answer ?? undefined,
-    };
-  }
-
-  async answerClarification(input: { id: string; answer: string | null }): Promise<void> {
-    // A skip is an answer: stored as empty so the same question is not reasked.
-    const { error } = await this.client
-      .from('clarifications')
-      .update({ answer: input.answer ?? '', answered_at: new Date().toISOString() })
-      .eq('id', input.id);
-    if (error) throw error;
+    return ((data ?? []) as GainRow[]).map(mapGain);
   }
 
   // -------------------------------------------------------------------------
-  // Month
+  // Month & year
   // -------------------------------------------------------------------------
 
   async getMonthReview(periodKey: string): Promise<MonthReview | null> {
     const { data, error } = await this.client
       .from('month_reviews')
-      .select('period_key, title, subtitle, progressions, carrying_forward, created_at')
+      .select(REVIEW_COLUMNS)
       .eq('period_key', periodKey)
       .maybeSingle();
     if (error) throw error;
@@ -560,7 +715,7 @@ export class SupabaseRepository implements Repository {
   async listMonthReviews(yearKey: string): Promise<MonthReview[]> {
     const { data, error } = await this.client
       .from('month_reviews')
-      .select('period_key, title, subtitle, progressions, carrying_forward, created_at')
+      .select(REVIEW_COLUMNS)
       .gte('period_key', `${yearKey}-01`)
       .lte('period_key', `${yearKey}-12`);
     if (error) throw error;
@@ -575,16 +730,51 @@ export class SupabaseRepository implements Repository {
         {
           user_id: userId,
           period_key: review.periodKey,
+          initial_theme: review.initialTheme,
+          what_actually_happened: review.whatActuallyHappened,
+          progressions: review.changed,
+          gained: review.gained,
+          title_candidates: review.titleCandidates,
           title: review.title,
           subtitle: review.subtitle,
-          progressions: review.progressions,
-          carrying_forward: review.carryingForward,
         },
         { onConflict: 'user_id,period_key' }
       )
-      .select('period_key, title, subtitle, progressions, carrying_forward, created_at')
+      .select(REVIEW_COLUMNS)
       .single();
     if (error) throw error;
     return mapReview(data as MonthReviewRow);
+  }
+
+  async getYearReview(year: number): Promise<YearReview | null> {
+    const { data, error } = await this.client
+      .from('year_reviews')
+      .select(YEAR_REVIEW_COLUMNS)
+      .eq('year', year)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapYearReview(data as YearReviewRow) : null;
+  }
+
+  async saveYearReview(review: YearReview): Promise<YearReview> {
+    const userId = await this.userId();
+    const { data, error } = await this.client
+      .from('year_reviews')
+      .upsert(
+        {
+          user_id: userId,
+          year: review.year,
+          initial_theme: review.initialTheme,
+          actual_story: review.actualStory,
+          progressions: review.progressions,
+          gained: review.gained,
+          title_candidates: review.titleCandidates,
+        },
+        { onConflict: 'user_id,year' }
+      )
+      .select(YEAR_REVIEW_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapYearReview(data as YearReviewRow);
   }
 }

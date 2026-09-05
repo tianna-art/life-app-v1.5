@@ -4,14 +4,14 @@ import { maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progre
 import { mutateStore, readStore } from './localStore';
 import type { Repository } from './repository';
 import type {
-  Clarification,
-  EntryAnalysis,
-  EntryWithAnalysis,
+  DailyLog,
   Gain,
-  JournalEntry,
+  LogAnalysis,
+  LogWithAnalysis,
   MonthProgression,
   MonthReview,
-  NewEntryInput,
+  MonthTheme,
+  NewLogInput,
   Progression,
   ProgressionDetail,
   ProgressionEvidence,
@@ -19,19 +19,18 @@ import type {
   ProgressionRef,
   ProgressionStep,
   ProgressionVerdict,
+  YearDirection,
+  YearReview,
 } from '@/types';
 
 const LOCAL_USER = 'local';
 
-function byNewestFirst(a: JournalEntry, b: JournalEntry): number {
+function byNewestFirst(a: DailyLog, b: DailyLog): number {
   return b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt);
 }
 
-/** Merged progressions resolve to whatever now stands for them (§30). */
-function resolveMerged(
-  progression: Progression,
-  byId: Map<string, Progression>
-): Progression {
+/** Merged progressions resolve to whatever now stands for them. */
+function resolveMerged(progression: Progression, byId: Map<string, Progression>): Progression {
   const seen = new Set<string>();
   let current = progression;
   while (current.mergedIntoId && !seen.has(current.id)) {
@@ -58,26 +57,110 @@ export class LocalRepository implements Repository {
     await readStore();
   }
 
-  async listEntriesByMonth(monthKey: string): Promise<EntryWithAnalysis[]> {
+  // -------------------------------------------------------------------------
+  // The lens
+  // -------------------------------------------------------------------------
+
+  async getYearDirection(year: number): Promise<YearDirection | null> {
     const store = await readStore();
-    return store.entries
-      .filter((e) => monthKeyOfDate(e.occurredOn) === monthKey)
-      .sort(byNewestFirst)
-      .map((e) => ({ ...e, analysis: store.analyses[e.id] }));
+    return store.yearDirections.find((d) => d.year === year) ?? null;
   }
 
-  async listEntriesByYear(yearKey: string): Promise<EntryWithAnalysis[]> {
+  async saveYearDirection(input: {
+    year: number;
+    selectedAreas: string[];
+    desiredSelfCards: string[];
+    progressionLenses: string[];
+    initialTheme?: string;
+    finalTheme?: string;
+  }): Promise<YearDirection> {
     const store = await readStore();
-    return store.entries
-      .filter((e) => yearKeyOfDate(e.occurredOn) === yearKey)
-      .sort(byNewestFirst)
-      .map((e) => ({ ...e, analysis: store.analyses[e.id] }));
+    const existing = store.yearDirections.find((d) => d.year === input.year);
+    const next: YearDirection = {
+      id: existing?.id ?? uuid(),
+      userId: LOCAL_USER,
+      year: input.year,
+      selectedAreas: input.selectedAreas,
+      desiredSelfCards: input.desiredSelfCards,
+      progressionLenses: input.progressionLenses,
+      // A year's opening theme is written once; a later save must not quietly
+      // erase it, because the year-end reading compares against it (§26).
+      initialTheme: input.initialTheme ?? existing?.initialTheme,
+      finalTheme: input.finalTheme ?? existing?.finalTheme,
+    };
+    await mutateStore((current) => ({
+      ...current,
+      yearDirections: [...current.yearDirections.filter((d) => d.year !== input.year), next],
+    }));
+    return next;
   }
 
-  async getEntry(id: string): Promise<EntryWithAnalysis | null> {
+  async getMonthTheme(year: number, month: number): Promise<MonthTheme | null> {
     const store = await readStore();
-    const entry = store.entries.find((e) => e.id === id);
-    if (!entry) return null;
+    return store.monthThemes.find((t) => t.year === year && t.month === month) ?? null;
+  }
+
+  async listMonthThemes(year: number): Promise<MonthTheme[]> {
+    const store = await readStore();
+    return store.monthThemes.filter((t) => t.year === year).sort((a, b) => a.month - b.month);
+  }
+
+  async saveMonthTheme(input: {
+    year: number;
+    month: number;
+    initialTheme?: string;
+    finalTheme?: string;
+    source: MonthTheme['source'];
+    candidates?: MonthTheme['candidates'];
+  }): Promise<MonthTheme> {
+    const store = await readStore();
+    const existing = store.monthThemes.find(
+      (t) => t.year === input.year && t.month === input.month
+    );
+    const next: MonthTheme = {
+      id: existing?.id ?? uuid(),
+      userId: LOCAL_USER,
+      year: input.year,
+      month: input.month,
+      initialTheme: input.initialTheme ?? existing?.initialTheme,
+      finalTheme: input.finalTheme ?? existing?.finalTheme,
+      source: input.source,
+      candidates: input.candidates ?? existing?.candidates ?? [],
+    };
+    await mutateStore((current) => ({
+      ...current,
+      monthThemes: [
+        ...current.monthThemes.filter((t) => !(t.year === input.year && t.month === input.month)),
+        next,
+      ],
+    }));
+    return next;
+  }
+
+  // -------------------------------------------------------------------------
+  // Daily evidence
+  // -------------------------------------------------------------------------
+
+  async listLogsByMonth(monthKey: string): Promise<LogWithAnalysis[]> {
+    const store = await readStore();
+    return store.logs
+      .filter((l) => monthKeyOfDate(l.occurredOn) === monthKey)
+      .sort(byNewestFirst)
+      .map((l) => ({ ...l, analysis: store.analyses[l.id] }));
+  }
+
+  async listLogsByYear(yearKey: string): Promise<LogWithAnalysis[]> {
+    const store = await readStore();
+    return store.logs
+      .filter((l) => yearKeyOfDate(l.occurredOn) === yearKey)
+      .sort(byNewestFirst)
+      .map((l) => ({ ...l, analysis: store.analyses[l.id] }));
+  }
+
+  async getLog(id: string): Promise<LogWithAnalysis | null> {
+    const store = await readStore();
+    const log = store.logs.find((l) => l.id === id);
+    if (!log) return null;
 
     const byId = new Map(store.progressions.map((p) => [p.id, p]));
     const refs: ProgressionRef[] = [];
@@ -89,37 +172,41 @@ export class LocalRepository implements Repository {
       refs.push({ id: resolved.id, title: resolved.title, role: row.role });
     }
 
-    return { ...entry, analysis: store.analyses[id], progressions: refs };
+    return { ...log, analysis: store.analyses[id], progressions: refs };
   }
 
-  async createEntry(input: NewEntryInput): Promise<JournalEntry> {
+  async createLog(input: NewLogInput): Promise<DailyLog> {
     const occurredAt = input.occurredAt ?? new Date().toISOString();
-    const entry: JournalEntry = {
+    const log: DailyLog = {
       id: uuid(),
       userId: LOCAL_USER,
       occurredAt,
       occurredOn: occurredAt.slice(0, 10),
-      type: input.type,
-      body: input.body,
-      subjectiveSignal: input.subjectiveSignal,
+      logType: input.logType,
+      momentTags: input.momentTags,
+      aiQuestion: input.aiQuestion,
+      optionalAnswer: input.optionalAnswer,
       createdAt: new Date().toISOString(),
     };
-    await mutateStore((store) => ({ ...store, entries: [entry, ...store.entries] }));
-    return entry;
+    await mutateStore((store) => ({ ...store, logs: [log, ...store.logs] }));
+    return log;
   }
 
-  async deleteEntry(id: string): Promise<void> {
+  async deleteLog(id: string): Promise<void> {
     await mutateStore((store) => {
       const { [id]: _removed, ...analyses } = store.analyses;
       return {
         ...store,
-        entries: store.entries.filter((e) => e.id !== id),
+        logs: store.logs.filter((l) => l.id !== id),
         analyses,
         evidence: store.evidence.filter((e) => e.logId !== id),
-        clarifications: store.clarifications.filter((c) => c.logId !== id),
       };
     });
   }
+
+  // -------------------------------------------------------------------------
+  // Progression
+  // -------------------------------------------------------------------------
 
   async listProgressions(): Promise<Progression[]> {
     const store = await readStore();
@@ -137,9 +224,9 @@ export class LocalRepository implements Repository {
     const byId = new Map(store.progressions.map((p) => [p.id, p]));
 
     const monthLogIds = new Set(
-      store.entries.filter((e) => monthKeyOfDate(e.occurredOn) === monthKey).map((e) => e.id)
+      store.logs.filter((l) => monthKeyOfDate(l.occurredOn) === monthKey).map((l) => l.id)
     );
-    const monthEnd = `${monthKey}-32`; // string-compares after every day in the month
+    const monthEnd = `${monthKey}-32`;
 
     const grouped = new Map<string, { evidenceLogIds: string[]; progression: Progression }>();
     for (const row of store.evidence) {
@@ -154,7 +241,7 @@ export class LocalRepository implements Repository {
 
     return [...grouped.values()]
       .map(({ progression, evidenceLogIds }) => {
-        // §24: show where it had got to by the end of that month, not today.
+        // Where it had got to by the end of that month, not today.
         const pathSoFar = store.evidence
           .filter((e) => e.progressionId === progression.id && e.occurredAt.slice(0, 10) < monthEnd)
           .map((e) => ({ logId: e.logId, role: e.role, occurredAt: e.occurredAt }));
@@ -163,11 +250,10 @@ export class LocalRepository implements Repository {
           maturityCeiling(summariseEvidencePath(pathSoFar))
         );
 
-        const firstMonth = monthKeyOfDate(progression.firstDetectedAt.slice(0, 10));
         return {
           progression,
           evidenceLogIds,
-          isNew: firstMonth === monthKey,
+          isNew: monthKeyOfDate(progression.firstDetectedAt.slice(0, 10)) === monthKey,
           maturityThen,
         };
       })
@@ -181,35 +267,34 @@ export class LocalRepository implements Repository {
     if (!raw) return null;
     const progression = resolveMerged(raw, byId);
 
-    // Evidence from absorbed progressions belongs to the survivor.
     const absorbed = new Set(
-      store.progressions
-        .filter((p) => resolveMerged(p, byId).id === progression.id)
-        .map((p) => p.id)
+      store.progressions.filter((p) => resolveMerged(p, byId).id === progression.id).map((p) => p.id)
     );
 
-    const entriesById = new Map(store.entries.map((e) => [e.id, e]));
+    const logsById = new Map(store.logs.map((l) => [l.id, l]));
     const steps: ProgressionStep[] = store.evidence
       .filter((e) => absorbed.has(e.progressionId))
       .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
       .flatMap((row) => {
-        const entry = entriesById.get(row.logId);
-        if (!entry) return [];
+        const log = logsById.get(row.logId);
+        if (!log) return [];
         return [
           {
-            logId: entry.id,
-            occurredOn: entry.occurredOn,
+            logId: log.id,
+            occurredOn: log.occurredOn,
             role: row.role,
-            eventSummary: store.analyses[entry.id]?.eventSummary ?? entry.body.slice(0, 80),
-            entryType: entry.type,
-            subjectiveSignal: entry.subjectiveSignal,
+            eventSummary: store.analyses[log.id]?.eventSummary ?? fallbackSummary(log),
+            logType: log.logType,
+            momentTags: log.momentTags,
           },
         ];
       });
 
-    const gains = store.gains.filter((g) => absorbed.has(g.progressionId));
-
-    return { progression, steps, gains };
+    return {
+      progression,
+      steps,
+      gains: store.gains.filter((g) => absorbed.has(g.progressionId)),
+    };
   }
 
   async setProgressionVerdict(input: {
@@ -218,7 +303,7 @@ export class LocalRepository implements Repository {
     title?: string;
     summary?: string;
   }): Promise<Progression> {
-    const edited = input.verdict === 'adjusted' && (input.title || input.summary);
+    const rewrote = input.verdict === 'adjusted' && Boolean(input.title || input.summary);
     const store = await mutateStore((current) => ({
       ...current,
       progressions: current.progressions.map((p) =>
@@ -228,7 +313,7 @@ export class LocalRepository implements Repository {
               verdict: input.verdict,
               ...(input.title ? { title: input.title } : {}),
               ...(input.summary ? { summary: input.summary } : {}),
-              userEdited: p.userEdited || Boolean(edited),
+              userEdited: p.userEdited || rewrote,
               lastUpdatedAt: new Date().toISOString(),
             }
           : p
@@ -239,20 +324,14 @@ export class LocalRepository implements Repository {
     return updated;
   }
 
-  async getPendingClarification(): Promise<Clarification | null> {
+  async listGains(): Promise<Gain[]> {
     const store = await readStore();
-    return store.clarifications.find((c) => c.answer === undefined) ?? null;
+    return store.gains;
   }
 
-  async answerClarification(input: { id: string; answer: string | null }): Promise<void> {
-    await mutateStore((store) => ({
-      ...store,
-      // A skip is stored as an empty answer, so the question is not asked twice.
-      clarifications: store.clarifications.map((c) =>
-        c.id === input.id ? { ...c, answer: input.answer ?? '' } : c
-      ),
-    }));
-  }
+  // -------------------------------------------------------------------------
+  // Month & year
+  // -------------------------------------------------------------------------
 
   async getMonthReview(periodKey: string): Promise<MonthReview | null> {
     const store = await readStore();
@@ -272,26 +351,37 @@ export class LocalRepository implements Repository {
     return review;
   }
 
+  async getYearReview(year: number): Promise<YearReview | null> {
+    const store = await readStore();
+    return store.yearReviews.find((r) => r.year === year) ?? null;
+  }
+
+  async saveYearReview(review: YearReview): Promise<YearReview> {
+    await mutateStore((store) => ({
+      ...store,
+      yearReviews: [...store.yearReviews.filter((r) => r.year !== review.year), review],
+    }));
+    return review;
+  }
+
   // -------------------------------------------------------------------------
   // Written by the offline reading only (src/ai/localAnalysis.ts).
   // -------------------------------------------------------------------------
 
-  async saveAnalysis(analysis: EntryAnalysis): Promise<void> {
+  async saveAnalysis(analysis: LogAnalysis): Promise<void> {
     await mutateStore((store) => ({
       ...store,
       analyses: { ...store.analyses, [analysis.logId]: analysis },
     }));
   }
 
-  /** Creates or refreshes a progression, keyed on (type, title) as in SQL. */
   async upsertProgression(draft: {
     type: Progression['type'];
+    pattern?: Progression['pattern'];
     title: string;
-    fromState?: string | undefined;
-    currentState?: string | undefined;
     summary: string;
-    maturity: ProgressionMaturity;
     confidence: number;
+    goalExternal: boolean;
     occurredAt: string;
   }): Promise<Progression> {
     const store = await readStore();
@@ -302,13 +392,8 @@ export class LocalRepository implements Repository {
     if (existing) {
       const next: Progression = {
         ...existing,
-        // The person's wording outranks the model's once they have edited it.
-        ...(existing.userEdited
-          ? {}
-          : {
-              summary: draft.summary || existing.summary,
-              ...(draft.currentState ? { currentState: draft.currentState } : {}),
-            }),
+        ...(existing.userEdited ? {} : { summary: draft.summary || existing.summary }),
+        pattern: existing.pattern ?? draft.pattern,
         confidence: Math.max(existing.confidence, draft.confidence),
         lastUpdatedAt: draft.occurredAt,
       };
@@ -323,12 +408,12 @@ export class LocalRepository implements Repository {
       id: uuid(),
       userId: LOCAL_USER,
       type: draft.type,
+      pattern: draft.pattern,
       title: draft.title,
-      ...(draft.fromState ? { fromState: draft.fromState } : {}),
-      ...(draft.currentState ? { currentState: draft.currentState } : {}),
       summary: draft.summary,
-      maturity: draft.maturity,
+      maturity: 'signal',
       confidence: draft.confidence,
+      goalExternal: draft.goalExternal,
       firstDetectedAt: draft.occurredAt,
       lastUpdatedAt: draft.occurredAt,
       userEdited: false,
@@ -358,9 +443,9 @@ export class LocalRepository implements Repository {
   }
 
   /**
-   * Recomputes evidenceCount and re-clamps maturity from what is actually
-   * stored. The ceiling is the same function the Edge Function uses, so the
-   * offline path can never make a louder claim than the online one.
+   * Recomputes evidenceCount and re-clamps maturity from what is stored. The
+   * ceiling is the same function the Edge Function uses, so the offline path
+   * can never make a louder claim than the online one.
    */
   async recountEvidence(): Promise<void> {
     await mutateStore((store) => ({
@@ -378,42 +463,14 @@ export class LocalRepository implements Repository {
       }),
     }));
   }
+}
 
-  async addGain(gain: Omit<Gain, 'id'>): Promise<Gain> {
-    const created: Gain = { id: uuid(), ...gain };
-    await mutateStore((store) => {
-      const existing = store.gains.find(
-        (g) => g.progressionId === gain.progressionId && g.label === gain.label
-      );
-      if (existing) {
-        return {
-          ...store,
-          gains: store.gains.map((g) =>
-            g.id === existing.id ? { ...g, lastDetectedAt: gain.lastDetectedAt } : g
-          ),
-        };
-      }
-      return { ...store, gains: [...store.gains, created] };
-    });
-    return created;
-  }
-
-  async addClarification(clarification: Omit<Clarification, 'id'>): Promise<void> {
-    await mutateStore((store) => ({
-      ...store,
-      clarifications: store.clarifications.some((c) => c.logId === clarification.logId)
-        ? store.clarifications
-        : [...store.clarifications, { id: uuid(), ...clarification }],
-    }));
-  }
-
-  async mergeProgressions(sourceId: string, targetId: string): Promise<void> {
-    await mutateStore((store) => ({
-      ...store,
-      progressions: store.progressions.map((p) =>
-        p.id === sourceId ? { ...p, mergedIntoId: targetId } : p
-      ),
-    }));
-    await this.recountEvidence();
-  }
+/**
+ * What to show for a record the reading never got to.
+ *
+ * A v4 record may have no free text at all, so the tags are the only thing
+ * there is to name it by; the caller turns the ids into words.
+ */
+function fallbackSummary(log: DailyLog): string {
+  return log.optionalAnswer?.slice(0, 80) ?? log.body?.slice(0, 80) ?? '';
 }

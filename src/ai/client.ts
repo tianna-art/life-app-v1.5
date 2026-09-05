@@ -1,46 +1,48 @@
 /**
  * Client side of the analysis pipeline.
  *
- * The app never talks to an LLM directly and holds no provider key: the call
+ * The app never talks to an LLM directly and holds no provider key: every call
  * goes to a Supabase Edge Function running with the service role, which is the
- * only place the key exists. When that is unreachable — or the project has no
- * Supabase configuration at all — the local, model-free path runs instead and
+ * only place the key exists. When one is unreachable — or the project has no
+ * Supabase configuration at all — a local, model-free path runs instead and
  * the person still keeps their record.
  *
- * The two stages of §29 are one round trip from here. Splitting them across
- * the network would double the latency of a save for no benefit: nothing in
- * between needs to reach the device.
+ * Every function here returns a usable value on failure. Nothing in this file
+ * is allowed to be the reason a save does not happen.
  */
 import type {
-  Clarification,
-  EntryAnalysis,
-  EntrySignals,
-  EntryWithAnalysis,
-  JournalEntry,
+  Gain,
+  GainCategory,
+  LogAnalysis,
+  LogType,
+  LogWithAnalysis,
+  MomentTag,
   Mirror,
-  MonthReview,
-  MonthReviewProgression,
+  MonthThemeCandidate,
   Progression,
+  ProgressionEvidenceRole,
+  DailyLog,
 } from '@/types';
 import { getSupabase } from '@/lib/supabase';
 import { LocalRepository } from '@/data/localRepository';
 import { getRepository } from '@/data';
 import {
-  emptySignals,
+  isGainCategory,
   isJourneyRole,
   isProgressionMaturity,
+  isProgressionPattern,
   isProgressionType,
 } from './progressionRules';
 import { analyzeLocally } from './localAnalysis';
 import { buildMirror } from './mirror';
+import { isUsableQuestion, pickQuestion } from '@/constants/questions';
+import { watchedPatterns } from '@/constants/desiredSelf';
 
 export interface AnalysisOutcome {
-  analysis: EntryAnalysis;
-  /** Progressions this entry now stands inside, after the maturity ceiling. */
+  analysis: LogAnalysis;
+  /** Progressions this record now stands inside, after the maturity ceiling. */
   progressions: Progression[];
   mirror: Mirror;
-  /** Present only when answering would change the reading (§14). */
-  clarification: Clarification | null;
   /** True when the reading came from the local path rather than the model. */
   offline: boolean;
 }
@@ -53,8 +55,69 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> 
   return data as T;
 }
 
+function readStringArray(value: unknown, limit = 8): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0)
+    .slice(0, limit);
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 // ---------------------------------------------------------------------------
-// Wire reading
+// STAGE 0 — the Level 3 question (§11-§13)
+// ---------------------------------------------------------------------------
+
+export interface QuestionContext {
+  logType: LogType;
+  momentTags: readonly MomentTag[];
+  desiredSelfCards?: readonly string[];
+  lenses?: readonly string[];
+  monthTheme?: string | undefined;
+}
+
+/**
+ * The one-line question, asked before the save.
+ *
+ * The table in `constants/questions.ts` answers first and answers instantly,
+ * so the field is never waiting on a network call. The model is then given a
+ * chance to say something better, and its answer is used only if it is short
+ * enough and carries none of the forbidden reflective phrasing (§12).
+ *
+ * That ordering is the whole design: the fallback is not a degraded mode, it
+ * is the floor, and the model can only improve on it.
+ */
+export async function generateQuestion(context: QuestionContext): Promise<string | null> {
+  const watched = watchedPatterns([...(context.desiredSelfCards ?? [])]);
+  const fallback = pickQuestion({
+    logType: context.logType,
+    momentTags: context.momentTags,
+    watched,
+  });
+
+  try {
+    const raw = await invoke<{ question?: unknown }>('generate-question', {
+      log_type: context.logType,
+      moment_tags: context.momentTags,
+      lenses: context.lenses ?? [],
+      month_theme: context.monthTheme ?? null,
+      fallback,
+    });
+    const question = readOptionalString(raw.question);
+    if (question && isUsableQuestion(question)) return question;
+  } catch {
+    // Unreachable or slow: the table's answer is already good.
+  }
+
+  return fallback;
+}
+
+// ---------------------------------------------------------------------------
+// STAGE 1 & 2 — reading one record (§16-§19)
 // ---------------------------------------------------------------------------
 
 function readProgression(raw: unknown): Progression | null {
@@ -67,105 +130,95 @@ function readProgression(raw: unknown): Progression | null {
     id: p.id,
     userId: typeof p.user_id === 'string' ? p.user_id : '',
     type: p.type,
+    pattern: isProgressionPattern(p.pattern) ? p.pattern : undefined,
     title: p.title,
-    fromState: typeof p.from_state === 'string' ? p.from_state : undefined,
-    currentState: typeof p.current_state === 'string' ? p.current_state : undefined,
+    fromState: readOptionalString(p.from_state),
+    currentState: readOptionalString(p.current_state),
     summary: typeof p.summary === 'string' ? p.summary : '',
     maturity: p.maturity,
     confidence: typeof p.confidence === 'number' ? p.confidence : 0.3,
+    goalExternal: p.goal_external === true,
     firstDetectedAt: typeof p.first_detected_at === 'string' ? p.first_detected_at : now,
     lastUpdatedAt: typeof p.last_updated_at === 'string' ? p.last_updated_at : now,
     verdict: p.verdict === 'accepted' || p.verdict === 'adjusted' ? p.verdict : undefined,
     userEdited: p.user_edited === true,
-    mergedIntoId: typeof p.merged_into_id === 'string' ? p.merged_into_id : undefined,
+    mergedIntoId: readOptionalString(p.merged_into_id),
     evidenceCount: typeof p.evidence_count === 'number' ? p.evidence_count : 0,
   };
 }
 
-function readStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
-function readOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function readAnalysis(raw: unknown, logId: string): EntryAnalysis {
+function readAnalysis(raw: unknown, logId: string): LogAnalysis {
   const value = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  const signals = { ...emptySignals() } as EntrySignals;
-  if (typeof value.signals === 'object' && value.signals !== null) {
-    const source = value.signals as Record<string, unknown>;
-    for (const key of Object.keys(signals) as (keyof EntrySignals)[]) {
-      signals[key] = readStringArray(source[key]);
-    }
-  }
   return {
     logId,
     eventSummary: typeof value.event_summary === 'string' ? value.event_summary : '',
-    topics: readStringArray(value.topics),
-    actors: readStringArray(value.actors),
-    environment: readStringArray(value.environment),
+    themes: readStringArray(value.themes),
+    people: readStringArray(value.people, 4),
     action: readOptionalString(value.action),
     outcome: readOptionalString(value.outcome),
-    reaction: readOptionalString(value.reaction),
-    hypothesis: readOptionalString(value.hypothesis),
-    futureIntention: readOptionalString(value.future_intention),
-    journeyRole: isJourneyRole(value.journey_role) ? value.journey_role : 'neutral',
-    signals,
+    friction: readOptionalString(value.friction),
+    discovery: readOptionalString(value.discovery),
+    adaptation: readOptionalString(value.adaptation),
+    choice: readOptionalString(value.choice),
+    environment: readOptionalString(value.environment),
+    interestSignal: readOptionalString(value.interest_signal),
+    journeyRole: isJourneyRole(value.journey_role) ? value.journey_role : undefined,
     confidence: typeof value.confidence === 'number' ? value.confidence : 0,
     analyzedAt: new Date().toISOString(),
   };
 }
 
-function readClarification(raw: unknown, logId: string): Clarification | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const c = raw as Record<string, unknown>;
-  const options = readStringArray(c.options);
-  if (typeof c.id !== 'string' || typeof c.question !== 'string' || options.length < 2) return null;
-  return { id: c.id, logId, question: c.question, options };
-}
-
-// ---------------------------------------------------------------------------
-// Reading one entry
-// ---------------------------------------------------------------------------
-
 /**
- * Reads one entry and, if the retrieval turns anything up, the movement it
- * belongs to. Runs after the entry is already committed, so a failure here can
- * never roll a saved record back.
+ * Reads one record and, if retrieval turns anything up, the movement it
+ * belongs to. Runs after the record is committed, so a failure here can never
+ * roll a saved record back.
  */
-export async function analyzeEntry(entry: JournalEntry): Promise<AnalysisOutcome> {
+export async function analyzeLog(log: DailyLog): Promise<AnalysisOutcome> {
   const repository = getRepository();
 
   if (!(repository instanceof LocalRepository)) {
     try {
-      const raw = await invoke<Record<string, unknown>>('analyze-entry', { log_id: entry.id });
-      const analysis = readAnalysis(raw.analysis, entry.id);
+      const raw = await invoke<Record<string, unknown>>('analyze-log', { log_id: log.id });
+      const analysis = readAnalysis(raw.analysis, log.id);
       const progressions = Array.isArray(raw.progressions)
         ? raw.progressions.map(readProgression).filter((p): p is Progression => p !== null)
         : [];
-      const joined = Array.isArray(raw.joined_progression_ids)
-        ? progressions.filter((p) => (raw.joined_progression_ids as unknown[]).includes(p.id))
-        : [];
+
+      const joinedIds = new Set(readStringArray(raw.joined_progression_ids, 8));
+      const joined = progressions.filter((p) => joinedIds.has(p.id));
+
+      const emergedId = readOptionalString(raw.emerged_progression_id);
+      const emergedProgression = emergedId
+        ? progressions.find((p) => p.id === emergedId)
+        : undefined;
+      const emerged = emergedProgression
+        ? {
+            progression: emergedProgression,
+            count:
+              typeof raw.emerged_count === 'number'
+                ? raw.emerged_count
+                : emergedProgression.evidenceCount,
+          }
+        : undefined;
 
       return {
         analysis,
         progressions,
         mirror: buildMirror({
-          logId: entry.id,
+          logId: log.id,
+          momentTags: log.momentTags,
           analysis,
           joined,
-          emerged: raw.emerged === true,
+          emerged,
         }),
-        clarification: readClarification(raw.clarification, entry.id),
         offline: false,
       };
     } catch {
-      // Fall through to the local reading: the entry is saved either way.
+      // Fall through to the local reading: the record is saved either way.
     }
   }
 
-  return analyzeEntryLocally(entry, repository instanceof LocalRepository ? repository : null);
+  return analyzeLogLocally(log, repository instanceof LocalRepository ? repository : null);
 }
 
 /**
@@ -176,21 +229,21 @@ export async function analyzeEntry(entry: JournalEntry): Promise<AnalysisOutcome
  * month: a progression that only shows up across months is exactly the kind
  * this path would otherwise never find.
  */
-async function analyzeEntryLocally(
-  entry: JournalEntry,
+async function analyzeLogLocally(
+  log: DailyLog,
   local: LocalRepository | null
 ): Promise<AnalysisOutcome> {
   const repository = getRepository();
   const history = await repository
-    .listEntriesByYear(entry.occurredOn.slice(0, 4))
-    .catch((): EntryWithAnalysis[] => []);
+    .listLogsByYear(log.occurredOn.slice(0, 4))
+    .catch((): LogWithAnalysis[] => []);
 
   const result = analyzeLocally({
-    logId: entry.id,
-    type: entry.type,
-    body: entry.body,
-    subjectiveSignal: entry.subjectiveSignal,
-    occurredAt: entry.occurredAt,
+    logId: log.id,
+    logType: log.logType,
+    momentTags: log.momentTags,
+    optionalAnswer: log.optionalAnswer,
+    occurredAt: log.occurredAt,
     history,
   });
 
@@ -200,21 +253,18 @@ async function analyzeEntryLocally(
     for (const draft of result.progressions) {
       const progression = await local.upsertProgression({
         type: draft.type,
+        pattern: draft.pattern,
         title: draft.title,
-        fromState: draft.fromState,
-        currentState: draft.currentState,
         summary: draft.summary,
-        // The ceiling decides the real value; proposing the floor keeps this
-        // path from ever being the reason a claim gets louder.
-        maturity: 'signal',
         confidence: draft.confidence,
-        occurredAt: entry.occurredAt,
+        goalExternal: draft.goalExternal,
+        occurredAt: log.occurredAt,
       });
       await local.addEvidence(
         draft.evidence.map((e) => ({
           progressionId: progression.id,
           logId: e.logId,
-          role: e.role,
+          role: e.role as ProgressionEvidenceRole,
           occurredAt: e.occurredAt,
         }))
       );
@@ -225,55 +275,108 @@ async function analyzeEntryLocally(
   return {
     analysis: result.analysis,
     progressions,
-    mirror: buildMirror({ logId: entry.id, analysis: result.analysis, joined: progressions }),
-    clarification: null,
+    mirror: buildMirror({
+      logId: log.id,
+      momentTags: log.momentTags,
+      analysis: result.analysis,
+      joined: progressions,
+    }),
     offline: true,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Month
+// The lens (§4, §5, §6)
 // ---------------------------------------------------------------------------
 
-interface MonthReviewWire {
-  title?: unknown;
-  subtitle?: unknown;
-  progressions?: unknown;
-  carrying_forward?: unknown;
+/** Three to six phrases naming what the reading will watch for (§4). */
+export async function generateLenses(input: {
+  selectedAreas: string[];
+  desiredSelfCards: string[];
+}): Promise<string[]> {
+  try {
+    const raw = await invoke<{ lenses?: unknown }>('generate-lens', {
+      selected_areas: input.selectedAreas,
+      desired_self_cards: input.desiredSelfCards,
+    });
+    return readStringArray(raw.lenses, 6);
+  } catch {
+    return [];
+  }
 }
 
-function readReviewProgression(raw: unknown): MonthReviewProgression | null {
+/** Three candidate year themes. Not goals — a name for the year (§5). */
+export async function generateYearThemes(input: {
+  selectedAreas: string[];
+  lenses: string[];
+}): Promise<string[]> {
+  try {
+    const raw = await invoke<{ themes?: unknown }>('generate-lens', {
+      task: 'year_theme',
+      selected_areas: input.selectedAreas,
+      lenses: input.lenses,
+    });
+    return readStringArray(raw.themes, 3);
+  } catch {
+    return [];
+  }
+}
+
+function readCandidate(raw: unknown): MonthThemeCandidate | null {
   if (typeof raw !== 'object' || raw === null) return null;
-  const p = raw as Record<string, unknown>;
-  if (typeof p.title !== 'string' || p.title.trim().length === 0) return null;
-  return { title: p.title.trim(), line: typeof p.line === 'string' ? p.line.trim() : '' };
+  const c = raw as Record<string, unknown>;
+  const theme = readOptionalString(c.theme);
+  if (!theme) return null;
+  const source = c.source;
+  if (source !== 'continue' && source !== 'deepen' && source !== 'follow_spark') return null;
+  return { source, theme, because: readOptionalString(c.because) ?? '' };
 }
 
 /**
- * The month-end reading (§23).
+ * Continue / Deepen / Follow the Spark (§6).
  *
- * At most three progressions and never padded to three: a month with two
- * movements in it says two, and a month with none is not given a title.
+ * Returns an empty list rather than inventing themes for a month with nothing
+ * behind it: a first month has no previous records to continue from, and
+ * offering three anyway would be asking the person to set a goal — which is
+ * the thing §6 exists to avoid.
  */
-export async function generateMonthReview(periodKey: string): Promise<MonthReview | null> {
+export async function generateMonthThemes(input: {
+  year: number;
+  month: number;
+}): Promise<MonthThemeCandidate[]> {
   try {
-    const raw = await invoke<MonthReviewWire>('month-progressions', { period_key: periodKey });
-    if (typeof raw.title !== 'string' || raw.title.trim().length === 0) return null;
-    return {
-      periodKey,
-      title: raw.title.trim(),
-      subtitle: typeof raw.subtitle === 'string' ? raw.subtitle.trim() : '',
-      progressions: Array.isArray(raw.progressions)
-        ? raw.progressions
-            .map(readReviewProgression)
-            .filter((p): p is MonthReviewProgression => p !== null)
-            .slice(0, 3)
-        : [],
-      carryingForward:
-        typeof raw.carrying_forward === 'string' ? raw.carrying_forward.trim() : '',
-      createdAt: new Date().toISOString(),
-    };
+    const raw = await invoke<{ candidates?: unknown }>('month-theme', {
+      year: input.year,
+      month: input.month,
+    });
+    return Array.isArray(raw.candidates)
+      ? raw.candidates.map(readCandidate).filter((c): c is MonthThemeCandidate => c !== null)
+      : [];
   } catch {
-    return null;
+    return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Month & year readings (§25, §26)
+// ---------------------------------------------------------------------------
+
+export function readGain(raw: unknown): Gain | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const g = raw as Record<string, unknown>;
+  const label = readOptionalString(g.label);
+  if (!label || !isGainCategory(g.category)) return null;
+  const now = new Date().toISOString();
+  return {
+    id: typeof g.id === 'string' ? g.id : '',
+    progressionId: typeof g.progression_id === 'string' ? g.progression_id : '',
+    category: g.category as GainCategory,
+    label,
+    description: readOptionalString(g.description),
+    confidence: typeof g.confidence === 'number' ? g.confidence : 0,
+    firstDetectedAt: typeof g.first_detected_at === 'string' ? g.first_detected_at : now,
+    lastDetectedAt: typeof g.last_detected_at === 'string' ? g.last_detected_at : now,
+  };
+}
+
+export { invoke as invokeEdgeFunction };

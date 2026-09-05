@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { JournalEntry, NewEntryInput } from '@/types';
+import type { DailyLog, NewLogInput } from '@/types';
 import { uuid } from '@/utils/id';
 
-/** v3: the queued shape carries the two drawers and the signal instead of a chip. */
-export const QUEUE_KEY = 'crincran:outbox:v3';
+/** v4: the queued shape carries the door, the tags and the optional answer. */
+export const QUEUE_KEY = 'crincran:outbox:v4';
 
-export interface QueuedEntry extends NewEntryInput {
+export interface QueuedLog extends NewLogInput {
   /** Client-side id; stands in for the row id until the server accepts it. */
   clientId: string;
   occurredAt: string;
@@ -13,21 +13,21 @@ export interface QueuedEntry extends NewEntryInput {
   attempts: number;
 }
 
-export async function readQueue(): Promise<QueuedEntry[]> {
+export async function readQueue(): Promise<QueuedLog[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    return raw ? (JSON.parse(raw) as QueuedEntry[]) : [];
+    return raw ? (JSON.parse(raw) as QueuedLog[]) : [];
   } catch {
     return [];
   }
 }
 
-async function writeQueue(items: QueuedEntry[]): Promise<void> {
+async function writeQueue(items: QueuedLog[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items));
 }
 
-export async function enqueueEntry(input: NewEntryInput): Promise<QueuedEntry> {
-  const item: QueuedEntry = {
+export async function enqueueLog(input: NewLogInput): Promise<QueuedLog> {
+  const item: QueuedLog = {
     ...input,
     clientId: uuid(),
     occurredAt: input.occurredAt ?? new Date().toISOString(),
@@ -54,16 +54,17 @@ export async function clearQueue(): Promise<void> {
   await AsyncStorage.removeItem(QUEUE_KEY);
 }
 
-/** Queued items rendered as optimistic entries so the screens stay honest. */
-export function queuedToEntries(items: QueuedEntry[], userId: string): JournalEntry[] {
+/** Queued items rendered as optimistic records so the screens stay honest. */
+export function queuedToLogs(items: QueuedLog[], userId: string): DailyLog[] {
   return items.map((item) => ({
     id: item.clientId,
     userId,
     occurredAt: item.occurredAt,
     occurredOn: item.occurredAt.slice(0, 10),
-    type: item.type,
-    body: item.body,
-    subjectiveSignal: item.subjectiveSignal,
+    logType: item.logType,
+    momentTags: item.momentTags,
+    aiQuestion: item.aiQuestion,
+    optionalAnswer: item.optionalAnswer,
     createdAt: item.queuedAt,
   }));
 }
@@ -75,16 +76,17 @@ export interface FlushResult {
 
 /** Drain the outbox. Anything that fails again stays queued for the next try. */
 export async function flushQueue(
-  send: (input: NewEntryInput) => Promise<JournalEntry>
+  send: (input: NewLogInput) => Promise<DailyLog>
 ): Promise<FlushResult> {
   const items = await readQueue();
   let sent = 0;
   for (const item of items) {
     try {
       await send({
-        type: item.type,
-        body: item.body,
-        subjectiveSignal: item.subjectiveSignal,
+        logType: item.logType,
+        momentTags: item.momentTags,
+        ...(item.aiQuestion ? { aiQuestion: item.aiQuestion } : {}),
+        ...(item.optionalAnswer ? { optionalAnswer: item.optionalAnswer } : {}),
         occurredAt: item.occurredAt,
       });
       await removeFromQueue(item.clientId);
