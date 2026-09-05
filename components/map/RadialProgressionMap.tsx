@@ -4,13 +4,12 @@ import Svg, { Circle, Line } from 'react-native-svg';
 import { colors, fonts } from '@/theme';
 import { LABELS } from '@/constants/copy';
 import { buildProgressionGraph } from '@/map/progressionGraph';
-import type { MonthProgression, ProgressionStep } from '@/types';
+import type { MonthProgression } from '@/types';
 
 interface RadialProgressionMapProps {
   monthKey: string;
   progressions: readonly MonthProgression[];
   expandedId: string | null;
-  expandedSteps: readonly ProgressionStep[];
   width: number;
   height: number;
   onSelect: (progressionId: string) => void;
@@ -32,7 +31,6 @@ export function RadialProgressionMap({
   monthKey,
   progressions,
   expandedId,
-  expandedSteps,
   width,
   height,
   onSelect,
@@ -40,15 +38,8 @@ export function RadialProgressionMap({
 }: RadialProgressionMapProps) {
   const graph = useMemo(
     () =>
-      buildProgressionGraph({
-        monthKey,
-        progressions,
-        expandedId,
-        expandedSteps,
-        width,
-        height,
-      }),
-    [monthKey, progressions, expandedId, expandedSteps, width, height]
+      buildProgressionGraph({ monthKey, progressions, expandedId, width, height }),
+    [monthKey, progressions, expandedId, width, height]
   );
 
   return (
@@ -117,6 +108,13 @@ export function RadialProgressionMap({
             {/* NEW is a fact about when, not a score. There is no counterpart
                 label for the others, because "not new" is not information. */}
             {node.isNew ? <Text style={styles.new}>{LABELS.new}</Text> : null}
+
+            {/* Under the point, and only on the one the month opens with. */}
+            {node.summary ? (
+              <Text numberOfLines={3} style={styles.summary}>
+                {node.summary}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
       ))}
@@ -127,7 +125,7 @@ export function RadialProgressionMap({
           testID={`step-node-${step.logId}`}
           onPress={() => onSelectStep(step.logId)}
           accessibilityRole="button"
-          accessibilityLabel={step.label}
+          accessibilityLabel="この点の記録をひらく"
           style={[styles.stepHit, { left: step.x - 16, top: step.y - 16 }]}
         />
       ))}
@@ -165,6 +163,13 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 2.4,
     color: colors.brassDim,
+  },
+  summary: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+    color: colors.ivoryFaint,
   },
   stepHit: { position: 'absolute', width: 32, height: 32 },
 });

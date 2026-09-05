@@ -3,16 +3,23 @@
  *
  * ME is the centre and never moves. What radiates from it is not "what I
  * wrote" but "how I have moved": the person's own words for each progression,
- * and — once one is opened — the steps it went through, in time order.
+ * and under each one the records of that month that moved it.
  *
- * Two rules shape everything here. Level 1 is never a type name (§17): the
+ * Three levels, and no more. ME, the points, the records behind a point. The
+ * steps used to be drawn as a chain that grew one link per record and reached
+ * back through every earlier month, so a August node trailed a line from May
+ * and the picture stopped being about August. A month's map is now built from
+ * that month's records only, and the records hang off their point rather than
+ * off each other.
+ *
+ * Two rules shape everything else. Level 1 is never a type name (§17): the
  * label is the title the model wrote in the person's own vocabulary, and
  * `capability` / `strategy` never reach the screen. And nothing may read as a
  * score (§19, §20): branches are seeded and jittered so the sky looks drawn
  * rather than computed, and weight only moves a node nearer or further, never
  * ranks it in a row.
  */
-import type { MonthProgression, ProgressionMaturity, ProgressionStep } from '@/types';
+import type { MonthProgression, ProgressionMaturity } from '@/types';
 import { MATURITY_OPACITY } from '@/constants/progression';
 import { maturityRank } from '@/ai/progressionRules';
 
@@ -26,6 +33,11 @@ export interface ProgressionNode {
   id: string;
   /** The person's own words. Never a type name. */
   title: string;
+  /**
+   * Shown under the leading point only. One point carries the reason the
+   * month starts where it starts; the rest would turn the sky into a page.
+   */
+  summary?: string | undefined;
   x: number;
   y: number;
   r: number;
@@ -37,18 +49,14 @@ export interface ProgressionNode {
   evidenceCount: number;
 }
 
-/** One step of an opened progression (§18 level 2). */
+/** One record of that month, hanging off the point it moved (level 3). */
 export interface StepNode {
   id: string;
   progressionId: string;
   logId: string;
-  label: string;
-  occurredOn: string;
   x: number;
   y: number;
   r: number;
-  /** Position along the path, 0 = earliest. */
-  index: number;
 }
 
 export interface GraphEdge {
@@ -70,10 +78,8 @@ export interface ProgressionGraph {
 export interface BuildProgressionGraphInput {
   monthKey: string;
   progressions: readonly MonthProgression[];
-  /** The progression whose steps are showing, if any. */
+  /** Emphasised, not expanded: opening a point no longer changes the shape. */
   expandedId?: string | null;
-  /** Steps of the expanded progression, oldest first. */
-  expandedSteps?: readonly ProgressionStep[];
   width: number;
   height: number;
 }
@@ -94,6 +100,18 @@ const ME_RADIUS = 5;
 const NODE_MIN_RADIUS = 3.5;
 const NODE_MAX_RADIUS = 7;
 const STEP_RADIUS = 2.4;
+
+/** At most five points leave ME. More than that and the month reads as a list. */
+export const MAX_POINTS = 5;
+
+/** How many records may hang off one point before it stops being legible. */
+export const MAX_BRANCHES_PER_POINT = 4;
+
+/**
+ * A month worth looking at has more than one thing happening in it, so the
+ * selection makes sure at least this many points carry records of their own.
+ */
+export const MIN_BRANCHING_POINTS = 2;
 
 /**
  * How far out a progression sits.
@@ -123,11 +141,58 @@ function glowFor(maturity: ProgressionMaturity): number {
   return MATURITY_OPACITY[maturity] ?? MATURITY_OPACITY.signal;
 }
 
+/**
+ * Which of the month's progressions get a point, and in what order.
+ *
+ * Ordered by what this month actually holds — its own records first, then how
+ * settled the progression was by the end of it. A progression that ran all
+ * year but was touched once in August does not lead August.
+ *
+ * Then the branching rule: a month whose points all stand alone is a month
+ * that looks like a list. If the plain ordering would leave fewer than two
+ * points carrying records of their own, ones that do are pulled up into the
+ * five, replacing the ones that do not. Nothing is invented to make this
+ * true — a month with only one such progression keeps only one.
+ */
+export function selectMonthPoints(
+  progressions: readonly MonthProgression[],
+  limit = MAX_POINTS
+): MonthProgression[] {
+  const ordered = [...progressions].sort((a, b) => {
+    const byMonthEvidence = b.evidenceLogIds.length - a.evidenceLogIds.length;
+    if (byMonthEvidence !== 0) return byMonthEvidence;
+    const bySettled = maturityRank(b.maturityThen) - maturityRank(a.maturityThen);
+    if (bySettled !== 0) return bySettled;
+    return b.progression.confidence - a.progression.confidence;
+  });
+
+  const chosen = ordered.slice(0, limit);
+  const branching = (list: readonly MonthProgression[]) =>
+    list.filter((item) => item.evidenceLogIds.length > 0).length;
+
+  if (branching(chosen) >= MIN_BRANCHING_POINTS) return chosen;
+
+  const spare = ordered
+    .slice(limit)
+    .filter((item) => item.evidenceLogIds.length > 0);
+
+  for (const candidate of spare) {
+    if (branching(chosen) >= MIN_BRANCHING_POINTS) break;
+    // Drop from the back: the last of the five is the least of the month.
+    const replaceable = [...chosen]
+      .reverse()
+      .find((item) => item.evidenceLogIds.length === 0);
+    if (!replaceable) break;
+    chosen[chosen.indexOf(replaceable)] = candidate;
+  }
+
+  return chosen;
+}
+
 export function buildProgressionGraph({
   monthKey,
   progressions,
   expandedId = null,
-  expandedSteps = [],
   width,
   height,
 }: BuildProgressionGraphInput): ProgressionGraph {
@@ -136,25 +201,28 @@ export function buildProgressionGraph({
   const cy = height / 2;
   const me: MeNode = { x: cx, y: cy, r: ME_RADIUS };
 
-  if (progressions.length === 0 || width <= 0 || height <= 0) {
+  const points = selectMonthPoints(progressions);
+  if (points.length === 0 || width <= 0 || height <= 0) {
     return { me, progressions: [], steps: [], edges: [] };
   }
 
   // The shortest side bounds the reach, so nothing leaves the canvas on a
-  // narrow phone; the inner margin keeps the first ring clear of ME.
-  const reach = Math.min(width, height) / 2 - NODE_MAX_RADIUS * 4;
+  // narrow phone; the inner margin keeps the first ring clear of ME. The
+  // outer fifth is left for the records that hang off each point.
+  const reach = (Math.min(width, height) / 2 - NODE_MAX_RADIUS * 4) * 0.78;
   const inner = reach * 0.42;
   const span = reach - inner;
 
-  const slice = (Math.PI * 2) / progressions.length;
+  const slice = (Math.PI * 2) / points.length;
   // A whole-sky offset so two months with the same count are not the same
   // picture, and no branch points straight up by default.
   const rotation = rng() * Math.PI * 2;
 
   const nodes: ProgressionNode[] = [];
   const edges: GraphEdge[] = [];
+  const steps: StepNode[] = [];
 
-  progressions.forEach((item, index) => {
+  points.forEach((item, index) => {
     const weight = weightOf(item);
     // Jitter inside the slice — never across it, so branches cannot collide —
     // is what turns an even pie into something that reads as drawn (§20).
@@ -168,6 +236,12 @@ export function buildProgressionGraph({
     nodes.push({
       id: item.progression.id,
       title: item.progression.title,
+      // Only the first point explains itself. §13 forbids telling someone
+      // they have changed, so this says why the month opens here, and the
+      // other four are left to be read.
+      ...(index === 0 && item.progression.summary
+        ? { summary: item.progression.summary }
+        : {}),
       x,
       y,
       r: radiusFor(weight),
@@ -186,85 +260,85 @@ export function buildProgressionGraph({
       toY: y,
       kind: 'branch',
     });
+
+    layoutBranches({
+      node: nodes[nodes.length - 1] as ProgressionNode,
+      logIds: item.evidenceLogIds,
+      rng,
+      reach,
+      edges,
+      out: steps,
+    });
   });
 
-  const steps = expandedId
-    ? layoutSteps({
-        node: nodes.find((n) => n.id === expandedId) ?? null,
-        steps: expandedSteps,
-        rng,
-        reach,
-        edges,
-      })
-    : [];
+  // Emphasis only. Opening a point used to grow the picture a level deeper;
+  // now it opens the sheet and the sky stays where it was.
+  if (expandedId) {
+    for (const node of nodes) {
+      if (node.id !== expandedId) continue;
+      node.glow = Math.min(1, node.glow + 0.25);
+    }
+  }
 
   return { me, progressions: nodes, steps, edges };
 }
 
 /**
- * The steps of an opened progression, laid out as a trail continuing outward.
+ * The month's records for one point, fanned out beyond it.
  *
- * They read left-to-right in time along the branch's own direction, so opening
- * a node extends the line the eye already followed rather than replacing the
- * picture with a different one. The small perpendicular wander is what keeps
- * it from looking like a ruler.
+ * A fan rather than a chain: each record answers to the point it moved, not to
+ * the record before it. Chained, the picture grew a level for every record and
+ * a busy month reached off the canvas; fanned, the depth is fixed at three no
+ * matter how much was written.
  */
-function layoutSteps({
+function layoutBranches({
   node,
-  steps,
+  logIds,
   rng,
   reach,
   edges,
+  out,
 }: {
-  node: ProgressionNode | null;
-  steps: readonly ProgressionStep[];
+  node: ProgressionNode;
+  logIds: readonly string[];
   rng: () => number;
   reach: number;
   edges: GraphEdge[];
-}): StepNode[] {
-  if (!node || steps.length === 0) return [];
+  out: StepNode[];
+}): void {
+  const shown = logIds.slice(0, MAX_BRANCHES_PER_POINT);
+  if (shown.length === 0) return;
 
-  const out: StepNode[] = [];
-  const gap = Math.max(14, Math.min(26, reach / (steps.length + 2)));
-  const dirX = Math.cos(node.angle);
-  const dirY = Math.sin(node.angle);
-  // Perpendicular to the branch: the axis the wander happens on.
-  const perpX = -dirY;
-  const perpY = dirX;
+  const gap = Math.max(16, Math.min(30, reach * 0.22));
+  // The fan opens along the branch's own direction, so the eye keeps going
+  // the way it was already going.
+  const spread = shown.length === 1 ? 0 : Math.PI / 5;
 
-  let previousX = node.x;
-  let previousY = node.y;
+  shown.forEach((logId, index) => {
+    const offset =
+      shown.length === 1 ? 0 : -spread / 2 + (spread / (shown.length - 1)) * index;
+    const angle = node.angle + offset + (rng() - 0.5) * 0.12;
+    const distance = gap * (0.8 + rng() * 0.4);
 
-  steps.forEach((step, index) => {
-    const along = gap * (index + 1);
-    const wander = (rng() - 0.5) * gap * 0.7;
-    const x = node.x + dirX * along + perpX * wander;
-    const y = node.y + dirY * along + perpY * wander;
+    const x = node.x + Math.cos(angle) * distance;
+    const y = node.y + Math.sin(angle) * distance;
 
     out.push({
-      id: `step:${node.id}:${step.logId}`,
+      id: `step:${node.id}:${logId}`,
       progressionId: node.id,
-      logId: step.logId,
-      label: step.eventSummary,
-      occurredOn: step.occurredOn,
+      logId,
       x,
       y,
       r: STEP_RADIUS,
-      index,
     });
 
     edges.push({
-      id: `step-edge:${node.id}:${step.logId}`,
-      fromX: previousX,
-      fromY: previousY,
+      id: `step-edge:${node.id}:${logId}`,
+      fromX: node.x,
+      fromY: node.y,
       toX: x,
       toY: y,
       kind: 'step',
     });
-
-    previousX = x;
-    previousY = y;
   });
-
-  return out;
 }
