@@ -152,7 +152,7 @@ Deno.serve(async (request: Request) => {
       title_candidates: titleCandidates,
     };
 
-    await db.from('year_reviews').upsert(
+    const { error: saveError } = await db.from('year_reviews').upsert(
       {
         user_id: user.id,
         year,
@@ -162,6 +162,7 @@ Deno.serve(async (request: Request) => {
       },
       { onConflict: 'user_id,year' }
     );
+    if (saveError) throw new Error(`year_reviews: ${saveError.message}`);
 
     return jsonResponse(review);
   } catch (error) {

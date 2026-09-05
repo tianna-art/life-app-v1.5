@@ -219,7 +219,7 @@ Deno.serve(async (request: Request) => {
       subtitle: typeof parsed.subtitle === 'string' ? parsed.subtitle.trim() : '',
     };
 
-    await db.from('month_reviews').upsert(
+    const { error: saveError } = await db.from('month_reviews').upsert(
       {
         user_id: user.id,
         period_key: periodKey,
@@ -235,6 +235,7 @@ Deno.serve(async (request: Request) => {
       },
       { onConflict: 'user_id,period_key' }
     );
+    if (saveError) throw new Error(`month_reviews: ${saveError.message}`);
 
     return jsonResponse(review);
   } catch (error) {
