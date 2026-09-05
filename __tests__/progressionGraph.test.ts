@@ -106,16 +106,6 @@ describe("a month's map", () => {
     expect(graph.progressions[0]?.id).toBe('this-month');
   });
 
-  it('explains only the point it opens with', () => {
-    const graph = buildProgressionGraph({
-      monthKey: '2026-08',
-      progressions: [item('lead', ['a', 'b']), item('second', ['c'])],
-      ...size,
-    });
-    expect(graph.progressions[0]?.summary).toBe('lead のまとめ');
-    expect(graph.progressions[1]?.summary).toBeUndefined();
-  });
-
   it('puts a point the cards made worth watching ahead of a busier one', () => {
     // §19: the lens raises priority. It is what makes the five about what the
     // person said they wanted, rather than about who wrote the most.
@@ -175,8 +165,6 @@ describe("a month's map", () => {
       ...size,
     });
     expect(graph.progressions[0]?.id).toBe('chosen');
-    expect(graph.progressions[0]?.summary).toContain('自分で決められる');
-    expect(graph.progressions[1]?.summary).toBeUndefined();
   });
 
   it('will not let a sentence put a point on a map it has no records on', () => {
@@ -194,6 +182,25 @@ describe("a month's map", () => {
       ...size,
     });
     expect(graph.progressions.map((n) => n.id)).toEqual(['here']);
+  });
+
+  it('leaves the sentence about the month to the month itself', () => {
+    // It sits under SEPTEMBER 2026, not under the point it is about: it is a
+    // sentence about the month, and on the canvas it competed with the title
+    // it sat beneath.
+    const graph = buildProgressionGraph({
+      monthKey: '2026-09',
+      progressions: [item('lead', ['a', 'b'])],
+      lead: {
+        periodKey: '2026-09',
+        leadProgressionId: 'lead',
+        leadReason: 'なりたい姿に近い記録が続いています',
+        points: ['lead'],
+        generatedAt: '2026-09-30T00:00:00.000Z',
+      },
+      ...size,
+    });
+    expect(JSON.stringify(graph.progressions)).not.toContain('なりたい姿');
   });
 
   it('draws the same month the same way twice', () => {
