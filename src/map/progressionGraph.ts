@@ -243,6 +243,14 @@ export function selectMonthPoints(
   const tellable = ordered.filter(
     (item) => branchesFor(brief, item.progression.id).length >= MIN_BRANCHES_PER_POINT
   );
+
+  // A brief that can tell nothing apart is a brief that is not usable — it
+  // was written under an older shape, or the model had nothing to say. The
+  // month still happened, so it is drawn on its own terms rather than not at
+  // all: an empty sky is a claim that nothing occurred, and this is the one
+  // case where that claim would be the app's mistake rather than the truth.
+  if (tellable.length === 0) return ordered.slice(0, limit);
+
   const folded = ordered.length - tellable.length;
   return tellable.slice(0, folded > 0 ? Math.min(limit, MAX_POINTS_AFTER_MERGE) : limit);
 }
