@@ -4,10 +4,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
 import { analyzeEntry } from '@/ai/client';
-import { buildTodaysGain } from '@/ai/todaysGain';
+import { emptySignals } from '@/ai/progressionRules';
+import { buildMirror } from '@/ai/mirror';
 import { enqueueEntry, flushQueue, queuedToEntries, readQueue } from '@/offline/queue';
 import { monthKeyOfDate, yearKeyOfDate } from '@/utils/period';
-import type { EntryWithAnalysis, JournalEntry, NewEntryInput, TodaysGain } from '@/types';
+import type {
+  Clarification,
+  EntryWithAnalysis,
+  JournalEntry,
+  Mirror,
+  NewEntryInput,
+} from '@/types';
 
 function mergeQueued(
   serverEntries: EntryWithAnalysis[],
@@ -64,7 +71,9 @@ export function useEntry(id: string) {
 export interface CreateEntryResult {
   entry: JournalEntry;
   queued: boolean;
-  todaysGain: TodaysGain | null;
+  mirror: Mirror | null;
+  /** Present only when answering would change the reading (§14). */
+  clarification: Clarification | null;
 }
 
 /**
@@ -95,28 +104,46 @@ export function useCreateEntry() {
             userId: 'pending',
             occurredAt: item.occurredAt,
             occurredOn: item.occurredAt.slice(0, 10),
-            inputCategory: item.inputCategory,
+            type: item.type,
             body: item.body,
+            subjectiveSignal: item.subjectiveSignal,
             createdAt: item.queuedAt,
           },
           queued: true,
-          todaysGain: null,
+          mirror: null,
+          clarification: null,
         };
       }
 
       try {
         const outcome = await analyzeEntry(entry);
-        return { entry, queued: false, todaysGain: outcome.todaysGain };
-      } catch {
-        // The entry stays saved; the day simply goes unread for now.
         return {
           entry,
           queued: false,
-          todaysGain: buildTodaysGain({
+          mirror: outcome.mirror,
+          clarification: outcome.clarification,
+        };
+      } catch {
+        // The entry stays saved; the day simply goes unread for now. The
+        // mirror falls back to the line that says exactly that.
+        return {
+          entry,
+          queued: false,
+          mirror: buildMirror({
             logId: entry.id,
-            gainStatus: 'unresolved',
-            gains: [],
+            analysis: {
+              logId: entry.id,
+              eventSummary: '',
+              topics: [],
+              actors: [],
+              environment: [],
+              journeyRole: 'neutral',
+              signals: emptySignals(),
+              confidence: 0,
+            },
+            joined: [],
           }),
+          clarification: null,
         };
       }
     },
@@ -125,7 +152,8 @@ export function useCreateEntry() {
       const year = yearKeyOfDate(result.entry.occurredOn);
       void client.invalidateQueries({ queryKey: queryKeys.monthEntries(month) });
       void client.invalidateQueries({ queryKey: queryKeys.yearEntries(year) });
-      void client.invalidateQueries({ queryKey: queryKeys.gains() });
+      void client.invalidateQueries({ queryKey: queryKeys.progressions() });
+      void client.invalidateQueries({ queryKey: queryKeys.clarification() });
     },
   });
 }
@@ -144,7 +172,7 @@ export function useOutboxSync() {
     const result = await flushQueue((input) => repository.createEntry(input));
     if (result.sent > 0) {
       void client.invalidateQueries({ queryKey: ['entries'] });
-      void client.invalidateQueries({ queryKey: queryKeys.gains() });
+      void client.invalidateQueries({ queryKey: queryKeys.progressions() });
     }
     return result;
   }, [client]);

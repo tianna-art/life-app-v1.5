@@ -7,7 +7,7 @@ import { isMonthEndReached } from '@/utils/period';
 import type { MonthReview } from '@/types';
 
 /**
- * The month-end reading (§19).
+ * The month-end reading (§23).
  *
  * Only ever requested once the month is actually over — nothing is summarised
  * while it is still being lived — and a stored review always wins so the same
@@ -31,14 +31,12 @@ export function useMonthReview(periodKey: string, options: { enabled?: boolean }
       const generated = await generateMonthReview(periodKey);
       if (generated) return repository.saveMonthReview(generated);
 
-      // No model reachable: the local reading is built from the stored gains
-      // and the previous month's records, and says nothing beyond them.
-      const previousEntries = await repository.listEntriesByMonth(previousMonth(periodKey));
+      // No model reachable: the local reading is built from the progressions
+      // already stored for the month, and says nothing beyond them.
       const local = buildLocalMonthReview({
         periodKey,
         entries,
-        previousEntries,
-        monthGains: await repository.listMonthGains(periodKey),
+        progressions: await repository.listMonthProgressions(periodKey),
       });
       return local ? repository.saveMonthReview(local) : null;
     },
@@ -50,13 +48,4 @@ export function useMonthReviews(yearKey: string) {
     queryKey: queryKeys.monthReviews(yearKey),
     queryFn: () => getRepository().listMonthReviews(yearKey),
   });
-}
-
-function previousMonth(key: string): string {
-  const year = Number(key.slice(0, 4));
-  const month = Number(key.slice(5, 7));
-  const zeroBased = year * 12 + (month - 1) - 1;
-  const y = Math.floor(zeroBased / 12);
-  const m = ((zeroBased % 12) + 12) % 12 + 1;
-  return `${y}-${String(m).padStart(2, '0')}`;
 }

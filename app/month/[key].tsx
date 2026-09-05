@@ -55,26 +55,27 @@ export default function MonthEndScreen() {
               {review.subtitle ? <Text style={styles.subtitle}>{review.subtitle}</Text> : null}
             </View>
 
-            {review.gains.length > 0 ? (
+            {review.progressions.length > 0 ? (
               <>
                 <HairlineRule />
                 <View style={styles.block}>
-                  <Text style={styles.section}>{LABELS.threeGains}</Text>
-                  {review.gains.slice(0, 3).map((gain) => (
-                    <Text key={gain} style={styles.gain}>
-                      {gain}
-                    </Text>
+                  <Text style={styles.section}>{LABELS.threeProgressions}</Text>
+                  {review.progressions.slice(0, 3).map((item) => (
+                    <View key={item.title} style={styles.progression}>
+                      <Text style={styles.progressionTitle}>{item.title}</Text>
+                      <Text style={styles.progressionLine}>{item.line}</Text>
+                    </View>
                   ))}
                 </View>
               </>
             ) : null}
 
-            {review.oneChange ? (
+            {review.carryingForward ? (
               <>
                 <HairlineRule />
                 <View style={styles.block}>
-                  <Text style={styles.section}>{LABELS.oneChange}</Text>
-                  <Text style={styles.change}>{review.oneChange}</Text>
+                  <Text style={styles.section}>{LABELS.carryingForward}</Text>
+                  <Text style={styles.change}>{review.carryingForward}</Text>
                 </View>
               </>
             ) : null}
@@ -104,6 +105,19 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: fonts.serif, fontSize: 15, color: colors.ivoryDim },
   block: { gap: spacing.sm },
   section: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 2.8, color: colors.brassDim },
+  progression: { gap: 4 },
+  progressionTitle: {
+    fontFamily: fonts.serif,
+    fontSize: 19,
+    lineHeight: 30,
+    color: colors.ivory,
+  },
+  progressionLine: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 24,
+    color: colors.ivoryDim,
+  },
   gain: { fontFamily: fonts.serif, fontSize: 18, lineHeight: 28, color: colors.ivory },
   change: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 25, color: colors.ivoryDim },
   dim: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },

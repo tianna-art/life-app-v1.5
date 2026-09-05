@@ -1,94 +1,101 @@
-import { buildLocalMonthReview } from '../src/ai/monthReview';
-import type { MonthGain } from '../src/data/repository';
-import type { EntryWithAnalysis, GainType, InputCategory } from '../src/types';
+import { buildLocalMonthReview, progressionLine } from '../src/ai/monthReview';
+import type { EntryWithAnalysis, MonthProgression, Progression } from '../src/types';
 
-let counter = 0;
-const entry = (inputCategory: InputCategory, day = 1): EntryWithAnalysis => {
-  counter += 1;
+function entry(id: string): EntryWithAnalysis {
   return {
-    id: `l${counter}`,
-    userId: 'u1',
-    occurredAt: `2026-09-${String(day).padStart(2, '0')}T21:00:00.000Z`,
-    occurredOn: `2026-09-${String(day).padStart(2, '0')}`,
-    inputCategory,
-    body: `記録 ${counter}`,
-    createdAt: '2026-09-01T21:00:00.000Z',
-  };
-};
-
-const monthGain = (id: string, type: GainType, label: string, evidence: number): MonthGain => ({
-  gain: {
     id,
-    userId: 'u1',
-    type,
-    label,
-    maturity: 'emerging',
-    confidence: 0.5,
-    firstDetectedAt: '2026-09-02T00:00:00.000Z',
-    lastDetectedAt: '2026-09-20T00:00:00.000Z',
-  },
-  evidenceLogIds: Array.from({ length: evidence }, (_, i) => `e${i}`),
-  isNew: true,
-});
+    userId: 'u',
+    occurredAt: '2026-09-03T09:00:00Z',
+    occurredOn: '2026-09-03',
+    type: 'event',
+    body: '企画を見せた',
+    subjectiveSignal: 'positive',
+    createdAt: '2026-09-03T09:00:00Z',
+  };
+}
 
-describe('the month-end reading', () => {
-  it('reads nothing into an empty month', () => {
+function item(over: Partial<Progression>, month: Partial<MonthProgression> = {}): MonthProgression {
+  return {
+    progression: {
+      id: 'p',
+      userId: 'u',
+      type: 'relationship',
+      title: '人に伝える',
+      summary: '',
+      maturity: 'evidenced',
+      confidence: 0.6,
+      firstDetectedAt: '2026-04-01T00:00:00Z',
+      lastUpdatedAt: '2026-09-01T00:00:00Z',
+      userEdited: false,
+      evidenceCount: 4,
+      ...over,
+    },
+    evidenceLogIds: ['a', 'b'],
+    isNew: false,
+    maturityThen: 'evidenced',
+    ...month,
+  };
+}
+
+describe('the month-end reading (§23)', () => {
+  it('does not summarise a month with nothing in it', () => {
     expect(
-      buildLocalMonthReview({
-        periodKey: '2026-09',
-        entries: [],
-        previousEntries: [],
-        monthGains: [],
-      })
+      buildLocalMonthReview({ periodKey: '2026-09', entries: [], progressions: [] })
     ).toBeNull();
   });
 
-  it('shows at most three gains, best-supported first', () => {
+  it('says two when there were two, rather than padding to three', () => {
     const review = buildLocalMonthReview({
       periodKey: '2026-09',
-      entries: [entry('progress')],
-      previousEntries: [],
-      monthGains: [
-        monthGain('a', 'evidence', 'イベントを開催した', 1),
-        monthGain('b', 'strategy', '先に人に見せる', 5),
-        monthGain('c', 'insight', '短く伝える', 3),
-        monthGain('d', 'direction', '小さなチーム', 2),
+      entries: [entry('a')],
+      progressions: [
+        item({ id: 'p1', title: '人に伝える', fromState: '怖い', currentState: '説明できる' }),
+        item({ id: 'p2', title: 'つくる', fromState: '完成させてから', currentState: '途中で見せる' }),
       ],
     });
-    expect(review?.gains).toEqual(['先に人に見せる', '短く伝える', '小さなチーム']);
+    expect(review?.progressions).toHaveLength(2);
   });
 
-  it('says nothing about change when there is nothing to compare against', () => {
-    const review = buildLocalMonthReview({
-      periodKey: '2026-09',
-      entries: [entry('progress'), entry('progress'), entry('moved')],
-      previousEntries: [entry('friction')],
-      monthGains: [],
-    });
-    expect(review?.oneChange).toBe('');
+  it('states a movement only when both ends are known', () => {
+    expect(
+      progressionLine({
+        ...item({}).progression,
+        fromState: '自分の中だけで考える',
+        currentState: '人に見せながら考える',
+      })
+    ).toBe('「自分の中だけで考える」から「人に見せながら考える」へ。');
+
+    // Half a movement is not stated as one.
+    expect(progressionLine({ ...item({}).progression, fromState: '怖い' })).toBe('');
   });
 
-  it('compares two months as counts, without judging either', () => {
+  it('leaves the carrying-forward line empty rather than inventing it', () => {
     const review = buildLocalMonthReview({
       periodKey: '2026-09',
-      entries: [entry('progress'), entry('progress'), entry('progress'), entry('moved')],
-      previousEntries: [entry('friction'), entry('friction'), entry('friction'), entry('moved')],
-      monthGains: [],
+      entries: [entry('a')],
+      progressions: [item({ fromState: 'A', currentState: 'B' })],
     });
-    expect(review?.oneChange).toContain('進んだ');
-    for (const banned of ['成長', '素晴らしい', 'あなたは', '達成']) {
-      expect(review?.oneChange).not.toContain(banned);
+    expect(review?.carryingForward).toBe('');
+  });
+
+  it('never titles a month with praise', () => {
+    const review = buildLocalMonthReview({
+      periodKey: '2026-09',
+      entries: [entry('a')],
+      progressions: [item({ fromState: 'A', currentState: 'B' })],
+    });
+    for (const banned of ['GREAT', 'SUCCESS', 'GREW', 'WIN']) {
+      expect(review?.title).not.toContain(banned);
     }
   });
 
-  it('titles the month after what the records were, not how it went', () => {
+  it('gives a month with records but no movement a quiet title, not a blank one', () => {
     const review = buildLocalMonthReview({
       periodKey: '2026-09',
-      entries: [entry('progress')],
-      previousEntries: [],
-      monthGains: [monthGain('a', 'evidence', 'ポートフォリオを公開した', 2)],
+      entries: [entry('a')],
+      progressions: [],
     });
-    expect(review?.title).toBe('OUT INTO THE WORLD');
-    expect(review?.subtitle).not.toContain('成功');
+    expect(review?.title).toBe('KEPT');
+    expect(review?.progressions).toEqual([]);
   });
 });

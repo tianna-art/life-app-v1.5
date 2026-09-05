@@ -95,36 +95,53 @@ class OpenAiProvider implements LlmProvider {
  * Deterministic stand-in for local development and CI.
  *
  * It returns valid, schema-shaped JSON and reads nothing: every response is
- * the honest empty answer. That is deliberate — a mock that invented gains
- * would make a broken pipeline look like a working one, and the "nothing could
- * be read here" path is the one most likely to regress unnoticed.
+ * the honest empty answer. That is deliberate — a mock that invented
+ * progressions would make a broken pipeline look like a working one, and the
+ * "nothing could be read here" path is the one most likely to regress
+ * unnoticed.
  */
 class MockProvider implements LlmProvider {
   readonly name = 'mock';
   readonly model = 'mock';
 
   complete({ user }: LlmRequest): Promise<string> {
-    if (user.includes('"task":"gain_analysis"')) {
+    if (user.includes('"task":"entry_extraction"')) {
       return Promise.resolve(
         JSON.stringify({
           event_summary: '',
+          topics: [],
+          actors: [],
+          environment: [],
+          action: null,
+          outcome: null,
+          reaction: null,
+          hypothesis: null,
+          future_intention: null,
           journey_role: 'neutral',
-          gain_status: 'unresolved',
-          gains: [],
-          semantic_tags: [],
-          possible_links: [],
+          signals: {
+            capability: [],
+            strategy: [],
+            interest: [],
+            direction: [],
+            relationship: [],
+            perspective: [],
+          },
+          confidence: 0,
         })
       );
     }
-    if (user.includes('"task":"gain_consolidation"')) {
+    if (user.includes('"task":"cross_time_progression"')) {
+      return Promise.resolve(JSON.stringify({ progressions: [], clarification: null }));
+    }
+    if (user.includes('"task":"progression_consolidation"')) {
       return Promise.resolve(JSON.stringify({ merge: false }));
     }
     return Promise.resolve(
       JSON.stringify({
         title: 'A MONTH OF RECORDS',
         subtitle: '記録の残った月',
-        gains: [],
-        one_change: '',
+        progressions: [],
+        carrying_forward: '',
       })
     );
   }
@@ -137,7 +154,7 @@ export function createProvider(): LlmProvider {
   if (kind === 'anthropic') {
     const key = Deno.env.get('ANTHROPIC_API_KEY');
     if (!key) throw new Error('ANTHROPIC_API_KEY is not set');
-    return new AnthropicProvider(key, model || 'claude-sonnet-4-5');
+    return new AnthropicProvider(key, model || 'claude-sonnet-5');
   }
   if (kind === 'openai') {
     const key = Deno.env.get('OPENAI_API_KEY');

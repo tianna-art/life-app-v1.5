@@ -3,13 +3,20 @@
  *
  * Used when no Edge Function is reachable. Everything here is arithmetic over
  * what the person actually wrote: the title names the shape of the month's
- * records, the three gains are the best-supported ones already stored, and the
- * one change is a comparison of two counts. Nothing is asserted about who they
- * are, and when there is nothing to compare, the change line stays empty.
+ * records, the progressions are the best-supported ones already stored, and
+ * each line is assembled from the two states the progression already holds.
+ *
+ * Nothing is asserted about who they are, and nothing is invented to fill a
+ * slot: §23 says a month with two movements says two.
  */
-import type { EntryWithAnalysis, GainType, InputCategory, MonthReview } from '@/types';
-import type { MonthGain } from '@/data/repository';
-import { inputCategoryLabel } from '@/constants/inputCategories';
+import type {
+  EntryWithAnalysis,
+  MonthProgression,
+  MonthReview,
+  MonthReviewProgression,
+  ProgressionType,
+} from '@/types';
+import { maturityRank } from './progressionRules';
 
 interface TitleShape {
   title: string;
@@ -17,95 +24,69 @@ interface TitleShape {
 }
 
 /** Titles describe what the month's records were, not how the month went. */
-const TITLE_BY_GAIN_TYPE: Record<GainType, TitleShape> = {
-  evidence: { title: 'OUT INTO THE WORLD', subtitle: '外に出し始めた月' },
-  strategy: { title: 'A DIFFERENT WAY', subtitle: 'やり方を変えてみた月' },
-  insight: { title: 'WHAT BECAME CLEAR', subtitle: '分かったことが増えた月' },
+const TITLE_BY_TYPE: Record<ProgressionType, TitleShape> = {
   capability: { title: 'DONE AGAIN', subtitle: '繰り返した月' },
+  strategy: { title: 'A DIFFERENT WAY', subtitle: 'やり方を変えてみた月' },
+  interest: { title: 'WHAT PULLED', subtitle: '気になるものが動いた月' },
   direction: { title: 'A BEARING', subtitle: '向きが見えてきた月' },
-  connection: { title: 'ALONGSIDE OTHERS', subtitle: '人と重なった月' },
+  relationship: { title: 'OUT INTO THE WORLD', subtitle: '外に出し始めた月' },
+  perspective: { title: 'SEEN DIFFERENTLY', subtitle: '見え方が変わった月' },
 };
 
-const TITLE_BY_INPUT_CATEGORY: Record<InputCategory, TitleShape> = {
-  progress: { title: 'SMALL MOVES', subtitle: '少しずつ動かした月' },
-  friction: { title: 'HELD UP', subtitle: 'ひっかかりが多かった月' },
-  moved: { title: 'THINGS THAT CAUGHT', subtitle: '心が動いた記録が多い月' },
-};
-
-export interface LocalMonthReviewInput {
-  periodKey: string;
-  entries: readonly EntryWithAnalysis[];
-  previousEntries: readonly EntryWithAnalysis[];
-  monthGains: readonly MonthGain[];
-}
-
-function dominantInputCategory(entries: readonly EntryWithAnalysis[]): InputCategory | null {
-  const counts = new Map<InputCategory, number>();
-  for (const entry of entries) {
-    counts.set(entry.inputCategory, (counts.get(entry.inputCategory) ?? 0) + 1);
-  }
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const top = ranked[0];
-  if (!top) return null;
-  // A tie says nothing about the month, so it names nothing.
-  if (ranked[1] && ranked[1][1] === top[1]) return null;
-  return top[0];
-}
-
-function share(entries: readonly EntryWithAnalysis[], category: InputCategory): number {
-  if (entries.length === 0) return 0;
-  return entries.filter((e) => e.inputCategory === category).length / entries.length;
-}
+/** A month with records but no movement yet. Not a failure, just early. */
+const QUIET_MONTH: TitleShape = { title: 'KEPT', subtitle: '残しつづけた月' };
 
 /**
- * A comparison, not a verdict: it says which kind of record grew, and only
- * when the difference is large enough that it is not noise.
+ * `「Aから」「Bへ」` when both states are known, and nothing at all when they
+ * are not. A half-known movement is left unstated rather than guessed at.
  */
-function oneChange(
-  entries: readonly EntryWithAnalysis[],
-  previous: readonly EntryWithAnalysis[]
-): string {
-  if (entries.length < 3 || previous.length < 3) return '';
-
-  const categories: InputCategory[] = ['progress', 'friction', 'moved'];
-  let best: { category: InputCategory; delta: number } | null = null;
-  for (const category of categories) {
-    const delta = share(entries, category) - share(previous, category);
-    if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { category, delta };
-  }
-  if (!best || Math.abs(best.delta) < 0.2) return '';
-
-  const label = inputCategoryLabel(best.category);
-  return best.delta > 0
-    ? `先月にくらべて、「${label}」として残した記録が増えています。`
-    : `先月にくらべて、「${label}」として残した記録は減っています。`;
+export function progressionLine(progression: MonthProgression['progression']): string {
+  const { fromState, currentState } = progression;
+  if (fromState && currentState) return `「${fromState}」から「${currentState}」へ。`;
+  if (currentState) return `いまは「${currentState}」。`;
+  return progression.summary;
 }
 
-export function buildLocalMonthReview(input: LocalMonthReviewInput): MonthReview | null {
-  if (input.entries.length === 0) return null;
+export interface BuildLocalMonthReviewInput {
+  periodKey: string;
+  entries: readonly EntryWithAnalysis[];
+  progressions: readonly MonthProgression[];
+}
 
-  const ranked = [...input.monthGains].sort(
-    (a, b) =>
-      b.evidenceLogIds.length - a.evidenceLogIds.length ||
-      b.gain.confidence - a.gain.confidence ||
-      a.gain.label.localeCompare(b.gain.label)
-  );
+export function buildLocalMonthReview({
+  periodKey,
+  entries,
+  progressions,
+}: BuildLocalMonthReviewInput): MonthReview | null {
+  // A month with nothing in it is not summarised, and is not apologised for.
+  if (entries.length === 0) return null;
 
-  const topType = ranked[0]?.gain.type;
-  const shape =
-    (topType ? TITLE_BY_GAIN_TYPE[topType] : undefined) ??
-    (() => {
-      const category = dominantInputCategory(input.entries);
-      return category ? TITLE_BY_INPUT_CATEGORY[category] : null;
-    })() ??
-    { title: 'A MONTH OF RECORDS', subtitle: '記録の残った月' };
+  // Best-supported first: how settled it is, then how much stands behind it.
+  const ranked = [...progressions].sort((a, b) => {
+    const byMaturity =
+      maturityRank(b.maturityThen) - maturityRank(a.maturityThen);
+    if (byMaturity !== 0) return byMaturity;
+    return b.evidenceLogIds.length - a.evidenceLogIds.length;
+  });
+
+  const top = ranked[0];
+  const shape = top ? (TITLE_BY_TYPE[top.progression.type] ?? QUIET_MONTH) : QUIET_MONTH;
+
+  const lines: MonthReviewProgression[] = ranked.slice(0, 3).flatMap((item) => {
+    const line = progressionLine(item.progression);
+    // A progression with nothing to say about how it changed is left out
+    // rather than printed as a bare title.
+    return line.length > 0 ? [{ title: item.progression.title, line }] : [];
+  });
 
   return {
-    periodKey: input.periodKey,
+    periodKey,
     title: shape.title,
     subtitle: shape.subtitle,
-    gains: ranked.slice(0, 3).map((g) => g.gain.label),
-    oneChange: oneChange(input.entries, input.previousEntries),
+    progressions: lines,
+    // Without a model there is nothing honest to say here, so it stays empty
+    // and the screen simply omits the section.
+    carryingForward: '',
     createdAt: new Date().toISOString(),
   };
 }

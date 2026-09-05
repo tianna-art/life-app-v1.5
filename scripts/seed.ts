@@ -5,13 +5,14 @@
  *   SEED_PASSWORD=... npm run seed
  *
  * Creates (or reuses) one user and writes a spread of entries across the last
- * few months. The entries are deliberately a real trail — something tried,
- * something that did not land, a change of approach, then the same thing tried
- * differently — because that is what the gain pipeline is supposed to be able
- * to read. Idempotent: re-running does not duplicate entries.
+ * few months. The entries are deliberately a real trail — a fear stated, a
+ * first attempt, something that did not land, a change of approach, then the
+ * same thing done differently — because a Progression is only visible across
+ * records, and a scatter of unrelated days would prove nothing.
  *
- * Gains themselves are NOT seeded: they are produced by the analyze-log Edge
- * Function, and inventing them here would hide whether that function works.
+ * Progressions themselves are NOT seeded: they are produced by the
+ * analyze-entry Edge Function, and inventing them here would hide whether the
+ * detection actually works.
  */
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
@@ -31,35 +32,43 @@ if (!url || !serviceRoleKey) {
 
 const db = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 
-type InputCategory = 'progress' | 'friction' | 'moved';
+type EntryType = 'event' | 'thought';
+type SubjectiveSignal = 'positive' | 'mixed' | 'negative';
 
-const SAMPLE: Array<{ inputCategory: InputCategory; body: string; daysAgo: number }> = [
-  // A strand that should end up as a STRATEGY gain, failure and all.
-  { inputCategory: 'progress', body: '企画書を最後まで作り込んでから共有した。', daysAgo: 68 },
-  { inputCategory: 'friction', body: '共有した企画に、ほとんど反応がなかった。', daysAgo: 64 },
-  { inputCategory: 'progress', body: '途中の状態のまま、友人ひとりに見せてみた。', daysAgo: 52 },
-  { inputCategory: 'moved', body: '途中で見せた方が、returnが早いことに驚いた。', daysAgo: 51 },
-  { inputCategory: 'progress', body: '今回は骨組みの段階で3人に見せてから作り込んだ。', daysAgo: 34 },
-  { inputCategory: 'progress', body: '粗い版を先に出して、そこから削る順番で進めた。', daysAgo: 12 },
+const SAMPLE: Array<{
+  type: EntryType;
+  body: string;
+  subjectiveSignal: SubjectiveSignal;
+  daysAgo: number;
+}> = [
+  // 人に伝える — a fear, a first attempt, a failure, a change of method, and
+  // the same thing done with a stranger. This is the trail the map should find.
+  { type: 'thought', body: '人に自分の企画を見せるのが怖い。', subjectiveSignal: 'negative', daysAgo: 150 },
+  { type: 'event', body: '初めて自分の企画を友達に見せた。', subjectiveSignal: 'positive', daysAgo: 120 },
+  { type: 'event', body: '企画を説明したけれど、情報が多くて伝わらなかった。', subjectiveSignal: 'negative', daysAgo: 96 },
+  { type: 'thought', body: '結論から話した方がいいのかもしれない。', subjectiveSignal: 'mixed', daysAgo: 92 },
+  { type: 'event', body: '結論から説明してみたら、前より話が早かった。', subjectiveSignal: 'positive', daysAgo: 64 },
+  { type: 'event', body: '初対面の人にも企画を説明した。', subjectiveSignal: 'positive', daysAgo: 22 },
 
-  // A strand that should read as DIRECTION, never as a personality claim.
-  { inputCategory: 'moved', body: '自分で進め方を決められる打ち合わせは、終わったあとも手が動いた。', daysAgo: 62 },
-  { inputCategory: 'friction', body: '進め方を決められない場面が続くと、量に関係なく重くなる。', daysAgo: 44 },
-  { inputCategory: 'moved', body: '少人数で作っている時間の方が、集中が続いている気がする。', daysAgo: 20 },
+  // つくる — finish first, then show; show mid-way; verify from the start.
+  { type: 'event', body: '企画書を最後まで作り込んでから共有した。', subjectiveSignal: 'mixed', daysAgo: 128 },
+  { type: 'event', body: '共有した企画に、ほとんど反応がなかった。', subjectiveSignal: 'negative', daysAgo: 124 },
+  { type: 'event', body: '途中の状態のまま、友人ひとりに見せてみた。', subjectiveSignal: 'positive', daysAgo: 88 },
+  { type: 'thought', body: '途中で見せた方が、返ってくるのが早い。', subjectiveSignal: 'positive', daysAgo: 86 },
+  { type: 'event', body: '今回は骨組みの段階で3人に見せてから作り込んだ。', subjectiveSignal: 'positive', daysAgo: 40 },
+  { type: 'event', body: '粗い版を先に出して、そこから削る順番で進めた。', subjectiveSignal: 'positive', daysAgo: 12 },
 
-  // EVIDENCE: things that simply happened, and are now facts about the past.
-  { inputCategory: 'progress', body: 'はじめてイベントを開催した。', daysAgo: 40 },
-  { inputCategory: 'progress', body: 'ポートフォリオを公開した。', daysAgo: 26 },
-  { inputCategory: 'progress', body: '試作を2つ作って比較した。', daysAgo: 16 },
+  // 働き方 — a setback that is left as a setback, and a direction forming.
+  { type: 'thought', body: '今の仕事を辞めたいと思っている。', subjectiveSignal: 'negative', daysAgo: 140 },
+  { type: 'event', body: '自分で進め方を決められる打ち合わせは、終わったあとも手が動いた。', subjectiveSignal: 'positive', daysAgo: 100 },
+  { type: 'thought', body: '進め方を決められない場面が続くと、量に関係なく重くなる。', subjectiveSignal: 'negative', daysAgo: 72 },
+  { type: 'thought', body: '企画職が気になっている。', subjectiveSignal: 'mixed', daysAgo: 44 },
+  { type: 'thought', body: '自分で企画できる環境がほしいのだと思う。', subjectiveSignal: 'positive', daysAgo: 10 },
 
-  // CONNECTION.
-  { inputCategory: 'moved', body: '同じテーマに興味を持っている人と話した。', daysAgo: 30 },
-  { inputCategory: 'moved', body: '前職の同僚と久しぶりに話して、相談できる相手が増えた。', daysAgo: 8 },
-
-  // Ordinary days that should stay unresolved.
-  { inputCategory: 'moved', body: '古い星図の複製を買った。', daysAgo: 55 },
-  { inputCategory: 'moved', body: '美術館の常設展を見に行った。', daysAgo: 5 },
-  { inputCategory: 'friction', body: '説明が長くなってしまった。', daysAgo: 3 },
+  // Records that belong to no trail. The map should leave these alone.
+  { type: 'event', body: '古い星図の複製を買った。', subjectiveSignal: 'positive', daysAgo: 55 },
+  { type: 'event', body: '美術館の常設展を見に行った。', subjectiveSignal: 'positive', daysAgo: 5 },
+  { type: 'event', body: '歯医者に行った。', subjectiveSignal: 'mixed', daysAgo: 33 },
 ];
 
 function isoDaysAgo(days: number): string {
@@ -103,7 +112,8 @@ async function main(): Promise<void> {
       user_id: userId,
       occurred_at: occurredAt,
       occurred_on: occurredAt.slice(0, 10),
-      input_category: s.inputCategory,
+      type: s.type,
+      subjective_signal: s.subjectiveSignal,
       body: s.body,
     };
   });
@@ -115,7 +125,7 @@ async function main(): Promise<void> {
 
   console.log(`Seeded ${rows.length} entries (${SAMPLE.length - rows.length} already present).`);
   console.log(`Sign in as: ${email} / ${password}`);
-  console.log('Gains are produced by the analyze-log Edge Function, not by this script.');
+  console.log('Progressions are produced by the analyze-entry Edge Function, not by this script.');
 }
 
 main().catch((error) => {
