@@ -58,21 +58,19 @@ export const JOURNEY_ROLE_JA: Record<JourneyRole, string> = {
  * seeing this evidence, not a category the app can hand them.
  */
 export const GAIN_CATEGORY_JA: Record<GainCategory, string> = {
-  clarity: '分かったこと',
-  capability: 'できるようになったこと',
-  method: '自分なりの方法',
-  choice: '自分で選んだこと',
-  evidence: '実際にやった経験',
-  connection: '人とのつながり',
-  recovery: '止まったあとに動かしたこと',
+  evidence: '行動・経験した事実',
+  method: '見つけた方法',
+  insight: '自分や環境について分かったこと',
+  connection: '生まれたつながり',
+  criterion: '判断に使える基準',
+  option: '新しく増えた可能性',
 };
 
 export const GAIN_CATEGORY_LABEL: Record<GainCategory, string> = {
-  clarity: 'CLARITY',
-  capability: 'CAPABILITY',
-  method: 'METHOD',
-  choice: 'CHOICE',
   evidence: 'EVIDENCE',
+  method: 'METHOD',
+  insight: 'INSIGHT',
   connection: 'CONNECTION',
-  recovery: 'RECOVERY',
+  criterion: 'CRITERION',
+  option: 'OPTION',
 };

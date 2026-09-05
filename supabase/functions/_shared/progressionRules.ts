@@ -76,13 +76,12 @@ export type JourneyRole =
   | 'neutral';
 
 export type GainCategory =
-  | 'clarity'
-  | 'capability'
-  | 'method'
-  | 'choice'
   | 'evidence'
+  | 'method'
+  | 'insight'
   | 'connection'
-  | 'recovery';
+  | 'criterion'
+  | 'option';
 
 export const LOG_TYPES: readonly LogType[] = ['self_action', 'relationship', 'thought'] as const;
 
@@ -148,14 +147,33 @@ export const JOURNEY_ROLES: readonly JourneyRole[] = [
 ] as const;
 
 export const GAIN_CATEGORIES: readonly GainCategory[] = [
-  'clarity',
-  'capability',
-  'method',
-  'choice',
   'evidence',
+  'method',
+  'insight',
   'connection',
-  'recovery',
+  'criterion',
+  'option',
 ] as const;
+
+/**
+ * Where a gain written before 2026-09 belongs now.
+ *
+ * The rows were moved by migration, but a reading stored earlier can still
+ * arrive here through cached JSON, and a category the app no longer knows
+ * would be dropped rather than shown.
+ */
+const RETIRED_GAIN_CATEGORIES: Record<string, GainCategory> = {
+  clarity: 'insight',
+  capability: 'evidence',
+  choice: 'criterion',
+  recovery: 'evidence',
+};
+
+export function resolveGainCategory(value: unknown): GainCategory | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (isGainCategory(value)) return value;
+  return RETIRED_GAIN_CATEGORIES[value];
+}
 
 // ---------------------------------------------------------------------------
 // Pattern requirements (§17, §18)

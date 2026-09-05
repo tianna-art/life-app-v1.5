@@ -199,11 +199,14 @@ lenses（その人が今年見ている変化）に関係する Progression を�
 特に「楽しかった」が繰り返し現れているものは goal_external を true にして
 残してください。当初のテーマと違う方向が育つことは、失敗ではなく発見です。
 
-gain の7分類:
-clarity（分かったこと）/ capability（できるようになったこと）/
-method（自分なりの方法）/ choice（自分で選んだこと）/
-evidence（実際にやった経験・成果物）/ connection（人とのつながり）/
-recovery（一度止まった後に方法を変えた・戻った・再挑戦した）
+gain の6分類:
+evidence（行動・経験した事実）/ method（見つけた方法）/
+insight（自分や環境について分かったこと）/ connection（生まれたつながり）/
+criterion（判断に使える基準）/ option（新しく増えた可能性）
+
+Progression は「どう歩いてきたか」、Gain は「その道のりから何が残ったか」。
+同じものとして扱わないこと。「できるようになった」「立て直した」は歩き方の話なので
+Gain にするなら、その事実（evidence）か、そこで見つけた方法（method）として書く。
 
 出力JSON:
 {"progressions":[{"action":"create","progression_id":null,"type":"capability","pattern":"first_act","title":"","from_state":null,"current_state":null,"summary":"","maturity":"signal","confidence":0.0,"goal_external":false,"evidence":[{"log_id":"","role":"origin"}],"gain":null}]}
@@ -271,8 +274,8 @@ export const MONTH_REVIEW_SYSTEM = `${GUARDRAILS}
 - changed  : 最大3件。少なければ少ないまま。無理に3件にしない
   - title : Progression のタイトルをそのまま使う
   - line  : 「「A」から「B」へ。」の形。両方が記録にある場合のみ
-- gained   : 最大3件。category は clarity | capability | method | choice
-             | evidence | connection | recovery
+- gained   : 最大3件。category は evidence | method | insight
+             | connection | criterion | option
 - title_candidates : この月の名前の候補3つ。日本語、14字以内
                     「〜した月」「〜だった月」の形で終わること
 - title    : 候補の1つ目

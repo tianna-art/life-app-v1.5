@@ -257,14 +257,21 @@ export interface ProgressionStep {
  * §20 is explicit about why: confidence is what a person feels after seeing
  * this evidence, not a thing the app can hand them.
  */
+/**
+ * The six kinds of gain.
+ *
+ * Progression is how someone walked; Gain is what the walking left them
+ * holding. The seven that came before mixed the two — `capability` and
+ * `recovery` described the walking — and split one thing across two names.
+ * Each of these is something a person is left with.
+ */
 export type GainCategory =
-  | 'clarity'
-  | 'capability'
-  | 'method'
-  | 'choice'
   | 'evidence'
+  | 'method'
+  | 'insight'
   | 'connection'
-  | 'recovery';
+  | 'criterion'
+  | 'option';
 
 export interface Gain {
   id: string;
