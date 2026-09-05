@@ -314,12 +314,36 @@ export interface MonthProgression {
  * The markdown brief is not carried to the device: it is the model's own
  * notes, kept so a later reading can see what an earlier one thought.
  */
+/**
+ * One thing that happened under a point, in the person's own words.
+ *
+ * Not a record — a grouping of them. Records are what was written; a branch
+ * is the観点 the month needed them read under, and it names the records it
+ * stands on so the reading can always be checked against them.
+ */
+export interface MonthMapBranch {
+  label: string;
+  /** Why this bears on what the person said they wanted. */
+  summary: string;
+  /** The records it was read from. Never empty. */
+  logIds: string[];
+}
+
+export interface MonthMapPoint {
+  progressionId: string;
+  /**
+   * Two or more, always. A point that cannot be told apart into two things
+   * is not a point of its own — it belongs inside another one.
+   */
+  branches: MonthMapBranch[];
+}
+
 export interface MonthMap {
   periodKey: string;
   leadProgressionId?: string | undefined;
   leadReason: string;
-  /** Point ids, in the order the month opens with them. */
-  points: string[];
+  /** The points the month opens with, in order. */
+  points: MonthMapPoint[];
   generatedAt: string;
 }
 

@@ -73,6 +73,8 @@ export const LABELS = {
   openMap: 'MAPを見にいく',
   regenerateMap: 'MAPを再生成する',
   new: 'NEW',
+  evidence: 'この気づきの根拠',
+  evidenceNote: 'この見方のもとになった記録です。書いたままを出しています。',
   close: '閉じる',
   back: '戻る',
 } as const;

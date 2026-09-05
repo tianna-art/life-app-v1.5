@@ -13,6 +13,10 @@ import { extractJson, jsonResponse, preflight } from '../_shared/json.ts';
 import { requireUser, serviceClient } from '../_shared/db.ts';
 
 const MAX_POINTS = 5;
+/** A point has to be tellable apart into at least this many things. */
+const MIN_BRANCHES = 2;
+/** More than this under one point and the sky stops being readable. */
+const MAX_BRANCHES = 4;
 /** Enough of a month to reason over without sending the whole archive. */
 const MAX_RECORDS = 40;
 
@@ -164,18 +168,51 @@ Deno.serve(async (request: Request) => {
     };
 
     const known = new Set(inMonth.map((p) => p.id));
-    // Only ids that exist, in the order given, deduplicated. A model that
-    // invents an id must not put a point on the map that has no records.
-    const points = Array.isArray(parsed.points)
-      ? [...new Set(parsed.points.filter((id): id is string => typeof id === 'string'))]
-          .filter((id) => known.has(id))
-          .slice(0, MAX_POINTS)
-      : [];
+    const knownLogs = new Set(logs.map((l) => l.id));
+
+    // Only points that exist and branches that stand on records that exist.
+    // A point the model invented would appear on the map with nothing under
+    // it, and a branch citing a record from another month would send the
+    // person somewhere the reading never looked.
+    const seen = new Set<string>();
+    const points = (Array.isArray(parsed.points) ? parsed.points : []).flatMap((raw) => {
+      if (typeof raw !== 'object' || raw === null) return [];
+      const point = raw as Record<string, unknown>;
+      const id = typeof point.progression_id === 'string' ? point.progression_id : '';
+      if (!known.has(id) || seen.has(id)) return [];
+
+      const branches = (Array.isArray(point.branches) ? point.branches : []).flatMap((b) => {
+        if (typeof b !== 'object' || b === null) return [];
+        const branch = b as Record<string, unknown>;
+        const label = typeof branch.label === 'string' ? branch.label.trim() : '';
+        const logIds = (Array.isArray(branch.log_ids) ? branch.log_ids : []).filter(
+          (v): v is string => typeof v === 'string' && knownLogs.has(v)
+        );
+        if (label.length === 0 || logIds.length === 0) return [];
+        return [
+          {
+            label,
+            summary: typeof branch.summary === 'string' ? branch.summary.trim() : '',
+            log_ids: logIds,
+          },
+        ];
+      });
+
+      // Two or more, or it is not a point of its own — it belongs inside
+      // another one, and the map is meant to get smaller rather than carry a
+      // point that only restates itself.
+      if (branches.length < MIN_BRANCHES) return [];
+      seen.add(id);
+      return [{ progression_id: id, branches: branches.slice(0, MAX_BRANCHES) }];
+    });
+
+    const kept = points.slice(0, MAX_POINTS);
 
     const proposedLead =
-      typeof parsed.lead_progression_id === 'string' && known.has(parsed.lead_progression_id)
+      typeof parsed.lead_progression_id === 'string' &&
+      kept.some((p) => p.progression_id === parsed.lead_progression_id)
         ? parsed.lead_progression_id
-        : (points[0] ?? null);
+        : (kept[0]?.progression_id ?? null);
 
     const record = {
       user_id: user.id,
@@ -183,7 +220,7 @@ Deno.serve(async (request: Request) => {
       brief_markdown: typeof parsed.brief_markdown === 'string' ? parsed.brief_markdown : '',
       lead_progression_id: proposedLead,
       lead_reason: typeof parsed.lead_reason === 'string' ? parsed.lead_reason.trim() : '',
-      points: points.length > 0 ? points : inMonth.slice(0, MAX_POINTS).map((p) => p.id),
+      points: kept,
       model_name: `${provider.name}:${provider.model}`,
       updated_at: new Date().toISOString(),
     };

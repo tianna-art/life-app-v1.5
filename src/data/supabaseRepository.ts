@@ -10,6 +10,7 @@ import type {
   MomentTag,
   MonthProgression,
   MonthMap,
+  MonthMapPoint,
   MonthReview,
   MonthReviewChange,
   MonthReviewGain,
@@ -723,9 +724,7 @@ export class SupabaseRepository implements Repository {
       periodKey: row.period_key,
       ...(row.lead_progression_id ? { leadProgressionId: row.lead_progression_id } : {}),
       leadReason: row.lead_reason ?? '',
-      points: Array.isArray(row.points)
-        ? row.points.filter((id): id is string => typeof id === 'string')
-        : [],
+      points: readMonthMapPoints(row.points),
       generatedAt: row.updated_at,
     };
   }
@@ -805,4 +804,48 @@ export class SupabaseRepository implements Repository {
     if (error) throw error;
     return mapYearReview(data as YearReviewRow);
   }
+}
+
+/**
+ * The stored shape of a month's points.
+ *
+ * Read defensively: this is jsonb the model shaped, and a branch with no
+ * records behind it is not a branch — it is a sentence with nothing under it,
+ * which is the one thing the whole structure exists to prevent.
+ */
+function readMonthMapPoints(value: unknown): MonthMapPoint[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw) => {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const point = raw as Record<string, unknown>;
+    const progressionId = typeof point.progression_id === 'string'
+      ? point.progression_id
+      : typeof point.progressionId === 'string'
+        ? point.progressionId
+        : null;
+    if (!progressionId) return [];
+
+    const branches = Array.isArray(point.branches)
+      ? point.branches.flatMap((b) => {
+          if (typeof b !== 'object' || b === null) return [];
+          const branch = b as Record<string, unknown>;
+          const label = typeof branch.label === 'string' ? branch.label.trim() : '';
+          const logIds = Array.isArray(branch.log_ids ?? branch.logIds)
+            ? ((branch.log_ids ?? branch.logIds) as unknown[]).filter(
+                (id): id is string => typeof id === 'string'
+              )
+            : [];
+          if (label.length === 0 || logIds.length === 0) return [];
+          return [
+            {
+              label,
+              summary: typeof branch.summary === 'string' ? branch.summary.trim() : '',
+              logIds,
+            },
+          ];
+        })
+      : [];
+
+    return [{ progressionId, branches }];
+  });
 }

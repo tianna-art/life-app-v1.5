@@ -53,6 +53,7 @@ function AppShell() {
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="log/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="records/[ids]" options={{ presentation: 'card' }} />
       <Stack.Screen name="month/[key]" options={{ presentation: 'card' }} />
       <Stack.Screen name="progression/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="month/theme" options={{ presentation: 'card' }} />
