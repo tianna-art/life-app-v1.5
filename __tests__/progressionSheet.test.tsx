@@ -1,4 +1,6 @@
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
+import { colors } from '../src/theme';
 import { ProgressionSheet } from '../components/map/ProgressionSheet';
 import type { ProgressionDetail } from '../src/types';
 
@@ -39,6 +41,22 @@ describe('ProgressionSheet', () => {
 
     fireEvent.press(screen.getByTestId('sheet-close'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('draws it at full strength, not at the faint end of the palette', () => {
+    // It is the only way out of the sheet, so it may not be the dimmest
+    // thing on screen.
+    const screen = render(
+      <ProgressionSheet
+        detail={detail}
+        onClose={jest.fn()}
+        onOpenLog={jest.fn()}
+        onVerdict={jest.fn()}
+      />
+    );
+    const glyph = screen.getByText('×');
+    const style = StyleSheet.flatten(glyph.props.style) as { color?: string };
+    expect(style.color).toBe(colors.ivory);
   });
 
   it('puts it above the title, where nothing can push it around', () => {
