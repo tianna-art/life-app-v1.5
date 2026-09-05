@@ -57,7 +57,7 @@ describe('the app does not praise, diagnose or count', () => {
   });
 
   it('asks about what happened, never about what it meant (§12)', () => {
-    const asked = [HOME.heading, HOME.level1, HOME.level2, HOME.answerPlaceholder];
+    const asked = [HOME.level1, HOME.level2, HOME.answerPlaceholder];
     for (const banned of ['なぜ', '学び', '意味', '次は何', 'どうして']) {
       for (const value of asked) expect(value).not.toContain(banned);
     }

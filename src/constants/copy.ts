@@ -4,8 +4,9 @@
  * a component someone edits in a hurry.
  */
 export const HOME = {
-  /** The only heading. It is about today, not about meaning (§8). */
-  heading: '今日の記録',
+  // There is no heading. §8 wants the app to open one tap from recording, and
+  // a line naming the screen you are already looking at is one more thing to
+  // read before the first tap. The two labels below are the whole prompt.
   level1: '出来事のカテゴリ',
   level2: 'どんな瞬間だった？',
   /** Placeholder for the optional answer. Says plainly that it is optional. */
