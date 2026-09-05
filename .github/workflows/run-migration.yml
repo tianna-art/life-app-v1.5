@@ -1,0 +1,132 @@
+# Applies one migration from the browser.
+#
+# `supabase db push` needs the database password; the Management API needs only
+# the personal access token this repository already holds for deploying Edge
+# Functions. So this uses the API, and nobody has to store a second credential
+# or open a SQL editor.
+#
+# It applies ONE named file, not "everything pending". The older migrations in
+# this repository were written to run once against an empty project and are not
+# all re-runnable; replaying them would be the one way this workflow could do
+# damage. Naming the file keeps that impossible.
+name: Run migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: 'File under supabase/migrations/ to apply'
+        type: string
+        required: true
+        default: 20260906000000_progression_model.sql
+      confirm:
+        description: 'Type APPLY to run it against the live database'
+        type: string
+        required: true
+        default: ''
+
+concurrency:
+  group: run-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the request
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "::error::This writes to the live database. Type APPLY in the confirm field to proceed."
+            exit 1
+          fi
+
+          file="supabase/migrations/${{ inputs.migration }}"
+          case "${{ inputs.migration }}" in
+            */*|..*)
+              echo "::error::migration must be a bare filename under supabase/migrations/."
+              exit 1
+              ;;
+          esac
+          if [ ! -f "$file" ]; then
+            echo "::error::$file does not exist. Available:"
+            ls supabase/migrations/
+            exit 1
+          fi
+
+          token=$(printf '%s' "$ACCESS_TOKEN" | tr -d '[:space:]')
+          ref=$(printf '%s' "$PROJECT_REF" | tr -d '[:space:]')
+          case "$token" in
+            sbp_*) ;;
+            *)
+              echo "::error::SUPABASE_ACCESS_TOKEN must start with sbp_."
+              echo "Generate one at https://supabase.com/dashboard/account/tokens"
+              exit 1
+              ;;
+          esac
+          if [ -z "$ref" ]; then
+            echo "::error::SUPABASE_PROJECT_REF is not set."
+            exit 1
+          fi
+
+          echo "SUPABASE_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+          echo "MIGRATION_FILE=$file" >> "$GITHUB_ENV"
+          echo "Applying $file ($(wc -l < "$file") lines)."
+
+      - name: Apply it
+        run: |
+          # jq builds the body so the SQL's own quotes and newlines survive.
+          jq -Rs '{query: .}' "$MIGRATION_FILE" > body.json
+
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @body.json)
+
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Migration failed (HTTP $status)."
+            # The body carries the Postgres message, which is the whole reason
+            # to run this rather than guess.
+            head -c 4000 response.json
+            echo
+            exit 1
+          fi
+
+          echo "Applied. Response:"
+          head -c 2000 response.json
+          echo
+
+      - name: Verify
+        run: |
+          check() {
+            printf '{"query":%s}' "$(printf '%s' "$1" | jq -Rs .)" > check.json
+            curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H 'Content-Type: application/json' \
+              --data @check.json
+          }
+
+          echo "### Migration applied" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$MIGRATION_FILE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "#### Tables" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          check "select table_name from information_schema.tables where table_schema='public' and table_name in ('progressions','progression_evidence','clarifications') order by table_name" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          echo "#### logs columns" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          check "select column_name, is_nullable from information_schema.columns where table_schema='public' and table_name='logs' and column_name in ('type','subjective_signal') order by column_name" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
