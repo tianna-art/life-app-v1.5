@@ -11,6 +11,7 @@
 | `logs.tsv` | Daily Logs シート。80件。**手で編集する側** |
 | `demo_data.sql` | 上の2つから生成。編集しない |
 | `demo_data_remove.sql` | 同上。入れたものを取り消す |
+| `purge_others.sql` | 同上。**デモ以外を全部消す**（取り消せません） |
 
 TSV を直したら `node scripts/build-demo-sql.mjs` で SQL を作り直します。
 ラベルはアプリ側の定数（`src/constants/`）と照合されるので、
@@ -25,6 +26,18 @@ TSV を直したら `node scripts/build-demo-sql.mjs` で SQL を作り直しま
 5. 実行
 
 取り消すときは同じ手順で `action` を `remove` にします。
+
+### デモ以外を消したいとき
+
+アカウントにデモ以外の記録が混ざっていると、デモとして見たものが何なのか分からなくなります。
+その場合は `action` を `purge_others`、`confirm` に `DELETE MY RECORDS` と入力します。
+
+**取り消せません。** デモ80件だけを残し、それ以外の記録・そこにぶら下がる分析・
+証拠を失った progression・月と年のまとめを消します。
+「今年の方向」と「今月のテーマ」は本人が選んだものなので残ります。
+
+`confirm` の言葉が `YES` と違うのは意図的です。手が覚えた `YES` だけでは
+ここに届かないようにしています。
 
 ## 入るもの・入らないもの
 

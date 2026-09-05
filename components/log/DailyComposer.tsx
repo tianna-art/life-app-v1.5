@@ -81,10 +81,6 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
 
   return (
     <View style={styles.wrap} testID="daily-composer">
-      <Text style={styles.heading} accessibilityRole="header">
-        {HOME.heading}
-      </Text>
-
       <View style={styles.level}>
         <Text style={styles.levelLabel}>{HOME.level1}</Text>
         <Level1Picker value={logType} onChange={setLogType} />
@@ -150,13 +146,6 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.lg, alignItems: 'stretch' },
-  heading: {
-    fontFamily: fonts.serif,
-    fontSize: 22,
-    lineHeight: 32,
-    color: colors.ivory,
-    textAlign: 'center',
-  },
   level: { gap: spacing.sm, alignItems: 'center' },
   levelLabel: {
     fontFamily: fonts.sans,

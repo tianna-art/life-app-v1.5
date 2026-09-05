@@ -19,12 +19,12 @@ on:
         required: true
         default: ''
       action:
-        description: 'load = write the records, remove = take them out again'
+        description: 'load = write the records, remove = take them out again, purge_others = DELETE everything else in the account'
         type: choice
-        options: [load, remove]
+        options: [load, remove, purge_others]
         default: load
       confirm:
-        description: 'Type YES to run it against the live database'
+        description: 'Type YES to run it against the live database (purge_others needs DELETE MY RECORDS)'
         type: string
         required: true
         default: ''
@@ -48,7 +48,14 @@ jobs:
           problems=""
           note() { problems="$problems\n  - $1"; }
 
-          if [ "${{ inputs.confirm }}" != "YES" ]; then
+          # purge_others deletes records the person wrote and cannot be undone,
+          # so it does not share a confirmation word with the reversible ones.
+          # Typing YES out of habit must not be enough to reach it.
+          if [ "${{ inputs.action }}" = "purge_others" ]; then
+            if [ "${{ inputs.confirm }}" != "DELETE MY RECORDS" ]; then
+              note "purge_others deletes the account's own records and cannot be undone. Type: DELETE MY RECORDS"
+            fi
+          elif [ "${{ inputs.confirm }}" != "YES" ]; then
             note "Type YES in the confirm field: this writes to the live database."
           fi
 
@@ -75,8 +82,9 @@ jobs:
           fi
 
           case "${{ inputs.action }}" in
-            load)   file=supabase/demo/demo_data.sql ;;
-            remove) file=supabase/demo/demo_data_remove.sql ;;
+            load)          file=supabase/demo/demo_data.sql ;;
+            remove)        file=supabase/demo/demo_data_remove.sql ;;
+            purge_others)  file=supabase/demo/purge_others.sql ;;
             *) echo "::error::unknown action"; exit 1 ;;
           esac
 

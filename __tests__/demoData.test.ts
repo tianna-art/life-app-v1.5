@@ -66,11 +66,29 @@ describe('demo data', () => {
   });
 
   it('has SQL that still matches the spreadsheet', () => {
-    const before = read('supabase/demo/demo_data.sql');
-    const beforeRemoval = read('supabase/demo/demo_data_remove.sql');
+    const generated = [
+      'supabase/demo/demo_data.sql',
+      'supabase/demo/demo_data_remove.sql',
+      'supabase/demo/purge_others.sql',
+    ];
+    const before = generated.map(read);
     execFileSync('node', [join(ROOT, 'scripts/build-demo-sql.mjs')], { cwd: ROOT });
-    expect(read('supabase/demo/demo_data.sql')).toBe(before);
-    expect(read('supabase/demo/demo_data_remove.sql')).toBe(beforeRemoval);
+    expect(generated.map(read)).toEqual(before);
+  });
+
+  it('purges around the demo, never through it', () => {
+    const purge = read('supabase/demo/purge_others.sql');
+
+    // The one line that decides what survives.
+    expect(purge).toContain('and not (id = any(demo))');
+    // Scoped to the account, always.
+    expect(purge).toContain('where user_id = uid');
+    // The lens and the month themes are the person's own choices, not
+    // readings, so nothing derived-data cleanup may take them.
+    expect(purge).not.toContain('delete from public.year_directions');
+    expect(purge).not.toContain('delete from public.month_themes');
+    // Every demo id it is meant to spare is named in it.
+    for (const row of logs) expect(purge).toContain(`'${row.log_id}'`);
   });
 
   it('writes evidence and nothing that should be worked out from it', () => {
