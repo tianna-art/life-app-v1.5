@@ -6,7 +6,7 @@
 export const HOME = {
   /** The only heading. It is about today, not about meaning (§8). */
   heading: '今日の記録',
-  level1: 'どこから残す？',
+  level1: '出来事のカテゴリ',
   level2: 'どんな瞬間だった？',
   /** Placeholder for the optional answer. Says plainly that it is optional. */
   answerPlaceholder: '答えなくても保存できます',
@@ -57,6 +57,10 @@ export const LABELS = {
   relatedProgressions: 'このログが立っている変化',
   me: 'ME',
   monthComplete: 'THIS MONTH IS COMPLETE.',
+  direction: 'この一年の方向',
+  thisMonth: '今月にもどる',
+  openMonth: 'この月を見る',
+  pastMonthNotice: '記録は今日に残ります。',
   accepted: '納得した',
   adjusted: '少し違う',
   saveEdit: 'この言い方にする',
