@@ -27,7 +27,7 @@ import { getSupabase } from '@/lib/supabase';
 import { LocalRepository } from '@/data/localRepository';
 import { getRepository } from '@/data';
 import {
-  isGainCategory,
+  resolveGainCategory,
   isJourneyRole,
   isProgressionMaturity,
   isProgressionPattern,
@@ -436,12 +436,13 @@ export function readGain(raw: unknown): Gain | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const g = raw as Record<string, unknown>;
   const label = readOptionalString(g.label);
-  if (!label || !isGainCategory(g.category)) return null;
+  const category = resolveGainCategory(g.category);
+  if (!label || !category) return null;
   const now = new Date().toISOString();
   return {
     id: typeof g.id === 'string' ? g.id : '',
     progressionId: typeof g.progression_id === 'string' ? g.progression_id : '',
-    category: g.category as GainCategory,
+    category,
     label,
     description: readOptionalString(g.description),
     confidence: typeof g.confidence === 'number' ? g.confidence : 0,

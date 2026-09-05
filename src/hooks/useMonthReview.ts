@@ -11,7 +11,7 @@ import type {
   MonthReviewGain,
   YearReview,
 } from '@/types';
-import { isGainCategory } from '@/ai/progressionRules';
+import { resolveGainCategory } from '@/ai/progressionRules';
 
 function readChanges(value: unknown): MonthReviewChange[] {
   if (!Array.isArray(value)) return [];
@@ -32,8 +32,9 @@ function readGains(value: unknown): MonthReviewGain[] {
     const label = typeof g.label === 'string' ? g.label.trim() : '';
     // A gain with no category is not storable: guessing one would put a word
     // in the person's mouth about what kind of thing they now have (§20).
-    if (label.length === 0 || !isGainCategory(g.category)) return [];
-    return [{ category: g.category, label }];
+    const category = resolveGainCategory(g.category);
+    if (label.length === 0 || !category) return [];
+    return [{ category, label }];
   });
 }
 
