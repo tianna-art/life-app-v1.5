@@ -51,7 +51,13 @@ jobs:
       - name: Type-check the functions
         run: |
           set -o pipefail
-          deno check --no-lock supabase/functions/*/index.ts 2>&1 | tee check.log || {
+          # supabase-js pulls npm dependencies through JSR, which Deno will not
+          # resolve without being told where to put them. The config is written
+          # here rather than committed, so nothing about how the Supabase CLI
+          # bundles these functions changes.
+          echo '{"nodeModulesDir":"auto"}' > deno.check.json
+          deno check --no-lock --config deno.check.json supabase/functions/*/index.ts 2>&1 \
+            | tee check.log || {
             echo "::error::The Edge Functions do not type-check. Nothing was deployed."
             exit 1
           }
