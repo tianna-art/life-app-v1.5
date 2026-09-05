@@ -333,6 +333,11 @@ export class LocalRepository implements Repository {
   // Month & year
   // -------------------------------------------------------------------------
 
+  /** No model on this path, so a month has no brief and says so by absence. */
+  async getMonthMap(): Promise<null> {
+    return null;
+  }
+
   async getMonthReview(periodKey: string): Promise<MonthReview | null> {
     const store = await readStore();
     return store.reviews.find((r) => r.periodKey === periodKey) ?? null;

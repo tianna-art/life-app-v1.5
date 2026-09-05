@@ -4,12 +4,14 @@ import Svg, { Circle, Line } from 'react-native-svg';
 import { colors, fonts } from '@/theme';
 import { LABELS } from '@/constants/copy';
 import { buildProgressionGraph } from '@/map/progressionGraph';
-import type { MonthProgression } from '@/types';
+import type { MonthMap, MonthProgression } from '@/types';
 
 interface RadialProgressionMapProps {
   monthKey: string;
   progressions: readonly MonthProgression[];
   expandedId: string | null;
+  /** The month's brief: which point opens it, and the sentence underneath. */
+  lead?: MonthMap | null;
   width: number;
   height: number;
   onSelect: (progressionId: string) => void;
@@ -31,6 +33,7 @@ export function RadialProgressionMap({
   monthKey,
   progressions,
   expandedId,
+  lead = null,
   width,
   height,
   onSelect,
@@ -38,8 +41,8 @@ export function RadialProgressionMap({
 }: RadialProgressionMapProps) {
   const graph = useMemo(
     () =>
-      buildProgressionGraph({ monthKey, progressions, expandedId, width, height }),
-    [monthKey, progressions, expandedId, width, height]
+      buildProgressionGraph({ monthKey, progressions, expandedId, lead, width, height }),
+    [monthKey, progressions, expandedId, lead, width, height]
   );
 
   return (

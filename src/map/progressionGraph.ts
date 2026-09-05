@@ -19,7 +19,7 @@
  * rather than computed, and weight only moves a node nearer or further, never
  * ranks it in a row.
  */
-import type { MonthProgression, ProgressionMaturity } from '@/types';
+import type { MonthMap, MonthProgression, ProgressionMaturity } from '@/types';
 import { MATURITY_OPACITY } from '@/constants/progression';
 import { maturityRank } from '@/ai/progressionRules';
 
@@ -80,6 +80,12 @@ export interface BuildProgressionGraphInput {
   progressions: readonly MonthProgression[];
   /** Emphasised, not expanded: opening a point no longer changes the shape. */
   expandedId?: string | null;
+  /**
+   * The month's brief. When there is one it decides which point opens the
+   * month and what the sentence under it says; without one the month falls
+   * back to what it can work out for itself.
+   */
+  lead?: MonthMap | null;
   width: number;
   height: number;
 }
@@ -189,10 +195,34 @@ export function selectMonthPoints(
   return chosen;
 }
 
+/**
+ * The brief's order, where the brief and the month agree.
+ *
+ * The brief chooses which point opens the month, having read the year's
+ * direction; the selection above chooses which five are on the map at all,
+ * from what the month holds. The brief may only reorder what the selection
+ * already allowed — a point with no records this month cannot be talked onto
+ * the map by a sentence about it.
+ */
+function orderByBrief(
+  points: MonthProgression[],
+  lead: MonthMap | null
+): MonthProgression[] {
+  const leadId = lead?.leadProgressionId;
+  if (!leadId) return points;
+  const index = points.findIndex((item) => item.progression.id === leadId);
+  if (index <= 0) return points;
+  const reordered = [...points];
+  const [chosen] = reordered.splice(index, 1);
+  if (chosen) reordered.unshift(chosen);
+  return reordered;
+}
+
 export function buildProgressionGraph({
   monthKey,
   progressions,
   expandedId = null,
+  lead = null,
   width,
   height,
 }: BuildProgressionGraphInput): ProgressionGraph {
@@ -201,7 +231,7 @@ export function buildProgressionGraph({
   const cy = height / 2;
   const me: MeNode = { x: cx, y: cy, r: ME_RADIUS };
 
-  const points = selectMonthPoints(progressions);
+  const points = orderByBrief(selectMonthPoints(progressions), lead);
   if (points.length === 0 || width <= 0 || height <= 0) {
     return { me, progressions: [], steps: [], edges: [] };
   }
@@ -239,8 +269,8 @@ export function buildProgressionGraph({
       // Only the first point explains itself. §13 forbids telling someone
       // they have changed, so this says why the month opens here, and the
       // other four are left to be read.
-      ...(index === 0 && item.progression.summary
-        ? { summary: item.progression.summary }
+      ...(index === 0 && (lead?.leadReason || item.progression.summary)
+        ? { summary: lead?.leadReason || item.progression.summary }
         : {}),
       x,
       y,

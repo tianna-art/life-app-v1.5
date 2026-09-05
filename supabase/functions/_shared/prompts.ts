@@ -300,6 +300,58 @@ title は、その月に何があったかを言う。どうだった月かは�
 出力JSON:
 {"what_actually_happened":"","changed":[{"title":"","line":""}],"gained":[{"category":"","label":""}],"title_candidates":["","",""],"title":""}`;
 
+/**
+ * The month's map, before it is drawn.
+ *
+ * Two jobs, and they are different. The brief is the working-out: the month's
+ * points laid out in order with what each one stands on, in markdown, never
+ * rendered. The reason is one sentence shown under the leading point.
+ *
+ * The reason is reasoned backwards — from what the person said they wanted to
+ * grow this year, to why this particular point is the one the month opens
+ * with. That is the only place in the app where the direction is allowed to
+ * explain anything, and it still explains a point, never the person.
+ */
+export const MONTH_MAP_SYSTEM = `${GUARDRAILS}
+
+タスク: その月の記録とProgressionを読み、月のMAPの下ごしらえを作る。
+
+出力するもの:
+- brief_markdown : 作業メモ。画面には出さない。次の見出しで書く
+    ## この月の点
+    - 点のタイトル — 何の記録に支えられているか（日付を含める）
+    ## まだ点になっていないもの
+    - 繰り返しはあるが、記録が足りずProgressionになっていないもの
+    ## 判断できないこと
+    - 記録が足りず、まだ言えないこと
+- lead_progression_id : 最初に出す点のid。渡されたidの中から選ぶ
+- lead_reason : その点の下に出す1文（45字以内）
+- points : 出す順に並べたidの配列。最大5件
+
+lead_reason の作り方:
+本人が今年どうなりたいと言っていたか（方向性・なりたい姿）から逆算して、
+なぜこの点が最初なのかを書く。
+
+守ること:
+- 断定しない。「〜かもしれません」「〜のように見えます」の余白を残す
+- 本人を説明しない。点を説明する
+- 良い・悪いを言わない。停滞・後退・諦めも同じ扱いで書く
+- 達成率・進捗・距離は書かない。方向性は「何を見つけるためのレンズか」であって
+  測るものではない
+- 記録が足りなければ lead_reason に「まだ判断できません」と書いてよい
+
+lead_reason の良い例:
+「自分で決められるようになりたい、という言葉に近い記録が続いています」
+「人に見せることを避けてきた月に、見せた記録が一つありました」
+
+lead_reason の悪い例:
+「あなたは決断力が育っています」（本人の説明、かつ断定）
+「目標に対して60%進みました」（距離）
+「よく頑張りました」（評価）
+
+出力JSON:
+{"brief_markdown":"","lead_progression_id":"","lead_reason":"","points":[""]}`;
+
 /** §26 — the year-end reading. The same comparison, one scale up. */
 export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}
 

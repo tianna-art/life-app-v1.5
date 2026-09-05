@@ -9,6 +9,7 @@ import type {
   LogWithAnalysis,
   MomentTag,
   MonthProgression,
+  MonthMap,
   MonthReview,
   MonthReviewChange,
   MonthReviewGain,
@@ -701,6 +702,33 @@ export class SupabaseRepository implements Repository {
   // -------------------------------------------------------------------------
   // Month & year
   // -------------------------------------------------------------------------
+
+  async getMonthMap(periodKey: string): Promise<MonthMap | null> {
+    const { data, error } = await this.client
+      .from('month_maps')
+      .select('period_key, lead_progression_id, lead_reason, points, updated_at')
+      .eq('period_key', periodKey)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const row = data as {
+      period_key: string;
+      lead_progression_id: string | null;
+      lead_reason: string | null;
+      points: unknown;
+      updated_at: string;
+    };
+    return {
+      periodKey: row.period_key,
+      ...(row.lead_progression_id ? { leadProgressionId: row.lead_progression_id } : {}),
+      leadReason: row.lead_reason ?? '',
+      points: Array.isArray(row.points)
+        ? row.points.filter((id): id is string => typeof id === 'string')
+        : [],
+      generatedAt: row.updated_at,
+    };
+  }
 
   async getMonthReview(periodKey: string): Promise<MonthReview | null> {
     const { data, error } = await this.client

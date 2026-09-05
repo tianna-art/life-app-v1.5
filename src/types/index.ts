@@ -299,6 +299,23 @@ export interface MonthProgression {
   maturityThen: ProgressionMaturity;
 }
 
+/**
+ * The working-out behind one month of the map.
+ *
+ * `leadReason` is the sentence under the leading point — reasoned back from
+ * the year's direction, so it says why that point is where the month opens.
+ * The markdown brief is not carried to the device: it is the model's own
+ * notes, kept so a later reading can see what an earlier one thought.
+ */
+export interface MonthMap {
+  periodKey: string;
+  leadProgressionId?: string | undefined;
+  leadReason: string;
+  /** Point ids, in the order the month opens with them. */
+  points: string[];
+  generatedAt: string;
+}
+
 export interface MonthReview {
   periodKey: string;
   /** What they set out with, copied at reading time so it cannot be rewritten. */

@@ -11,6 +11,7 @@ export const queryKeys = {
   progressions: () => ['progressions'] as const,
   monthProgressions: (monthKey: string) => ['progressions', 'month', monthKey] as const,
   progressionDetail: (id: string) => ['progressions', 'detail', id] as const,
+  monthMap: (periodKey: string) => ['month-map', periodKey] as const,
   monthReview: (periodKey: string) => ['review', periodKey] as const,
   monthReviews: (yearKey: string) => ['review', 'year', yearKey] as const,
   outbox: () => ['outbox'] as const,

@@ -4,7 +4,13 @@ import { queryKeys } from '@/lib/queryClient';
 import { invokeEdgeFunction } from '@/ai/client';
 import { buildLocalMonthReview } from '@/ai/monthReview';
 import { isMonthEndReached } from '@/utils/period';
-import type { MonthReview, MonthReviewChange, MonthReviewGain, YearReview } from '@/types';
+import type {
+  MonthMap,
+  MonthReview,
+  MonthReviewChange,
+  MonthReviewGain,
+  YearReview,
+} from '@/types';
 import { isGainCategory } from '@/ai/progressionRules';
 
 function readChanges(value: unknown): MonthReviewChange[] {
@@ -145,5 +151,19 @@ export function useYearReview(year: number, options: { enabled?: boolean } = {})
         return null;
       }
     },
+  });
+}
+
+/**
+ * The month's map brief — the leading point and the sentence under it.
+ *
+ * Absent is a working state: a month nothing has read yet has no brief, and
+ * the map draws without one.
+ */
+export function useMonthMap(monthKey: string) {
+  return useQuery<MonthMap | null>({
+    queryKey: queryKeys.monthMap(monthKey),
+    queryFn: () => getRepository().getMonthMap(monthKey),
+    enabled: monthKey.length > 0,
   });
 }
