@@ -73,7 +73,7 @@ function describeFailure(error: unknown): string {
     if (status === 401 || status === 403) return 'ログインし直してからもう一度お試しください。';
     if (status === 404) return '分析の機能が見つかりません（未デプロイの可能性があります）。';
     if (typeof status === 'number') return `分析でエラーが起きました（${status}）。`;
-    return error.message;
+    return error.message.length > 120 ? `${error.message.slice(0, 120)}…` : error.message;
   }
   return '分析に届きませんでした。';
 }
@@ -82,7 +82,25 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> 
   const supabase = getSupabase();
   if (!supabase) throw new Error('EDGE_FUNCTIONS_UNAVAILABLE');
   const { data, error } = await supabase.functions.invoke(fn, { body });
-  if (error) throw error;
+  if (error) {
+    // supabase-js reports every non-2xx as the same sentence and leaves the
+    // response unread, so the one thing that says what actually went wrong —
+    // the function's own message — is thrown away. Read it back.
+    const response = (error as { context?: unknown }).context;
+    if (response instanceof Response) {
+      const detail = await response
+        .clone()
+        .json()
+        .then((parsed: unknown) =>
+          parsed && typeof parsed === 'object' && typeof (parsed as { error?: unknown }).error === 'string'
+            ? (parsed as { error: string }).error
+            : null
+        )
+        .catch(() => null);
+      if (detail) throw new Error(detail);
+    }
+    throw error;
+  }
   return data as T;
 }
 

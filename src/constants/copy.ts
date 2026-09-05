@@ -68,6 +68,7 @@ export const LABELS = {
   allCategories: 'すべて',
   allMoments: 'すべての瞬間',
   generateMap: 'MAPを生成する',
+  tryAgain: 'もう一度試す',
   openMap: 'MAPを見にいく',
   regenerateMap: 'MAPを再生成する',
   new: 'NEW',

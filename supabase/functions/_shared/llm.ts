@@ -10,6 +10,11 @@ export interface LlmRequest {
   system: string;
   user: string;
   maxTokens?: number;
+  /**
+   * Only honoured by providers that still accept it. The current Claude models
+   * do not — see AnthropicProvider — so callers set it as a preference, not as
+   * a guarantee.
+   */
   temperature?: number;
 }
 
@@ -28,7 +33,21 @@ class AnthropicProvider implements LlmProvider {
     readonly model: string
   ) {}
 
-  async complete({ system, user, maxTokens = 700, temperature = 0.4 }: LlmRequest): Promise<string> {
+  /**
+   * No `temperature`.
+   *
+   * The current Claude models — Sonnet 5 and the Opus 5 / 4.7 / 4.8 family —
+   * removed the sampling parameters and answer a request carrying one with a
+   * 400. This provider used to send 0.4 by default, which meant every call
+   * failed, the function returned 500, and the app quietly answered from its
+   * local path instead: analysis never got stored, and the button that asked
+   * for it did nothing at all.
+   *
+   * Leaving it out works on every model, old and new, so the parameter is
+   * simply not sent rather than being sent conditionally on a model name that
+   * is configuration and can change.
+   */
+  async complete({ system, user, maxTokens = 700 }: LlmRequest): Promise<string> {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -39,7 +58,6 @@ class AnthropicProvider implements LlmProvider {
       body: JSON.stringify({
         model: this.model,
         max_tokens: maxTokens,
-        temperature,
         system,
         messages: [{ role: 'user', content: user }],
       }),

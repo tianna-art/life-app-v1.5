@@ -49,6 +49,8 @@ export default function ListScreen() {
   const [filter, setFilter] = useState<ListFilter>(NO_FILTER);
   const [running, setRunning] = useState<string | null>(null);
   const [done, setDone] = useState(0);
+  // Why a run here read nothing, per month. Cleared when it is tried again.
+  const [failures, setFailures] = useState<Record<string, string>>({});
 
   const yearKeyValue = String(year);
   const { data: entries } = useYearLogs(yearKeyValue);
@@ -130,8 +132,25 @@ export default function ListScreen() {
       if (pending.length === 0 || running) return;
       setRunning(monthKey);
       setDone(0);
+      setFailures((current) => {
+        const { [monthKey]: _gone, ...rest } = current;
+        return rest;
+      });
       try {
-        await runBackfill(pending, { onProgress: (p) => setDone(p.done) });
+        const result = await runBackfill(pending, { onProgress: (p) => setDone(p.done) });
+        // A run that read nothing has to say so. Silence here is what makes a
+        // working button and a broken one look the same.
+        if (result.read === 0 && result.fellBack > 0) {
+          setFailures((current) => ({
+            ...current,
+            [monthKey]: result.reason ?? '分析に届きませんでした。',
+          }));
+        }
+      } catch (error) {
+        setFailures((current) => ({
+          ...current,
+          [monthKey]: error instanceof Error ? error.message : '分析に届きませんでした。',
+        }));
       } finally {
         setRunning(null);
         await queryClient.invalidateQueries();
@@ -194,6 +213,7 @@ export default function ListScreen() {
                 mapState={stateFor(monthKey)}
                 pending={pendingFor(monthKey).length}
                 running={running === monthKey}
+                failure={failures[monthKey]}
                 done={done}
                 onGenerate={() => void generate(monthKey)}
                 onOpenMap={() => openMap(monthKey)}
