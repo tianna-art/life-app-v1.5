@@ -62,6 +62,8 @@ export default function ListScreen() {
   const menuItems = useMemo<MenuItem[]>(() => {
     const items: MenuItem[] = [
       { label: 'この月をマップで見る', onPress: () => router.push('/map') },
+      // For records that arrived some way other than being written here.
+      { label: '読まれていない記録を読む', onPress: () => router.push('/backfill') },
     ];
     if (!useLocalStore) {
       items.push({

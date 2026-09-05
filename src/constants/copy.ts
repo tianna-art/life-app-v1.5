@@ -42,6 +42,23 @@ export const YEAR = {
   became: 'IT ACTUALLY BECAME',
 } as const;
 
+/**
+ * Reading records that were never read (the analysis backfill).
+ *
+ * Deliberately plain: this is machinery, not part of the daily surface, and
+ * saying what it is about to do is the only thing it owes the person.
+ */
+export const BACKFILL = {
+  heading: '読まれていない記録',
+  explain: '保存したときに読まれなかった記録を、古いものから1件ずつ読みます。',
+  rangeLabel: 'どこまでさかのぼる？',
+  none: 'この期間の記録は、すべて読まれています。',
+  start: '読みはじめる',
+  stop: 'ここでとめる',
+  keepOpen: '終わるまで、この画面を開いたままにしてください。',
+  order: '記録は起きた順に読みます。順番が変わると、つながりも変わります。',
+} as const;
+
 export const EMPTY_STATE = {
   map: 'まだ、中心だけがあります。',
   list: 'この月には、まだ記録がありません。',
