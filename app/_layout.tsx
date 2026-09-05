@@ -57,6 +57,7 @@ function AppShell() {
       <Stack.Screen name="progression/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="month/theme" options={{ presentation: 'card' }} />
       <Stack.Screen name="year/[year]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="year/direction" options={{ presentation: 'card' }} />
       {/* The opening screens replace the tabs rather than sitting over them:
           there is nothing behind them yet to go back to. */}
       <Stack.Screen name="onboarding/direction" options={{ presentation: 'card' }} />
