@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { formatMonthShort } from '@/utils/period';
-import { TruncatedLogRow } from './TruncatedLogRow';
+import { LogRow } from './LogRow';
 import type { DailyLog, MonthReview } from '@/types';
 
 interface MonthSectionProps {
@@ -50,7 +50,7 @@ export function MonthSection({
 
       <View style={styles.rows}>
         {entries.map((entry) => (
-          <TruncatedLogRow key={entry.id} entry={entry} onPress={onEntryPress} />
+          <LogRow key={entry.id} entry={entry} onPress={onEntryPress} />
         ))}
       </View>
     </View>
