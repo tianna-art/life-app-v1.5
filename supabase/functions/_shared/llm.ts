@@ -152,8 +152,8 @@ class MockProvider implements LlmProvider {
         changed: [],
         gained: [],
         title_candidates: [],
-        title: 'A MONTH OF RECORDS',
-        subtitle: '記録の残った月',
+        title: '記録の残った月',
+        subtitle: '',
       })
     );
   }

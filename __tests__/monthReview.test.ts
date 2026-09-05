@@ -115,8 +115,31 @@ describe('the month-end reading (§25)', () => {
       progressions: [item({ fromState: 'A', currentState: 'B' })],
       gains: [],
     });
-    for (const banned of ['GREAT', 'SUCCESS', 'GREW', 'WIN']) {
+    for (const banned of ['すごい', '成長', 'うまくいった', '停滞', 'GREAT', 'SUCCESS']) {
       expect(review?.title).not.toContain(banned);
     }
+  });
+
+  it('names the month in Japanese, as a month that something happened in', () => {
+    const review = buildLocalMonthReview({
+      periodKey: '2026-09',
+      logs: [log('a')],
+      progressions: [item({ fromState: 'A', currentState: 'B' })],
+      gains: [],
+    });
+    expect(review?.title).toMatch(/月$/u);
+    expect(review?.title).not.toMatch(/[A-Za-z]/u);
+  });
+
+  it('names a month with nothing recurring after what is actually there', () => {
+    // §7: an early month is not a failed month, so it is named for the one
+    // thing that is true about it rather than for what did not happen.
+    const review = buildLocalMonthReview({
+      periodKey: '2026-09',
+      logs: [log('a')],
+      progressions: [],
+      gains: [],
+    });
+    expect(review?.title).toBe('記録の残った月');
   });
 });

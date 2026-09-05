@@ -25,20 +25,23 @@ import { maturityRank } from './progressionRules';
 
 /** Titles describe what the month's records were, not how the month went. */
 const TITLE_BY_PATTERN: Record<ProgressionPattern, string> = {
-  naming: 'WHAT BECAME CLEAR',
-  first_act: 'THE FIRST TRY',
-  repeat: 'DONE AGAIN',
-  solo: 'ON MY OWN',
-  pivot: 'A DIFFERENT WAY',
-  expose: 'OUT INTO THE WORLD',
-  own_call: 'MY OWN CALL',
-  transfer: 'THE SAME METHOD, ELSEWHERE',
-  reframe: 'SEEN DIFFERENTLY',
-  boundary: 'A LINE DRAWN',
+  naming: '名前がついた月',
+  first_act: '初めてやってみた月',
+  repeat: 'もう一度やった月',
+  solo: 'ひとりでやった月',
+  pivot: 'やり方を変えた月',
+  expose: '外に出してみた月',
+  own_call: '自分で決めた月',
+  transfer: '別の場所でも試した月',
+  reframe: '見え方が変わった月',
+  boundary: '線を引いた月',
 };
 
-/** A month with records but no movement yet. Not a failure, just early. */
-const QUIET_TITLE = 'KEPT';
+/**
+ * A month with records but no movement yet. Not a failure, just early — which
+ * is why it names what is true (records were kept) rather than what is not.
+ */
+const QUIET_TITLE = '記録の残った月';
 
 /** §7: a month that went nowhere in particular is allowed to say so. */
 export const UNDECIDED_MONTH =
