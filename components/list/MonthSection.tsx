@@ -2,12 +2,21 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { formatMonthShort } from '@/utils/period';
 import { LogRow } from './LogRow';
+import { MonthAction } from './MonthAction';
+import type { MapState } from './MonthAction';
 import type { DailyLog, MonthReview } from '@/types';
 
 interface MonthSectionProps {
   monthKey: string;
   entries: readonly DailyLog[];
   review: MonthReview | null;
+  mapState: MapState;
+  /** How many records a run started here would read. */
+  pending: number;
+  running: boolean;
+  done: number;
+  onGenerate: () => void;
+  onOpenMap: () => void;
   onEntryPress: (id: string) => void;
   onReviewPress: (monthKey: string) => void;
 }
@@ -24,29 +33,47 @@ export function MonthSection({
   monthKey,
   entries,
   review,
+  mapState,
+  pending,
+  running,
+  done,
+  onGenerate,
+  onOpenMap,
   onEntryPress,
   onReviewPress,
 }: MonthSectionProps) {
   return (
     <View style={styles.section} testID={`month-section-${monthKey}`}>
-      {review ? (
-        <Pressable
-          onPress={() => onReviewPress(monthKey)}
-          hitSlop={HIT_SLOP}
-          accessibilityRole="button"
-          accessibilityLabel={`${formatMonthShort(monthKey)} ${review.title}`}
-          accessibilityHint="この月のまとめを開きます"
-          style={({ pressed }) => [styles.header, pressed && styles.pressed]}
-        >
-          <Text style={styles.month}>{formatMonthShort(monthKey)}</Text>
-          <Text style={styles.dash}>—</Text>
-          <Text style={styles.title}>{review.title}</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.header}>
-          <Text style={styles.month}>{formatMonthShort(monthKey)}</Text>
-        </View>
-      )}
+      <View style={styles.headerRow}>
+        {review ? (
+          <Pressable
+            onPress={() => onReviewPress(monthKey)}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`${formatMonthShort(monthKey)} ${review.title}`}
+            accessibilityHint="この月のまとめを開きます"
+            style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+          >
+            <Text style={styles.month}>{formatMonthShort(monthKey)}</Text>
+            <Text style={styles.dash}>—</Text>
+            <Text style={styles.title}>{review.title}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.header}>
+            <Text style={styles.month}>{formatMonthShort(monthKey)}</Text>
+          </View>
+        )}
+
+        {/* Beside the month's name, because it is about that month. */}
+        <MonthAction
+          state={mapState}
+          pending={pending}
+          running={running}
+          done={done}
+          onGenerate={onGenerate}
+          onOpen={onOpenMap}
+        />
+      </View>
 
       <View style={styles.rows}>
         {entries.map((entry) => (
@@ -59,7 +86,13 @@ export function MonthSection({
 
 const styles = StyleSheet.create({
   section: { paddingVertical: spacing.lg, gap: spacing.sm },
-  header: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  header: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
   pressed: { opacity: 0.6 },
   month: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3, color: colors.brassDim },
   dash: { fontFamily: fonts.sans, fontSize: 11, color: colors.frame },

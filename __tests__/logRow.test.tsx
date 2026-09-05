@@ -15,16 +15,21 @@ const base: DailyLog = {
 
 /**
  * LIST is where someone looks a record up (§28), so the row has to be readable
- * on its own. In v4 that means the category and the moment tags: there is no
- * separate feeling field to show, and most records have no free text at all.
+ * on its own: the date, the moment tags, and whatever the person wrote.
  */
 describe('LogRow', () => {
-  it('shows the category and the moment tags', () => {
+  it('shows the moment tags', () => {
     const screen = render(<LogRow entry={base} onPress={jest.fn()} />);
 
-    expect(screen.getByText(logTypeLabel('relationship'))).toBeTruthy();
     expect(screen.getByText(momentTagLabel('first_time'))).toBeTruthy();
     expect(screen.getByText(momentTagLabel('friction'))).toBeTruthy();
+  });
+
+  it('does not print the door on every row', () => {
+    // It is a filter above the list, which is where it earns its place.
+    // Repeated on each row it only competes with the person's own words.
+    const screen = render(<LogRow entry={base} onPress={jest.fn()} />);
+    expect(screen.queryByText(logTypeLabel('relationship'))).toBeNull();
   });
 
   it('is a complete row with no free text (§14)', () => {

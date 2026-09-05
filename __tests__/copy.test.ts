@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  BACKFILL,
   EMERGED_LINE,
   EMPTY_STATE,
   FORBIDDEN_PHRASES,
@@ -37,7 +36,6 @@ describe('the app does not praise, diagnose or count', () => {
     ...Object.values(MONTH),
     ...Object.values(YEAR),
     ...Object.values(EMPTY_STATE),
-    ...Object.values(BACKFILL),
     ...Object.values(LABELS),
     JOINED_LINE,
     EMERGED_LINE,
