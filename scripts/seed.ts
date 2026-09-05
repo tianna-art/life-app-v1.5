@@ -4,15 +4,19 @@
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SEED_EMAIL=you@example.com \
  *   SEED_PASSWORD=... npm run seed
  *
- * Creates (or reuses) one user and writes a spread of entries across the last
- * few months. The entries are deliberately a real trail — a fear stated, a
- * first attempt, something that did not land, a change of approach, then the
- * same thing done differently — because a Progression is only visible across
- * records, and a scatter of unrelated days would prove nothing.
+ * Creates (or reuses) one user, sets a year direction, and writes a spread of
+ * records across the last few months. The records are deliberately three real
+ * trails — a fear stated, a first attempt, something that did not land, a
+ * change of approach, then the same thing done differently — because a
+ * Progression is only visible across records, and a scatter of unrelated days
+ * would prove nothing.
  *
- * Progressions themselves are NOT seeded: they are produced by the
- * analyze-entry Edge Function, and inventing them here would hide whether the
- * detection actually works.
+ * Most of them carry no free text, which is the normal case in v4: the tags
+ * are the evidence. A few have answers, so the reading has something to name
+ * the trails with.
+ *
+ * Progressions and gains are NOT seeded: they are produced by the analyze-log
+ * Edge Function, and inventing them here would hide whether detection works.
  */
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
@@ -32,44 +36,109 @@ if (!url || !serviceRoleKey) {
 
 const db = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 
-type EntryType = 'event' | 'thought';
-type SubjectiveSignal = 'positive' | 'mixed' | 'negative';
+type LogType = 'self_action' | 'relationship' | 'thought';
+type MomentTag =
+  | 'enjoyed'
+  | 'tried'
+  | 'first_time'
+  | 'friction'
+  | 'changed'
+  | 'discovered'
+  | 'self_decided';
 
-const SAMPLE: Array<{
-  type: EntryType;
-  body: string;
-  subjectiveSignal: SubjectiveSignal;
+interface Sample {
+  type: LogType;
+  tags: MomentTag[];
   daysAgo: number;
-}> = [
-  // 人に伝える — a fear, a first attempt, a failure, a change of method, and
-  // the same thing done with a stranger. This is the trail the map should find.
-  { type: 'thought', body: '人に自分の企画を見せるのが怖い。', subjectiveSignal: 'negative', daysAgo: 150 },
-  { type: 'event', body: '初めて自分の企画を友達に見せた。', subjectiveSignal: 'positive', daysAgo: 120 },
-  { type: 'event', body: '企画を説明したけれど、情報が多くて伝わらなかった。', subjectiveSignal: 'negative', daysAgo: 96 },
-  { type: 'thought', body: '結論から話した方がいいのかもしれない。', subjectiveSignal: 'mixed', daysAgo: 92 },
-  { type: 'event', body: '結論から説明してみたら、前より話が早かった。', subjectiveSignal: 'positive', daysAgo: 64 },
-  { type: 'event', body: '初対面の人にも企画を説明した。', subjectiveSignal: 'positive', daysAgo: 22 },
+  question?: string;
+  answer?: string;
+}
 
-  // つくる — finish first, then show; show mid-way; verify from the start.
-  { type: 'event', body: '企画書を最後まで作り込んでから共有した。', subjectiveSignal: 'mixed', daysAgo: 128 },
-  { type: 'event', body: '共有した企画に、ほとんど反応がなかった。', subjectiveSignal: 'negative', daysAgo: 124 },
-  { type: 'event', body: '途中の状態のまま、友人ひとりに見せてみた。', subjectiveSignal: 'positive', daysAgo: 88 },
-  { type: 'thought', body: '途中で見せた方が、返ってくるのが早い。', subjectiveSignal: 'positive', daysAgo: 86 },
-  { type: 'event', body: '今回は骨組みの段階で3人に見せてから作り込んだ。', subjectiveSignal: 'positive', daysAgo: 40 },
-  { type: 'event', body: '粗い版を先に出して、そこから削る順番で進めた。', subjectiveSignal: 'positive', daysAgo: 12 },
+const SAMPLE: Sample[] = [
+  // 人に伝える — PIVOT and EXPOSE. A fear, a first attempt, a failure, a
+  // change of method, and the same thing with a stranger.
+  {
+    type: 'thought',
+    tags: ['friction'],
+    daysAgo: 150,
+    question: '何が一番引っかかった？',
+    answer: '人に見せるのが怖い',
+  },
+  {
+    type: 'relationship',
+    tags: ['first_time', 'tried'],
+    daysAgo: 120,
+    question: '誰に見せてみた？',
+    answer: '友達ひとり',
+  },
+  { type: 'self_action', tags: ['friction'], daysAgo: 96 },
+  {
+    type: 'thought',
+    tags: ['discovered'],
+    daysAgo: 92,
+    question: '前より何がはっきりした？',
+    answer: '結論から話した方がいい',
+  },
+  {
+    type: 'self_action',
+    tags: ['changed', 'tried'],
+    daysAgo: 64,
+    question: '前と何を変えた？',
+    answer: '結論から説明した',
+  },
+  { type: 'relationship', tags: ['first_time'], daysAgo: 22 },
 
-  // 働き方 — a setback that is left as a setback, and a direction forming.
-  { type: 'thought', body: '今の仕事を辞めたいと思っている。', subjectiveSignal: 'negative', daysAgo: 140 },
-  { type: 'event', body: '自分で進め方を決められる打ち合わせは、終わったあとも手が動いた。', subjectiveSignal: 'positive', daysAgo: 100 },
-  { type: 'thought', body: '進め方を決められない場面が続くと、量に関係なく重くなる。', subjectiveSignal: 'negative', daysAgo: 72 },
-  { type: 'thought', body: '企画職が気になっている。', subjectiveSignal: 'mixed', daysAgo: 44 },
-  { type: 'thought', body: '自分で企画できる環境がほしいのだと思う。', subjectiveSignal: 'positive', daysAgo: 10 },
+  // つくる — REPEAT. Finish first, then show; show mid-way; verify early.
+  { type: 'self_action', tags: ['tried'], daysAgo: 128 },
+  { type: 'self_action', tags: ['friction'], daysAgo: 124 },
+  {
+    type: 'relationship',
+    tags: ['tried', 'enjoyed'],
+    daysAgo: 88,
+    question: '誰に見せてみた？',
+    answer: '途中の状態のまま友人に',
+  },
+  { type: 'self_action', tags: ['tried'], daysAgo: 40 },
+  { type: 'self_action', tags: ['tried', 'enjoyed'], daysAgo: 12 },
+
+  // 働き方 — BOUNDARY and OWN-CALL. A setback left as a setback, and a
+  // direction forming out of it.
+  { type: 'thought', tags: ['friction'], daysAgo: 140 },
+  { type: 'self_action', tags: ['enjoyed'], daysAgo: 100 },
+  { type: 'thought', tags: ['friction', 'discovered'], daysAgo: 72 },
+  {
+    type: 'self_action',
+    tags: ['self_decided'],
+    daysAgo: 44,
+    question: '何を自分で選んだ？',
+    answer: '進め方を決められる仕事だけ受けた',
+  },
+  { type: 'self_action', tags: ['self_decided'], daysAgo: 10 },
 
   // Records that belong to no trail. The map should leave these alone.
-  { type: 'event', body: '古い星図の複製を買った。', subjectiveSignal: 'positive', daysAgo: 55 },
-  { type: 'event', body: '美術館の常設展を見に行った。', subjectiveSignal: 'positive', daysAgo: 5 },
-  { type: 'event', body: '歯医者に行った。', subjectiveSignal: 'mixed', daysAgo: 33 },
+  { type: 'self_action', tags: ['enjoyed'], daysAgo: 55 },
+  { type: 'relationship', tags: ['enjoyed'], daysAgo: 5 },
+  { type: 'self_action', tags: ['tried'], daysAgo: 33 },
 ];
+
+/**
+ * The lens this demo is read through (§2-§4).
+ *
+ * Chosen to match the trails above, so the seeded account shows what a lens
+ * actually does: the same records read differently with a different one.
+ */
+const YEAR_DIRECTION = {
+  selected_areas: ['own_name_and_taste', 'own_way_of_working', 'own_axis'],
+  desired_self_cards: [
+    'do_make_ideas_real',
+    'express_show_ideas',
+    'express_to_strangers',
+    'choose_decide_myself',
+    'live_more_fun',
+  ],
+  progression_lenses: ['形にする', '外に出す', '自分で選ぶ', '自分に合うものを知る'],
+  initial_theme: '自分の感性を、外の世界へ',
+};
 
 function isoDaysAgo(days: number): string {
   const date = new Date();
@@ -103,29 +172,36 @@ async function main(): Promise<void> {
 
   await db.from('profiles').upsert({ id: userId }, { onConflict: 'id' });
 
-  const { data: existing } = await db.from('logs').select('body').eq('user_id', userId);
-  const existingBodies = new Set((existing ?? []).map((l) => l.body as string));
+  await db.from('year_directions').upsert(
+    { user_id: userId, year: new Date().getFullYear(), ...YEAR_DIRECTION },
+    { onConflict: 'user_id,year' }
+  );
 
-  const rows = SAMPLE.filter((s) => !existingBodies.has(s.body)).map((s) => {
-    const occurredAt = isoDaysAgo(s.daysAgo);
-    return {
+  // Idempotent on the timestamp: re-running does not duplicate records, and
+  // there is no body to compare on any more.
+  const { data: existing } = await db.from('logs').select('occurred_at').eq('user_id', userId);
+  const seen = new Set((existing ?? []).map((l) => l.occurred_at as string));
+
+  const rows = SAMPLE.map((s) => ({ sample: s, occurredAt: isoDaysAgo(s.daysAgo) }))
+    .filter(({ occurredAt }) => !seen.has(occurredAt))
+    .map(({ sample, occurredAt }) => ({
       user_id: userId,
       occurred_at: occurredAt,
       occurred_on: occurredAt.slice(0, 10),
-      type: s.type,
-      subjective_signal: s.subjectiveSignal,
-      body: s.body,
-    };
-  });
+      type: sample.type,
+      moment_tags: sample.tags,
+      ai_question: sample.question ?? null,
+      optional_answer: sample.answer ?? null,
+    }));
 
   if (rows.length > 0) {
     const { error } = await db.from('logs').insert(rows);
     if (error) throw error;
   }
 
-  console.log(`Seeded ${rows.length} entries (${SAMPLE.length - rows.length} already present).`);
+  console.log(`Seeded ${rows.length} records (${SAMPLE.length - rows.length} already present).`);
   console.log(`Sign in as: ${email} / ${password}`);
-  console.log('Progressions are produced by the analyze-entry Edge Function, not by this script.');
+  console.log('Progressions come from the analyze-log Edge Function, not from this script.');
 }
 
 main().catch((error) => {

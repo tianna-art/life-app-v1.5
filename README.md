@@ -1,66 +1,163 @@
 # crincran
 
-**出来事とつぶやきを残すだけで、AI が点と点をつなぎ、自分がどう変わってきたのかを見せてくれる。**
+**日々の小さな記録だけを残せば、AIが過去の点と点をつなぎ、
+自分がどう変化し、何を獲得してきたのかを Evidence とともに見せる。**
 
 Expo / React Native + Supabase。
 
-> User creates the dots. AI connects the dots. crincran reveals the progression.
->
-> AI日記ではありません。ユーザーが深い内省をする必要はありません。
+> Future gives direction. Daily life gives evidence.
+> AI connects the changes. The past shows the gain.
 
-体験の目標は 3 つだけです。
-
-- **入力は 10 秒**（開く → タイプ → 一文 → ＋ / ± / − → ✓）
-- **意味づけは AI**（ユーザーは分類も内省もしない）
-- **時間が経つほど価値が増える**（30 日後、変化の軌跡が見える）
+忙しくて人生を棚卸しする余裕がない人のためのジャーナルです。
+毎日一文を書く必要はありません。**2タップで記録が残ります。**
 
 ---
 
-## 最重要原則
+## crincran が対抗しているもの
 
-**ユーザーには人生を分類させない。**
+「成功まで最短距離で進むことだけが価値」という考え方です。
 
-これは成長か。成功か。失敗か。何を学んだか。— それを考えるのはユーザーの
-仕事ではありません。ユーザーは出来事を残すだけです。
+試した / 迷った / モヤモヤした / 失敗した / 方法を変えた / 人と出会った /
+楽しかった / 方向を変えた / 自分で決めた / 新しく分かった —
+これらの紆余曲折も、時間を通して見ることで Progression や Gain になり得ます。
+
+ただし **「苦しんだから成長した」とは断定しません。**
+重要なのは失敗そのものではなく、その後に何を試したか・何を変えたか・
+何が分かったか・何を選んだか という Evidence です。
 
 ---
 
-## Progression とは
-
-> 複数の出来事を時間順につないだときに見えてくる、
-> 行動・考え方・能力・興味・方向性・関係性などの**変化の軌跡**。
-
-**Progression = Improvement ではありません。** 前進・後退・停滞・試行錯誤・
-興味の変化・方向転換・再挑戦は、すべて等しく変化として扱います。
+## 4つの層
 
 ```
-4月  「人に企画を見せるのが怖い」
-5月  「初めて友達に見せた」
-6月  「情報が多くて伝わらなかった」
-7月  「結論から説明してみた」
-8月  「初対面の人にも説明した」
+1. GAP / DIRECTION   どんな自分でありたいか
+2. DAILY EVIDENCE    日々実際に起きたこと
+3. PROGRESSION       過去から現在へ、何がどう変化したか
+4. GAIN              その変化を通して現在の自分に何が残ったか
 ```
 
-これを AI は次のように整理します。
+**Gap は現在の自分を採点するために使いません。**
+「その人にとって何を Progress として観測するか」を AI が判断する Lens です。
+
+この原則を守るために、`year_directions` テーブルには
+**目標との距離を持てる列を作っていません**。作った瞬間に画面に出したくなります。
+`__tests__/copy.test.ts` がその不在を検証しています。
+
+---
+
+## 入力（§8-§14）
 
 ```
-TITLE   人に伝える
-FROM    人に見せることへの抵抗
-TO      伝え方を試しながら外に出す
+今日の記録
+
+どこから残す？
+[自分の行動] [人との関わり] [つぶやき]
+
+どんな瞬間だった？
+[楽しかった][やってみた][初めて][モヤモヤ][変えてみた][発見した][自分で決めた]
+
+前と何を変えた？          ← AIが生成する一言質問
+[ 答えなくても保存できます ]
+
+                                    ✓
 ```
 
-### 6 分類（内部専用。画面には出ない）
+**自由記述なしで保存できます。** Level 1 と Level 2 がそのまま Evidence です。
+目標は 5〜15秒。
 
-`capability` `strategy` `interest` `direction` `relationship` `perspective`
+### なぜ Level 1 と Level 2 を分けるのか（§15）
 
-MAP のノードに `CAPABILITY` のような分類名は**絶対に出しません**。
-表示されるのは、ユーザー自身の記録から生まれた「人に伝える」「働き方」の
-ような自然な言葉だけです。
+Level 1 は「何についての Evidence か」、Level 2 は「その Evidence がどんな性質か」。
 
-### Gain は Progression の結果
+```
+人との関わり + 楽しかった + 初めて
+  → 新しい人間関係の中で生まれた Positive Discovery
 
-Progression が「どう変わってきたか」なら、Gain は「その過程から**現在の自分に
-残っているもの**」です。Gain のカテゴリーをユーザーに入力させることはありません。
+自分の行動 + モヤモヤ + 変えてみた
+  → 行動 → friction → adaptation
+```
+
+同じ Level 2 でも、Level 1 によって Progression 上の意味が変わります。
+
+### Level 3 の質問（§11-§13）
+
+目的は深く考えさせることではありません。
+**AI が Progression を測るために足りない Evidence を1つだけ受け取ること**です。
+
+| ❌ | ⭕ |
+| --- | --- |
+| この経験から何を学びましたか？ | 前と何を変えてみた？ |
+| なぜそう感じたのでしょう？ | 誰に見せてみた？ |
+| どんな意味がありましたか？ | 何が一番引っかかった？ |
+
+質問は `src/constants/questions.ts` の表が**即座に**答え、AI はそれを
+上回れるときだけ差し替えます。禁止語を含む質問はコードが弾きます
+（`__tests__/questions.test.ts`）。ネットワークは任意であって、速いわけではありません。
+
+---
+
+## Progression の10パターン（§17, §18）
+
+```
+P1  NAMING     曖昧 → 具体的に言える
+P2  FIRST-ACT  考える → 試す
+P3  REPEAT     一度 → 繰り返す
+P4  SOLO       助けが必要 → 自分でもできる
+P5  PIVOT      うまくいかない → やり方を変える → 再試行
+P6  EXPOSE     自分の内側 → 身近な人 → 外部
+P7  OWN-CALL   他人基準 → 自分で決める
+P8  TRANSFER   ある場面の方法 → 別の場面でも使う
+P9  REFRAME    問題Aだと思っていた → 別の捉え方
+P10 BOUNDARY   受け入れる → 条件をつける / 断る
+```
+
+**形が記録に現れていなければ、そのパターンとは呼びません。**
+`patternSatisfied` が時間順に検査します。PIVOT は「モヤモヤ → 変えてみた →
+やってみた」の3点が必要で、**同じ日に3つのタグが付いただけでは通りません**。
+1つの瞬間は変化ではないからです。
+
+形が示せなければ pattern を落とします。近いパターンに読み替えません。
+それは同じ過大主張に別の名前をつけるだけです。
+
+### 成熟度
+
+| maturity | 条件 | 言い方 |
+| --- | --- | --- |
+| `signal` | 2件以上 | 「〜という記録が、いくつか現れています」 |
+| `emerging` | 3件以上 または 2か月以上 | 「最近、〜が増えています」 |
+| `evidenced` | before/after が具体ログで示せる | 「以前の記録とくらべて、〜が変わってきています」 |
+| `established` | 4件・2か月・45日・3役割以上 | 「この期間を通して、〜が繰り返し確認されています」 |
+
+モデルが `established` と答えても、根拠が足りなければコードが落とします。
+**1件では Progression を作りません**（§31）。
+
+---
+
+## Goal 外も捨てない（§19）
+
+Year Direction は検出優先度を上げるだけで、**フィルタではありません**。
+
+当初「専門性を高めたい」だった人の記録に、デザイン・企画・ワークショップで
+「楽しかった」が繰り返し現れたら、それは `goal_external = true` として残ります。
+
+> 当初のテーマとは別に、『人と体験をつくる』記録が繰り返し現れています。
+
+当初のテーマと違う方向が育つことは、失敗ではなく発見です。
+
+---
+
+## Gain の7分類（§20）
+
+`clarity` `capability` `method` `choice` `evidence` `connection` `recovery`
+
+**Confidence は Gain Category ではありません。**
+Confidence は、これらの Evidence を見た結果、本人に生まれるものです。
+
+Gain は1ログから直接生成しません。
+
+```
+Log → Evidence → Cross-time Progression → Gain
+```
 
 ---
 
@@ -69,135 +166,48 @@ Progression が「どう変わってきたか」なら、Gain は「その過程
 | タブ | 役割 |
 | --- | --- |
 | **MAP** | ME を中心に、自分がどう変化してきたかを見る |
-| **LOG** | 残す（ホーム。開いた瞬間から入力できる） |
-| **LIST** | 読む（年 → 月 → 日付と一行のアーカイブ） |
+| **LOG** | 残す（ホーム） |
+| **LIST** | 読む（年 → 月 → 日付） |
 
 ```
-app/(tabs)/log.tsx      SEPTEMBER 2026 → 今日、何があった？
-                        → [出来事][つぶやき] → 入力欄 → ＋ ± − → ✓
-app/(tabs)/map.tsx      月ストリップ + ME 中心の Radial Progression Map
-app/(tabs)/list.tsx     2026 → SEPTEMBER → 09/03 …
-app/log/[id].tsx        全文 + TYPE + ＋/±/− + このログが立っている変化
-app/progression/[id].tsx  TITLE / HOW IT CHANGED / WHAT REMAINS
-app/month/[key].tsx     THIS MONTH IS COMPLETE. / TITLE / 3 PROGRESSIONS
-                        / WHAT YOU'RE CARRYING FORWARD
+app/onboarding/direction.tsx  今年どんな方向を育てたい？
+app/onboarding/desired.tsx    どんな自分になれたら嬉しい？
+app/onboarding/lens.tsx       今年は、こんな変化を見ていきます
+app/onboarding/theme.tsx      今年のテーマ（3候補 / 自分で書く / 決めない）
+app/month/theme.tsx           CONTINUE / DEEPEN / FOLLOW THE SPARK
+app/(tabs)/log.tsx            Level 1 → Level 2 → Level 3 → ✓
+app/(tabs)/map.tsx            ME 中心の Radial Progression Map
+app/progression/[id].tsx      TITLE / PATH / WHAT YOU'VE GAINED
+app/month/[key].tsx           YOU STARTED WITH / WHAT ACTUALLY HAPPENED
+                              / WHAT CHANGED / WHAT YOU GAINED
+app/year/[year].tsx           YOU THOUGHT... / IT ACTUALLY BECAME
 ```
 
----
+### 月末・年末（§7, §25, §26）
 
-## 入力（§3）
+月初テーマと実際がズレていても、**未達として扱いません**。
 
-原則 3 つだけです。
-
-| | |
+| ❌ | ⭕ |
 | --- | --- |
-| **TYPE** | 出来事 / つぶやき |
-| **BODY** | 自由記述 |
-| **SIGNAL** | ＋ / ± / − |
+| 予定通りではありませんでしたが、必ず意味がありました | 当初の方向とは違いましたが、今月は『○○』の記録が繰り返し現れました |
+| | 今月はまだ、この変化の意味を決めなくてよさそうです |
 
-`＋ ± −` は本人にしか分からない一次情報として、本文とは**別に**保持します。
-画面には記号だけを出し、意味の説明は出しません（読み上げラベルにだけ入れます）。
-「成功」「失敗」という語は使いません。
-
-**アプリが毎回聞いてはいけないこと**（§5）: 「なぜそう感じましたか？」
-「そこから何を学びましたか？」「次はどうしますか？」「あなたの強みは？」
+繰り返し現れたものが何もなければ、月は未決定のままにします。
 
 ---
 
-## MAP の階層（§18）
+## AI パイプライン
 
 ```
-LEVEL 0   ME
-LEVEL 1   Progression Theme    「人に伝える」「つくる」「働き方」
-LEVEL 2   Progression Step     怖い → 見せる → 伝わらない → 変えた → 初対面
-LEVEL 3   Evidence (log)       タップしたときだけ
+STAGE 0  generate-question  保存前・低レイテンシ。表が先に答える
+STAGE 1  analyze-log        1ログを構造化。Level 1/2 は上書きしない
+STAGE 2  analyze-log        retrieval で絞った関連ログと時間軸で比較
+                            → P1-P10 を検出 → コードが形を検査
 ```
 
-均等な円グラフのようには配置しません。月ごとにシードされた乱数で、MEから
-それぞれ異なる方向・距離へ有機的に枝が伸びます。棒グラフ・円グラフ・スコア・
-`%`・レーダーチャートは**使いません**。
-
-月は横スワイプで切り替えます。Progression は月をまたいで存在しますが、月表示
-では「その月時点でどこまで来ていたか」を出すので、6月→7月→8月と移動すると
-同じ Progression が少しずつ育つのが見えます。
-
----
-
-## 成熟度（§12）
-
-AI は簡単に「あなたは変わった」と断定しません。文章は成熟度に紐づきます。
-
-| maturity | 条件 | 言い方 |
-| --- | --- | --- |
-| `signal` | 2 件以上の弱い兆候 | 「〜という兆しがあります」 |
-| `emerging` | 3 件以上、または 2 か月以上 | 「最近、〜が増えています」 |
-| `evidenced` | Before / After が具体ログで示せる | 「以前とくらべて、〜が変わってきています」 |
-| `established` | 4 件以上・2 か月以上・45 日以上・3 役割以上 | 「この期間を通して、〜が繰り返し確認されています」 |
-
-**1 件では Progression を作りません**（§31）。初日は点が 1 つ置かれるだけです。
-
-上限は**コードで**計算されます（`src/ai/progressionRules.ts` の
-`maturityCeiling` / `clampMaturity`）。モデルが `established` と答えても、
-根拠が足りなければ `signal` に落とされます。プロンプトでは上げられません。
-
----
-
-## AI パイプライン（§29）
-
-```
-STAGE 1  analyze-entry  1 ログを構造化（比較しない）
-         event_summary / topics / actors / environment / action / outcome
-         / reaction / hypothesis / future_intention / journey_role
-         / signals(6分類) / confidence
-
-STAGE 2  同じ関数内  retrieval で関連ログを取得 → 時間軸で比較
-         REPEAT / CHANGE / BUILD / EXPERIMENT / ADAPTATION
-         / CONTRAST / REFRAME / DIRECTION
-         → create | update | unchanged
-```
-
-**毎回全ログを LLM に送りません。** `_shared/retrieval.ts` が topic と signal
-の重なりで最大 12 件に絞ります。「最近の N 件」ではなく重なりで選ぶのは、
-4 月と 8 月にまたがる軌跡こそ recency window では見つからないからです。
-
-`month-progressions` が月末の読み取りを担当します。
-
-### AI がやってはいけないこと（§13）
-
-「あなたは創造的な人です」「本当のあなたは〜」「あなたの天職は〜」
-「この失敗には意味がありました」「あなたは成長しました」
-
-代わりに Evidence を見せます。
-
-> 4月には『人に見せるのが怖い』という記録がありました。
-> 8月には初対面の人へ説明した記録があります。
-
----
-
-## 条件付き質問（§14）
-
-毎回は聞きません。Progression の判定に重要で、AI では推測できない情報がある
-場合だけ、任意の 1 タップ質問を 1 つだけ出します。スキップも回答として記録
-するので、同じ質問は二度出ません。
-
----
-
-## データモデル
-
-```
-logs                    type / body / subjective_signal / occurred_at
-log_ai_analysis         STAGE 1 の構造化結果 + topics + signals
-progressions            type / title / from_state / current_state / summary
-                        / maturity / verdict / user_edited / merged_into_id
-progression_evidence    progression_id / log_id / role / occurred_at
-gains                   progression_id / label / description
-clarifications          log_id / question / options / answer
-month_reviews           title / subtitle / progressions / carrying_forward
-```
-
-RLS は全テーブルで有効です。`progressions` / `progression_evidence` / `gains`
-への書き込みは service role（Edge Function）だけが行います。例外は
-`progressions.verdict` と `clarifications.answer` — これはユーザー本人のものです。
+**retrieval は「最近のN件」ではありません。** v4 は本文のない記録が普通なので、
+topic の重なりだけでは足りません。**タップされたタグと入口**が重みの大半を持ちます。
+それが常に存在する Evidence だからです。
 
 ---
 
@@ -205,29 +215,46 @@ RLS は全テーブルで有効です。`progressions` / `progression_evidence` 
 
 ### 1. Supabase
 
-[supabase.com](https://supabase.com) でプロジェクトを作り、`supabase/migrations/`
-を順に適用します。
+マイグレーションは2つに分かれています。**この順で**適用してください。
+
+```
+20260907000000_lens_enums.sql   enum への値追加のみ
+20260907000100_lens_model.sql   それ以外すべて
+```
+
+分けてあるのは、`ALTER TYPE ... ADD VALUE` で追加した値を同じ
+トランザクション内で使えないためです。
+
+**ブラウザだけで適用できます:**
+GitHub の **Actions → Run migration → Run workflow** で、ファイル名を指定し
+`confirm` に `APPLY` と入力します。Supabase Management API を使うので、
+Edge Function 用に登録済みの `SUPABASE_ACCESS_TOKEN` だけで足ります。
+
+CLI を使う場合:
 
 ```bash
 npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-CLI を使わない場合は、ダッシュボードの **SQL Editor** に各マイグレーションを
-順に貼り付けて実行しても同じです。すべて再実行可能です。
-
 ### 2. Edge Function
+
+**Actions → Deploy Edge Functions → Run workflow**。
+`supabase/functions/` 配下の全関数を自動で見つけてデプロイします。
+
+必要なシークレット3つ:
+`SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` / `ANTHROPIC_API_KEY`
+
+CLI を使う場合:
 
 ```bash
 cp supabase/functions/.env.example supabase/functions/.env   # 編集する
 npx supabase secrets set --env-file supabase/functions/.env
-npx supabase functions deploy analyze-entry
-npx supabase functions deploy month-progressions
+for d in supabase/functions/*/; do
+  n=$(basename "$d"); [ "$n" = "_shared" ] && continue
+  npx supabase functions deploy "$n"
+done
 ```
-
-ターミナルを使わない場合は、GitHub の **Actions → Deploy Edge Functions →
-Run workflow** から同じことができます。必要なシークレットは
-`SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` / `ANTHROPIC_API_KEY` の 3 つです。
 
 `LLM_PROVIDER=mock` は **常に「何も読み取れなかった」を返します**。
 Progression を捏造するモックは、壊れたパイプラインを隠してしまうためです。
@@ -251,59 +278,59 @@ npm run sync:progression-rules  # src/ai/progressionRules.ts を Edge Function �
 npm run seed                    # 実際に軌跡になるサンプルを投入
 ```
 
-`progressionRules.ts` は **2 か所に同じ内容で存在します**（Deno から `src/` を
+`progressionRules.ts` は **2か所に同じ内容で存在します**（Deno から `src/` を
 import できないため）。`__tests__/progressionRules.parity.test.ts` が差分を
 検出します。片方だけ直すと、オフライン経路とオンライン経路が同じ根拠に対して
-違う強さの主張をしてしまうためです。
-
-seed は Progression を作りません。`analyze-entry` が実際に読み取ります。
+違う強さの主張をしてしまいます。
 
 ### テストが守っているもの
 
 | 何を | どこで |
 | --- | --- |
-| 1 件では Progression を作らない | `progressionRules.test.ts` |
-| 根拠がなければ maturity が上がらない | `progressionRules.test.ts` |
-| 渡していないログを evidence にしない | `progressionRules.test.ts` |
-| 2 か所の progressionRules が一致している | `progressionRules.parity.test.ts` |
-| MAP の Level 1 に分類名が出ない | `progressionGraph.test.ts` |
-| 開くまで step を描かない | `progressionGraph.test.ts` |
-| 保存直後の 1 行が褒めない・助言しない | `mirror.test.ts` |
-| 月末に 3 件を無理に作らない | `monthReview.test.ts` |
-| 入力が TYPE + 本文 + SIGNAL だけで完了する | `composer.test.tsx` |
-| 禁止表現がコピーに現れない | `copy.test.ts` |
-| オフラインで TYPE と SIGNAL が失われない | `offline.queue.test.ts` |
+| PIVOT が3点揃わないと成立しない | `patternRules.test.ts` |
+| 同じ日に3タグでは PIVOT にならない | `patternRules.test.ts` |
+| 形が示せないパターンは落とす（読み替えない） | `patternRules.test.ts` |
+| 質問が「学び」「意味」「なぜ」を含まない | `questions.test.ts` |
+| 同じタグでも入口が違えば質問が変わる | `questions.test.ts` |
+| 入口とタグだけで保存できる | `composer.test.tsx` |
+| 質問が出るのは聞くことができてから | `composer.test.tsx` |
+| 本文なしでも Mirror が成立する | `mirror.test.ts` |
+| モヤモヤを学びに変換しない | `mirror.test.ts` |
+| 1件では Progression を作らない | `localAnalysis.test.ts` |
+| 月末に3件を無理に作らない / 未決定を許す | `monthReview.test.ts` |
+| Lens テーブルに達成度の列がない | `copy.test.ts` |
+| streak / badge / 達成率がソースに存在しない | `copy.test.ts` |
+| 2か所の progressionRules が一致している | `progressionRules.parity.test.ts` |
 
 ---
 
-## v2（Gain モデル）からの移行
+## v3 からの移行
 
-`supabase/migrations/20260906000000_progression_model.sql` が行います。
 **データは消しません。**
 
-| v2 | v3 |
+| v3 | v4 |
 | --- | --- |
-| 3 チップ（進んだ / ひっかかった / 心が動いた） | TYPE（出来事 / つぶやき）+ SIGNAL（＋ / ± / −） |
-| Gain が最上位 | Progression が最上位。Gain はその結果 |
-| MAP Level 1 = GainType | MAP Level 1 = Progression Theme（本人の言葉） |
-| 3 GAINS | 3 PROGRESSIONS + WHAT YOU'RE CARRYING FORWARD |
+| TYPE 2択（出来事 / つぶやき） | Level 1 3択（自分の行動 / 人との関わり / つぶやき） |
+| SIGNAL ＋ / ± / − | moment tags 7種・複数選択 |
+| 本文【必須】 | 本文は任意（Level 3 の回答） |
+| Gain に分類なし | Gain 7分類 |
+| evidence role `setback` | `friction` |
 
-`logs.type` は v1.5 の列がそのまま残っていたので復元します。`input_category`
-は行を残したまま参照をやめます。v2 の `gains` は `progression_id = null` の
-まま残り、読まれなくなります。
+`subjective_signal` と `clarifications` は行を残したまま参照をやめます。
+v3 の記録は `positive → 楽しかった` / `negative → モヤモヤ` で
+タグに橋渡しされます。
 
 ---
 
-## MVP に入れないもの（§34）
+## MVP に入れないもの（§29）
 
-AI チャット / habit tracker / streak / badge / point / ranking / social feed /
-likes / followers / 性格診断 / 目標達成率 / 手動タグ付け / 複雑なカテゴリー /
-詳細な感情記録 / 大量の質問 / 長い AI レポート / 円グラフ / 棒グラフ /
-レーダーチャート
+streak / point / score / badge / ranking / social feed / likes / follower /
+mood graph / emotion chart / 目標達成率 / habit tracker / AIセラピー /
+性格診断 / 長いAIチャット / 毎日の長文reflection / 手動タグ / 複雑な分析dashboard
 
 ---
 
 ## 判断に迷ったら
 
-> 出来事とつぶやきを残すだけで、AI が点と点をつなぎ、
-> 自分がどう変わってきたのかを見せてくれる。
+> crincran は「最短距離でどこまで来たか」ではなく、
+> 「曲がりながら、何が自分の中に残ってきたか」を見せる。

@@ -2,11 +2,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { formatMonthShort } from '@/utils/period';
 import { TruncatedLogRow } from './TruncatedLogRow';
-import type { JournalEntry, MonthReview } from '@/types';
+import type { DailyLog, MonthReview } from '@/types';
 
 interface MonthSectionProps {
   monthKey: string;
-  entries: readonly JournalEntry[];
+  entries: readonly DailyLog[];
   review: MonthReview | null;
   onEntryPress: (id: string) => void;
   onReviewPress: (monthKey: string) => void;

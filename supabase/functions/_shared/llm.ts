@@ -105,43 +105,55 @@ class MockProvider implements LlmProvider {
   readonly model = 'mock';
 
   complete({ user }: LlmRequest): Promise<string> {
-    if (user.includes('"task":"entry_extraction"')) {
+    if (user.includes('"task":"log_extraction"')) {
       return Promise.resolve(
         JSON.stringify({
           event_summary: '',
-          topics: [],
-          actors: [],
-          environment: [],
+          themes: [],
+          people: [],
           action: null,
           outcome: null,
-          reaction: null,
-          hypothesis: null,
-          future_intention: null,
-          journey_role: 'neutral',
-          signals: {
-            capability: [],
-            strategy: [],
-            interest: [],
-            direction: [],
-            relationship: [],
-            perspective: [],
-          },
+          friction: null,
+          discovery: null,
+          adaptation: null,
+          choice: null,
+          environment: null,
+          interest_signal: null,
+          journey_role: null,
           confidence: 0,
         })
       );
     }
     if (user.includes('"task":"cross_time_progression"')) {
-      return Promise.resolve(JSON.stringify({ progressions: [], clarification: null }));
+      return Promise.resolve(JSON.stringify({ progressions: [] }));
     }
     if (user.includes('"task":"progression_consolidation"')) {
       return Promise.resolve(JSON.stringify({ merge: false }));
     }
+    if (user.includes('"task":"level3_question"')) {
+      // The caller's own table already answered; echoing nothing keeps it.
+      return Promise.resolve(JSON.stringify({ question: '' }));
+    }
+    if (user.includes('"task":"progression_lens"')) {
+      return Promise.resolve(JSON.stringify({ lenses: [] }));
+    }
+    if (user.includes('"task":"year_theme"')) {
+      return Promise.resolve(JSON.stringify({ themes: [] }));
+    }
+    if (user.includes('"task":"month_theme"')) {
+      return Promise.resolve(JSON.stringify({ candidates: [] }));
+    }
+    if (user.includes('"task":"year_review"')) {
+      return Promise.resolve(JSON.stringify({ actual_story: '' }));
+    }
     return Promise.resolve(
       JSON.stringify({
+        what_actually_happened: '',
+        changed: [],
+        gained: [],
+        title_candidates: [],
         title: 'A MONTH OF RECORDS',
         subtitle: '記録の残った月',
-        progressions: [],
-        carrying_forward: '',
       })
     );
   }

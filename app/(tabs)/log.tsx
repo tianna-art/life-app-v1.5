@@ -4,42 +4,42 @@ import { useRouter } from 'expo-router';
 import { colors, fonts, spacing } from '@/theme';
 import { Screen } from '@components/ui/Screen';
 import { Eyebrow } from '@components/ui/Eyebrow';
-import { EntryComposer } from '@components/log/EntryComposer';
-import { ClarificationChip } from '@components/log/ClarificationChip';
+import { DailyComposer } from '@components/log/DailyComposer';
 import { MirrorCard } from '@components/home/MirrorCard';
 import { MonthCompleteLine } from '@components/home/MonthCompleteLine';
 import { BirthSpark } from '@components/home/BirthSpark';
 import { Toast } from '@components/ui/Toast';
-import { useCreateEntry } from '@/hooks/useEntries';
+import { useCreateLog } from '@/hooks/useLogs';
 import { useMonthReview } from '@/hooks/useMonthReview';
-import { useAnswerClarification, usePendingClarification } from '@/hooks/useProgressions';
+import { useMonthTheme, useYearDirection } from '@/hooks/useLens';
+import { generateQuestion } from '@/ai/client';
 import { useUiStore } from '@/state/uiStore';
 import { formatMonthEyebrow, monthKeyOf, shiftMonthKey } from '@/utils/period';
-import type { Clarification, Mirror, NewEntryInput } from '@/types';
+import type { LogType, Mirror, MomentTag, NewLogInput } from '@/types';
 
 /**
- * HOME (§4).
+ * HOME (§8).
  *
- * Opening the app puts the person one tap from writing. There is no ＋ button,
- * no list of past records competing for attention, no settings and no analysis
- * on this screen — a month plate, a question, two drawers, a field, three
- * marks, and ✓.
+ * Opening the app puts the person one tap from recording. There is no ＋
+ * button, no list of past records competing for attention, and no analysis on
+ * this screen — a month plate, the month's theme if there is one, and the
+ * three levels.
  */
 export default function LogScreen() {
   const router = useRouter();
-  const currentMonth = useMemo(() => monthKeyOf(new Date()), []);
+  const now = useMemo(() => new Date(), []);
+  const currentMonth = useMemo(() => monthKeyOf(now), [now]);
   const previousMonth = useMemo(() => shiftMonthKey(currentMonth, -1), [currentMonth]);
 
   const [mirror, setMirror] = useState<Mirror | null>(null);
-  const [freshClarification, setFreshClarification] = useState<Clarification | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [sparkCount, setSparkCount] = useState(0);
 
-  const createEntry = useCreateEntry();
+  const createLog = useCreateLog();
   const setMapMonthKey = useUiStore((s) => s.setMapMonthKey);
 
-  // A title only exists once a month has been read, so most of the time this
-  // line is simply absent — which is the intended state, not a missing value.
+  const { data: direction } = useYearDirection(now.getFullYear());
+  const { data: monthTheme } = useMonthTheme(now.getFullYear(), now.getMonth() + 1);
   const { data: monthReview } = useMonthReview(currentMonth);
 
   // A month that has ended and has something to say announces itself once, as
@@ -48,40 +48,32 @@ export default function LogScreen() {
   const seenMonthEnds = useUiStore((s) => s.seenMonthEnds);
   const showMonthComplete = Boolean(previousReview) && !seenMonthEnds.includes(previousMonth);
 
-  // A question left over from an earlier save is still worth asking; one that
-  // arrived with this save takes precedence because its record is on screen.
-  const { data: pendingClarification } = usePendingClarification();
-  const answerClarification = useAnswerClarification();
-  const clarification = freshClarification ?? pendingClarification ?? null;
+  const handleNeedQuestion = useCallback(
+    (input: { logType: LogType; momentTags: MomentTag[] }) =>
+      generateQuestion({
+        logType: input.logType,
+        momentTags: input.momentTags,
+        desiredSelfCards: direction?.desiredSelfCards,
+        lenses: direction?.progressionLenses,
+        monthTheme: monthTheme?.initialTheme,
+      }),
+    [direction?.desiredSelfCards, direction?.progressionLenses, monthTheme?.initialTheme]
+  );
 
   const handleSave = useCallback(
-    (input: NewEntryInput) => {
+    (input: NewLogInput) => {
       setMirror(null);
-      setFreshClarification(null);
       setSparkCount((n) => n + 1);
-      createEntry.mutate(input, {
+      createLog.mutate(input, {
         onSuccess: (result) => {
           // A queued record has not been read yet, so it gets a note about
           // where it is rather than a line that does not exist.
-          if (result.queued) {
-            setToast('保存しました。接続が戻ったら同期します。');
-            return;
-          }
-          if (result.mirror) setMirror(result.mirror);
-          if (result.clarification) setFreshClarification(result.clarification);
+          if (result.queued) setToast('保存しました。接続が戻ったら同期します。');
+          else if (result.mirror) setMirror(result.mirror);
         },
       });
     },
-    [createEntry]
-  );
-
-  const handleAnswer = useCallback(
-    (answer: string | null) => {
-      if (!clarification) return;
-      setFreshClarification(null);
-      answerClarification.mutate({ id: clarification.id, answer });
-    },
-    [answerClarification, clarification]
+    [createLog]
   );
 
   const openProgression = useCallback(
@@ -91,6 +83,8 @@ export default function LogScreen() {
     },
     [currentMonth, router, setMapMonthKey]
   );
+
+  const themeLine = monthTheme?.initialTheme ?? monthReview?.title ?? '';
 
   return (
     <Screen>
@@ -105,23 +99,24 @@ export default function LogScreen() {
         >
           <View style={styles.header}>
             <Eyebrow>{formatMonthEyebrow(currentMonth)}</Eyebrow>
-            {monthReview?.title ? (
-              <Text style={styles.monthTitle}>{monthReview.title}</Text>
-            ) : null}
+            {/* The month's theme, small. It is a lens, not an instruction, so
+                it sits above the input rather than inside it (§8). */}
+            {themeLine ? <Text style={styles.monthTheme}>{themeLine}</Text> : null}
           </View>
 
-          {/* The empty space is the design: nothing is offered before the field. */}
           <View style={styles.breath} />
 
-          <EntryComposer onSave={handleSave} saving={createEntry.isPending} />
+          <DailyComposer
+            onSave={handleSave}
+            onNeedQuestion={handleNeedQuestion}
+            saving={createLog.isPending}
+          />
 
           <MirrorCard
             mirror={mirror}
             onDismiss={() => setMirror(null)}
             onOpenProgression={openProgression}
           />
-
-          <ClarificationChip clarification={clarification} onAnswer={handleAnswer} />
 
           {showMonthComplete ? (
             <MonthCompleteLine
@@ -143,11 +138,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { paddingBottom: spacing.xxl },
   header: { paddingTop: spacing.md, gap: spacing.xs },
-  monthTitle: {
+  monthTheme: {
     fontFamily: fonts.serif,
     fontSize: 13,
-    letterSpacing: 1.6,
+    letterSpacing: 1.4,
     color: colors.ivoryFaint,
   },
-  breath: { height: spacing.xxl + spacing.lg },
+  breath: { height: spacing.xl },
 });

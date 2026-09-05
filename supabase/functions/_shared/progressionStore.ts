@@ -10,9 +10,15 @@ import {
   maxMaturity,
   normalizeTitle,
   qualifiesAsProgression,
+  resolvePattern,
   summariseEvidencePath,
+  type GainCategory,
+  type LogType,
+  type MomentTag,
+  type PatternEvidence,
   type ProgressionEvidenceRole,
   type ProgressionMaturity,
+  type ProgressionPattern,
   type ProgressionType,
   type RawProgressionProposal,
 } from './progressionRules.ts';
@@ -25,8 +31,10 @@ export interface ProgressionRow {
   from_state: string | null;
   current_state: string | null;
   summary: string;
+  pattern: ProgressionPattern | null;
   maturity: ProgressionMaturity;
   confidence: number;
+  goal_external: boolean;
   first_detected_at: string;
   last_updated_at: string;
   verdict: 'accepted' | 'adjusted' | null;
@@ -176,12 +184,17 @@ export async function applyProposal(
       .insert({
         user_id: input.userId,
         type: proposal.type,
+        // Left null until the evidence is stored and the shape can be
+        // checked. A pattern claimed on arrival would be a claim, not a
+        // finding.
+        pattern: null,
         title,
         from_state: proposal.fromState ?? null,
         current_state: proposal.currentState ?? null,
         summary: proposal.summary,
         maturity: 'signal',
         confidence: proposal.confidence,
+        goal_external: proposal.goalExternal,
         first_detected_at: input.occurredAt,
         last_updated_at: input.occurredAt,
       })
@@ -214,12 +227,16 @@ export async function applyProposal(
   const logIds = [...evidence.keys()];
   const { data: logs } = await db
     .from('logs')
-    .select('id, occurred_at')
+    .select('id, occurred_at, type, moment_tags')
     .in('id', logIds)
     .eq('user_id', input.userId);
-  const occurredById = new Map(
-    ((logs ?? []) as { id: string; occurred_at: string }[]).map((l) => [l.id, l.occurred_at])
-  );
+  const logRows = (logs ?? []) as {
+    id: string;
+    occurred_at: string;
+    type: string;
+    moment_tags: MomentTag[] | null;
+  }[];
+  const occurredById = new Map(logRows.map((l) => [l.id, l.occurred_at]));
 
   const rows = logIds
     .filter((id) => occurredById.has(id))
@@ -246,9 +263,26 @@ export async function applyProposal(
   // than deleted: the evidence is real, only the claim would not be.
   const maturity = clampMaturity(maxMaturity(row.maturity, proposal.maturity), summary);
 
+  // §18: the shape has to be in the records. The check runs on Level 1 and
+  // Level 2 — the person's own evidence — so no prompt can talk its way past
+  // a tag they did not tap. A pattern the records do not show is dropped
+  // rather than swapped for a near neighbour.
+  const patternEvidence: PatternEvidence[] = logRows.map((l) => ({
+    logId: l.id,
+    logType: l.type as LogType,
+    momentTags: l.moment_tags ?? [],
+    occurredAt: l.occurred_at,
+  }));
+  const pattern = resolvePattern(proposal.pattern, patternEvidence) ?? row.pattern ?? null;
+
   const updates: Record<string, unknown> = {
     maturity,
+    pattern,
     confidence: Math.max(row.confidence, proposal.confidence),
+    // Once marked as growing outside the year's direction, it stays marked:
+    // a later record that happens to touch the lens does not make the earlier
+    // discovery goal-directed after the fact (§19).
+    goal_external: row.goal_external || proposal.goalExternal,
     last_updated_at: input.occurredAt,
   };
 
@@ -278,6 +312,7 @@ export async function applyProposal(
     try {
       await upsertGain(db, {
         progressionId: finalRow.id,
+        category: proposal.gain.category,
         label: proposal.gain.label,
         description: proposal.gain.description,
         confidence: proposal.confidence,
@@ -302,6 +337,7 @@ async function upsertGain(
   db: SupabaseClient,
   input: {
     progressionId: string;
+    category: GainCategory;
     label: string;
     description?: string | undefined;
     confidence: number;
@@ -339,8 +375,10 @@ async function upsertGain(
   await db.from('gains').insert({
     user_id: owner.user_id,
     progression_id: input.progressionId,
-    // The v2 enum has no 'interest'/'relationship'/'perspective'; those fall
-    // back to the widest v2 bucket, which nothing reads any more.
+    category: input.category,
+    // gains.type is a v2 column that is still NOT NULL and nothing reads any
+    // more. It is filled from the progression's own type to satisfy the
+    // constraint, and carries no meaning in v4.
     type: mapToLegacyGainType(owner.type),
     label,
     description: input.description ?? null,
@@ -350,7 +388,7 @@ async function upsertGain(
   });
 }
 
-/** Bridges progression_type onto the surviving v2 gain_type column. */
+/** Fills the surviving v2 gain_type column. Not read anywhere. */
 function mapToLegacyGainType(type: ProgressionType): string {
   switch (type) {
     case 'capability':

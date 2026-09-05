@@ -3,10 +3,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { LABELS } from '@/constants/copy';
 import { EVIDENCE_ROLE_JA, JOURNEY_ROLE_JA } from '@/constants/progression';
-import { entryTypeLabel, signalMark } from '@/constants/entry';
+import { logTypeLabel, momentTagLabel } from '@/constants/log';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
-import { useEntry } from '@/hooks/useEntries';
+import { useLog } from '@/hooks/useLogs';
+import type { ProgressionRef } from '@/types';
 import { formatShortDate } from '@/utils/period';
 
 /**
@@ -19,7 +20,7 @@ export default function EntryDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
-  const { data: entry } = useEntry(id);
+  const { data: entry } = useLog(id);
 
   return (
     <Screen>
@@ -38,16 +39,33 @@ export default function EntryDetailScreen() {
           <>
             <View style={styles.metaRow}>
               <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
-              <Text style={styles.meta}>{entryTypeLabel(entry.type)}</Text>
-              <Text style={styles.signal}>{signalMark(entry.subjectiveSignal)}</Text>
-              {entry.analysis ? (
+              <Text style={styles.meta}>{logTypeLabel(entry.logType)}</Text>
+              {entry.momentTags.map((tag) => (
+                <Text key={tag} style={styles.tag}>
+                  {momentTagLabel(tag)}
+                </Text>
+              ))}
+              {/* Absent when the model was not confident enough to name one
+                  (§16). An unread day simply shows the tags. */}
+              {entry.analysis?.journeyRole ? (
                 <Text style={styles.meta}>{JOURNEY_ROLE_JA[entry.analysis.journeyRole]}</Text>
               ) : null}
             </View>
 
             <HairlineRule />
 
-            <Text style={styles.body}>{entry.body}</Text>
+            {/* The question is kept beside its answer: the answer is only
+                readable next to what was asked (§11). */}
+            {entry.aiQuestion ? <Text style={styles.question}>{entry.aiQuestion}</Text> : null}
+            {entry.optionalAnswer ? (
+              <Text style={styles.body}>{entry.optionalAnswer}</Text>
+            ) : entry.body ? (
+              <Text style={styles.body}>{entry.body}</Text>
+            ) : (
+              // A record with no free text is a complete record (§14), so this
+              // says what it is rather than apologising for what it is not.
+              <Text style={styles.meta}>この日は、タップだけで残しました。</Text>
+            )}
 
             {/* Which movements this record sits inside (§25). Not what it
                 meant — the progression's own screen says that. */}
@@ -99,7 +117,8 @@ const styles = StyleSheet.create({
   gains: { gap: spacing.md },
   gainRow: { gap: 2 },
   gainType: { fontFamily: fonts.sans, fontSize: 9.5, letterSpacing: 2.2, color: colors.brassDim },
-  signal: { fontFamily: fonts.serif, fontSize: 15, color: colors.brassDim },
+  tag: { fontFamily: fonts.sans, fontSize: 11, color: colors.brassDim },
+  question: { fontFamily: fonts.sans, fontSize: 12, color: colors.ivoryFaint },
   pressed: { opacity: 0.6 },
   gainLabel: { fontFamily: fonts.serif, fontSize: 17, lineHeight: 26, color: colors.ivory },
 });

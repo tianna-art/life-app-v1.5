@@ -1,33 +1,46 @@
 import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
-import { LABELS } from '@/constants/copy';
+import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
+import { LABELS, MONTH } from '@/constants/copy';
+import { GAIN_CATEGORY_JA } from '@/constants/progression';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useMonthReview } from '@/hooks/useMonthReview';
+import { useSaveMonthTheme } from '@/hooks/useLens';
 import { useUiStore } from '@/state/uiStore';
 import { formatMonthEyebrow } from '@/utils/period';
 
 /**
- * The month-end screen (§19).
+ * The month-end reading (§25).
  *
- * Three pieces of information and a lot of quiet. No totals, no streak, no
- * comparison against a goal — the change line is a comparison against the
- * person's own earlier records or it is not printed at all.
+ * Five sections, in the order §25 gives them, and the first two are the point:
+ * what the month set out with, then what actually happened. §7 forbids reading
+ * a divergence as a shortfall — so the two sit side by side with nothing
+ * between them saying which was better.
  */
-export default function MonthEndScreen() {
+export default function MonthScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ key?: string }>();
-  const periodKey = typeof params.key === 'string' ? params.key : '';
+  const { key } = useLocalSearchParams<{ key: string }>();
+  const periodKey = key ?? '';
 
   const { data: review, isLoading } = useMonthReview(periodKey);
+  const saveTheme = useSaveMonthTheme();
   const markSeen = useUiStore((s) => s.markMonthEndSeen);
 
+  // Opening the reading is what marks it seen: the line on HOME never repeats.
   useEffect(() => {
-    if (periodKey) markSeen(periodKey);
+    if (periodKey.length > 0) markSeen(periodKey);
   }, [periodKey, markSeen]);
+
+  const chooseTitle = (title: string) => {
+    saveTheme.mutate({
+      year: Number(periodKey.slice(0, 4)),
+      month: Number(periodKey.slice(5, 7)),
+      finalTheme: title,
+      source: 'custom',
+    });
+  };
 
   return (
     <Screen>
@@ -47,39 +60,86 @@ export default function MonthEndScreen() {
         {isLoading ? (
           <Text style={styles.dim}>読み込んでいます。</Text>
         ) : review ? (
-          <Animated.View entering={FadeIn.duration(900)} style={styles.content}>
+          <>
             <Text style={styles.complete}>{LABELS.monthComplete}</Text>
 
-            <View style={styles.titleBlock}>
-              <Text style={styles.title}>{review.title}</Text>
-              {review.subtitle ? <Text style={styles.subtitle}>{review.subtitle}</Text> : null}
-            </View>
+            {/* §25's first pair. Printed together, with no verdict between. */}
+            {review.initialTheme ? (
+              <View style={styles.block}>
+                <Text style={styles.section}>{MONTH.startedWith}</Text>
+                <Text style={styles.initial}>{review.initialTheme}</Text>
+              </View>
+            ) : null}
 
-            {review.progressions.length > 0 ? (
+            {review.whatActuallyHappened ? (
               <>
                 <HairlineRule />
                 <View style={styles.block}>
-                  <Text style={styles.section}>{LABELS.threeProgressions}</Text>
-                  {review.progressions.slice(0, 3).map((item) => (
-                    <View key={item.title} style={styles.progression}>
-                      <Text style={styles.progressionTitle}>{item.title}</Text>
-                      <Text style={styles.progressionLine}>{item.line}</Text>
+                  <Text style={styles.section}>{MONTH.actuallyHappened}</Text>
+                  <Text style={styles.actual}>{review.whatActuallyHappened}</Text>
+                </View>
+              </>
+            ) : null}
+
+            {review.changed.length > 0 ? (
+              <>
+                <HairlineRule />
+                <View style={styles.block}>
+                  <Text style={styles.section}>{MONTH.changed}</Text>
+                  {review.changed.map((item) => (
+                    <View key={item.title} style={styles.change}>
+                      <Text style={styles.changeTitle}>{item.title}</Text>
+                      <Text style={styles.changeLine}>{item.line}</Text>
                     </View>
                   ))}
                 </View>
               </>
             ) : null}
 
-            {review.carryingForward ? (
+            {review.gained.length > 0 ? (
               <>
                 <HairlineRule />
                 <View style={styles.block}>
-                  <Text style={styles.section}>{LABELS.carryingForward}</Text>
-                  <Text style={styles.change}>{review.carryingForward}</Text>
+                  <Text style={styles.section}>{MONTH.gained}</Text>
+                  {review.gained.map((gain) => (
+                    <View key={gain.label} style={styles.change}>
+                      <Text style={styles.gainCategory}>{GAIN_CATEGORY_JA[gain.category]}</Text>
+                      <Text style={styles.changeTitle}>{gain.label}</Text>
+                    </View>
+                  ))}
                 </View>
               </>
             ) : null}
-          </Animated.View>
+
+            {/* The month's name. Three offered; the person picks. Passing over
+                all three is a valid outcome and leaves the month unnamed. */}
+            {review.titleCandidates.length > 0 ? (
+              <>
+                <HairlineRule />
+                <View style={styles.block}>
+                  <Text style={styles.section}>{MONTH.chooseTitle}</Text>
+                  {review.titleCandidates.map((candidate) => (
+                    <Pressable
+                      key={candidate}
+                      testID={`month-title-${candidate}`}
+                      onPress={() => chooseTitle(candidate)}
+                      hitSlop={HIT_SLOP}
+                      accessibilityRole="button"
+                      accessibilityLabel={candidate}
+                      style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.candidateText}>{candidate}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : review.title ? (
+              <>
+                <HairlineRule />
+                <Text style={styles.title}>{review.title}</Text>
+              </>
+            ) : null}
+          </>
         ) : (
           <Text style={styles.dim}>この月は、まだ読まれていません。</Text>
         )}
@@ -91,34 +151,25 @@ export default function MonthEndScreen() {
 const styles = StyleSheet.create({
   back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
   backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
-  scroll: { paddingBottom: spacing.xxl, gap: spacing.lg },
+  scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
-  content: { gap: spacing.xl },
   complete: {
     fontFamily: fonts.sans,
-    fontSize: 10,
-    letterSpacing: 3.4,
+    fontSize: 9,
+    letterSpacing: 3,
     color: colors.ivoryFaint,
   },
-  titleBlock: { gap: spacing.sm },
-  title: { fontFamily: fonts.serif, fontSize: 30, lineHeight: 40, letterSpacing: 1.6, color: colors.ivory },
-  subtitle: { fontFamily: fonts.serif, fontSize: 15, color: colors.ivoryDim },
   block: { gap: spacing.sm },
-  section: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 2.8, color: colors.brassDim },
-  progression: { gap: 4 },
-  progressionTitle: {
-    fontFamily: fonts.serif,
-    fontSize: 19,
-    lineHeight: 30,
-    color: colors.ivory,
-  },
-  progressionLine: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    lineHeight: 24,
-    color: colors.ivoryDim,
-  },
-  gain: { fontFamily: fonts.serif, fontSize: 18, lineHeight: 28, color: colors.ivory },
-  change: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 25, color: colors.ivoryDim },
-  dim: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
+  section: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 3, color: colors.ivoryFaint },
+  initial: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 26, color: colors.ivoryDim },
+  actual: { fontFamily: fonts.serif, fontSize: 20, lineHeight: 32, color: colors.ivory },
+  title: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 34, color: colors.ivory },
+  change: { gap: 2 },
+  changeTitle: { fontFamily: fonts.serif, fontSize: 18, lineHeight: 28, color: colors.ivory },
+  changeLine: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 24, color: colors.ivoryDim },
+  gainCategory: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.6, color: colors.brassDim },
+  candidate: { minHeight: MIN_TOUCH, justifyContent: 'center' },
+  candidateText: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 30, color: colors.ivory },
+  pressed: { opacity: 0.6 },
+  dim: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 22, color: colors.ivoryFaint },
 });

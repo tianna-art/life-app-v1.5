@@ -117,16 +117,19 @@ jobs:
           echo "\`$MIGRATION_FILE\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "#### Tables" >> "$GITHUB_STEP_SUMMARY"
+          # Generic on purpose: this workflow applies whichever migration it
+          # is given, so the check reports the shape of the two tables every
+          # release touches rather than naming this release's columns.
+          echo "#### public tables" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          check "select table_name from information_schema.tables where table_schema='public' and table_name in ('progressions','progression_evidence','clarifications') order by table_name" \
+          check "select table_name from information_schema.tables where table_schema='public' order by table_name" \
             | tee -a "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
           echo "#### logs columns" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          check "select column_name, is_nullable from information_schema.columns where table_schema='public' and table_name='logs' and column_name in ('type','subjective_signal') order by column_name" \
+          check "select column_name, is_nullable from information_schema.columns where table_schema='public' and table_name='logs' order by column_name" \
             | tee -a "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

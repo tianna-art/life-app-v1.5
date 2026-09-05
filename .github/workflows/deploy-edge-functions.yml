@@ -115,11 +115,17 @@ jobs:
           supabase secrets set --project-ref "$PROJECT_REF" --env-file functions.env
           rm -f functions.env
 
-      - name: Deploy analyze-entry
-        run: supabase functions deploy analyze-entry --project-ref "$PROJECT_REF"
-
-      - name: Deploy month-progressions
-        run: supabase functions deploy month-progressions --project-ref "$PROJECT_REF"
+      # Every function in supabase/functions/, so adding one does not mean
+      # remembering to edit this file. _shared/ is a library, not a function.
+      - name: Deploy every function
+        run: |
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            [ "$name" = "_shared" ] && continue
+            echo "::group::$name"
+            supabase functions deploy "$name" --project-ref "$PROJECT_REF"
+            echo "::endgroup::"
+          done
 
       - name: Summary
         run: |
@@ -128,6 +134,9 @@ jobs:
             echo ""
             echo "| Function | Provider | Model |"
             echo "| --- | --- | --- |"
-            echo "| analyze-entry | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
-            echo "| month-progressions | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
+            for dir in supabase/functions/*/; do
+              name=$(basename "$dir")
+              [ "$name" = "_shared" ] && continue
+              echo "| $name | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
+            done
           } >> "$GITHUB_STEP_SUMMARY"

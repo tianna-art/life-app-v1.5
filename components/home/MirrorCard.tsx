@@ -24,7 +24,9 @@ interface MirrorCardProps {
 export function MirrorCard({ mirror, onDismiss, onOpenProgression }: MirrorCardProps) {
   if (!mirror || mirror.line.length === 0) return null;
 
-  const joined = mirror.joinedProgression;
+  // Either kind of link is followable; emergence is the one §32 calls the
+  // moment worth having, so it takes precedence when both are present.
+  const linked = mirror.emergedProgression ?? mirror.joinedProgression;
 
   const body = (
     <View style={styles.card} testID="mirror-card">
@@ -34,7 +36,7 @@ export function MirrorCard({ mirror, onDismiss, onOpenProgression }: MirrorCardP
     </View>
   );
 
-  if (!joined) {
+  if (!linked) {
     return (
       <Pressable
         onPress={onDismiss}
@@ -50,11 +52,11 @@ export function MirrorCard({ mirror, onDismiss, onOpenProgression }: MirrorCardP
   return (
     <Pressable
       testID="mirror-open-progression"
-      onPress={() => onOpenProgression(joined.id)}
+      onPress={() => onOpenProgression(linked.id)}
       hitSlop={HIT_SLOP}
       accessibilityRole="button"
       accessibilityLabel={mirror.line}
-      accessibilityHint={`${joined.title}をひらく`}
+      accessibilityHint={`${linked.title}をひらく`}
       style={({ pressed }) => [pressed && styles.pressed]}
     >
       {body}
