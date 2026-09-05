@@ -5,13 +5,17 @@ import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { colors, fonts, spacing } from '@/theme';
-import { EMPTY_STATE, LABELS } from '@/constants/copy';
+import { EMPTY_STATE } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { EmptyState } from '@components/ui/EmptyState';
 import { MonthStrip } from '@components/map/MonthStrip';
-import { RadialGainMap } from '@components/map/RadialGainMap';
-import { GainSheet } from '@components/map/GainSheet';
-import { useGainDetail, useGainVerdict, useMonthGains } from '@/hooks/useGains';
+import { RadialProgressionMap } from '@components/map/RadialProgressionMap';
+import { ProgressionSheet } from '@components/map/ProgressionSheet';
+import {
+  useMonthProgressions,
+  useProgressionDetail,
+  useProgressionVerdict,
+} from '@/hooks/useProgressions';
 import { useYearEntries } from '@/hooks/useEntries';
 import { useMonthReview } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
@@ -25,11 +29,12 @@ import {
 } from '@/utils/period';
 
 /**
- * MAP (§13–§18).
+ * MAP (§16–§20).
  *
- * One month is on screen at a time and months are never merged. What is drawn
- * is not the records but what has grown from them, so a month with a lot of
- * writing and nothing settled shows a quiet sky — which is honest.
+ * One month is on screen at a time and months are never merged (§24). What is
+ * drawn is not the records but the movement between them, so a month with a
+ * lot of writing and nothing connected yet shows a quiet sky — which is
+ * honest, and is what the first weeks look like.
  */
 export default function MapScreen() {
   const router = useRouter();
@@ -39,8 +44,8 @@ export default function MapScreen() {
   const setMonthKey = useUiStore((s) => s.setMapMonthKey);
 
   const [canvasBox, setCanvasBox] = useState<{ width: number; height: number } | null>(null);
-  const [openGainId, setOpenGainId] = useState<string | null>(null);
-  const [expandedGainId, setExpandedGainId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
     const { width: w, height: h } = event.nativeEvent.layout;
@@ -51,10 +56,12 @@ export default function MapScreen() {
     );
   }, []);
 
-  const { data: monthGains } = useMonthGains(monthKey);
+  const { data: monthProgressions } = useMonthProgressions(monthKey);
   const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
-  const gainDetail = useGainDetail(openGainId);
-  const verdict = useGainVerdict();
+  // The steps are needed by the canvas as soon as a node opens, so the detail
+  // query is keyed on the expanded node rather than on the sheet.
+  const detail = useProgressionDetail(expandedId);
+  const verdict = useProgressionVerdict();
 
   // The strip spans from the first month that holds anything to this one, so
   // it never offers a month the person has no records in.
@@ -74,8 +81,8 @@ export default function MapScreen() {
       const next = shiftMonthKey(monthKey, delta);
       if (delta > 0 && next > thisMonth) return;
       setMonthKey(next);
-      setExpandedGainId(null);
-      setOpenGainId(null);
+      setExpandedId(null);
+      setOpenId(null);
     },
     [monthKey, thisMonth, setMonthKey]
   );
@@ -93,17 +100,18 @@ export default function MapScreen() {
     [step]
   );
 
-  const handleGainPress = useCallback((gainId: string) => {
-    setExpandedGainId(gainId);
-    setOpenGainId(gainId);
+  // One tap does both things: the trail extends on the canvas behind, and the
+  // sheet opens over it. Closing the sheet leaves the trail showing.
+  const handleSelect = useCallback((id: string) => {
+    setExpandedId(id);
+    setOpenId(id);
   }, []);
 
   const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
   const canvasHeight = Math.max(320, canvasBox?.height ?? height - 260);
 
-  const gains = monthGains ?? [];
-  const hasNew = gains.some((g) => g.isNew);
-  const hasContinuing = gains.some((g) => !g.isNew);
+  const progressions = monthProgressions ?? [];
+  const steps = expandedId ? (detail.data?.steps ?? []) : [];
 
   return (
     <Screen>
@@ -117,41 +125,33 @@ export default function MapScreen() {
 
       <GestureDetector gesture={pan}>
         <View style={styles.canvas} testID="map-canvas" onLayout={onCanvasLayout}>
-          {gains.length === 0 ? (
+          {progressions.length === 0 ? (
             <EmptyState message={EMPTY_STATE.map} />
           ) : (
-            <RadialGainMap
+            <RadialProgressionMap
               monthKey={monthKey}
-              gains={gains}
+              progressions={progressions}
+              expandedId={expandedId}
+              expandedSteps={steps}
               width={canvasWidth}
               height={canvasHeight}
-              expandedGainId={expandedGainId}
-              onGainPress={handleGainPress}
-              onEvidencePress={(logId) => router.push(`/log/${logId}`)}
+              onSelect={handleSelect}
+              onSelectStep={(logId) => router.push(`/log/${logId}`)}
             />
           )}
         </View>
       </GestureDetector>
 
-      {/* NEW / CONTINUING is a distinction, not a count (§18). */}
-      <View style={styles.footer}>
-        {hasNew ? <Text style={styles.footNew}>{LABELS.new}</Text> : null}
-        {hasContinuing ? <Text style={styles.footContinuing}>{LABELS.continuing}</Text> : null}
-      </View>
-
-      <GainSheet
-        visible={Boolean(openGainId)}
-        detail={gainDetail.data ?? null}
-        loading={gainDetail.isLoading}
-        busy={verdict.isPending}
-        onClose={() => setOpenGainId(null)}
-        onVerdict={(input) => {
-          if (!openGainId) return;
-          verdict.mutate({ gainId: openGainId, ...input });
-        }}
-        onEvidencePress={(logId) => {
-          setOpenGainId(null);
+      <ProgressionSheet
+        detail={openId ? detail.data : null}
+        onClose={() => setOpenId(null)}
+        onOpenLog={(logId) => {
+          setOpenId(null);
           router.push(`/log/${logId}`);
+        }}
+        onVerdict={(input) => {
+          if (!openId) return;
+          verdict.mutate({ progressionId: openId, ...input });
         }}
       />
     </Screen>
@@ -162,14 +162,11 @@ const styles = StyleSheet.create({
   header: { paddingTop: spacing.md, gap: spacing.sm },
   plateRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
-  reviewTitle: { fontFamily: fonts.serif, fontSize: 13, letterSpacing: 1.4, color: colors.ivoryFaint },
-  canvas: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    paddingBottom: spacing.sm,
+  reviewTitle: {
+    fontFamily: fonts.serif,
+    fontSize: 13,
+    letterSpacing: 1.4,
+    color: colors.ivoryFaint,
   },
-  footNew: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2.4, color: colors.brassDim },
-  footContinuing: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2.4, color: colors.frame },
+  canvas: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

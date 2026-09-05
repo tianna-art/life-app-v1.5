@@ -2,8 +2,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { LABELS } from '@/constants/copy';
-import { GAIN_TYPE_JA, GAIN_TYPE_LABEL, JOURNEY_ROLE_JA } from '@/constants/gain';
-import { inputCategoryLabel } from '@/constants/inputCategories';
+import { EVIDENCE_ROLE_JA, JOURNEY_ROLE_JA } from '@/constants/progression';
+import { entryTypeLabel, signalMark } from '@/constants/entry';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useEntry } from '@/hooks/useEntries';
@@ -38,7 +38,8 @@ export default function EntryDetailScreen() {
           <>
             <View style={styles.metaRow}>
               <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
-              <Text style={styles.meta}>{inputCategoryLabel(entry.inputCategory)}</Text>
+              <Text style={styles.meta}>{entryTypeLabel(entry.type)}</Text>
+              <Text style={styles.signal}>{signalMark(entry.subjectiveSignal)}</Text>
               {entry.analysis ? (
                 <Text style={styles.meta}>{JOURNEY_ROLE_JA[entry.analysis.journeyRole]}</Text>
               ) : null}
@@ -48,19 +49,26 @@ export default function EntryDetailScreen() {
 
             <Text style={styles.body}>{entry.body}</Text>
 
-            {entry.gains && entry.gains.length > 0 ? (
+            {/* Which movements this record sits inside (§25). Not what it
+                meant — the progression's own screen says that. */}
+            {entry.progressions && entry.progressions.length > 0 ? (
               <>
                 <HairlineRule />
-                <Text style={styles.sectionLabel}>この記録から残ったもの</Text>
+                <Text style={styles.sectionLabel}>{LABELS.relatedProgressions}</Text>
                 <View style={styles.gains}>
-                  {entry.gains.map((gain) => (
-                    <View key={gain.id} style={styles.gainRow}>
-                      <Text style={styles.gainType}>
-                        {GAIN_TYPE_LABEL[gain.type]}
-                        <Text style={styles.gainTypeJa}>{`　${GAIN_TYPE_JA[gain.type]}`}</Text>
-                      </Text>
-                      <Text style={styles.gainLabel}>{gain.label}</Text>
-                    </View>
+                  {entry.progressions.map((ref) => (
+                    <Pressable
+                      key={ref.id}
+                      testID={`related-progression-${ref.id}`}
+                      onPress={() => router.push(`/progression/${ref.id}`)}
+                      hitSlop={HIT_SLOP}
+                      accessibilityRole="button"
+                      accessibilityLabel={ref.title}
+                      style={({ pressed }) => [styles.gainRow, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.gainLabel}>{ref.title}</Text>
+                      <Text style={styles.gainType}>{EVIDENCE_ROLE_JA[ref.role]}</Text>
+                    </Pressable>
                   ))}
                 </View>
               </>
@@ -91,6 +99,7 @@ const styles = StyleSheet.create({
   gains: { gap: spacing.md },
   gainRow: { gap: 2 },
   gainType: { fontFamily: fonts.sans, fontSize: 9.5, letterSpacing: 2.2, color: colors.brassDim },
-  gainTypeJa: { fontFamily: fonts.sans, fontSize: 9.5, letterSpacing: 0.6, color: colors.frame },
+  signal: { fontFamily: fonts.serif, fontSize: 15, color: colors.brassDim },
+  pressed: { opacity: 0.6 },
   gainLabel: { fontFamily: fonts.serif, fontSize: 17, lineHeight: 26, color: colors.ivory },
 });

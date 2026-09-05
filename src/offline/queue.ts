@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { JournalEntry, NewEntryInput } from '@/types';
 import { uuid } from '@/utils/id';
 
-/** v2: the queued shape lost its type/category fields with the gain model. */
-export const QUEUE_KEY = 'crincran:outbox:v2';
+/** v3: the queued shape carries the two drawers and the signal instead of a chip. */
+export const QUEUE_KEY = 'crincran:outbox:v3';
 
 export interface QueuedEntry extends NewEntryInput {
   /** Client-side id; stands in for the row id until the server accepts it. */
@@ -61,8 +61,9 @@ export function queuedToEntries(items: QueuedEntry[], userId: string): JournalEn
     userId,
     occurredAt: item.occurredAt,
     occurredOn: item.occurredAt.slice(0, 10),
-    inputCategory: item.inputCategory,
+    type: item.type,
     body: item.body,
+    subjectiveSignal: item.subjectiveSignal,
     createdAt: item.queuedAt,
   }));
 }
@@ -81,8 +82,9 @@ export async function flushQueue(
   for (const item of items) {
     try {
       await send({
-        inputCategory: item.inputCategory,
+        type: item.type,
         body: item.body,
+        subjectiveSignal: item.subjectiveSignal,
         occurredAt: item.occurredAt,
       });
       await removeFromQueue(item.clientId);

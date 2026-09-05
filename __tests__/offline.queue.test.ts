@@ -9,60 +9,65 @@ import {
 } from '../src/offline/queue';
 import type { JournalEntry, NewEntryInput } from '../src/types';
 
-const asEntry = (input: NewEntryInput): JournalEntry => ({
-  id: 'server-id',
-  userId: 'u1',
-  occurredAt: input.occurredAt ?? '2026-09-05T12:00:00.000Z',
-  occurredOn: (input.occurredAt ?? '2026-09-05T12:00:00.000Z').slice(0, 10),
-  inputCategory: input.inputCategory,
-  body: input.body,
-  createdAt: '2026-09-05T12:00:00.000Z',
+beforeEach(async () => {
+  await AsyncStorage.removeItem(QUEUE_KEY);
 });
 
-describe('the text is never lost', () => {
-  beforeEach(async () => {
-    await AsyncStorage.removeItem(QUEUE_KEY);
+function sent(input: NewEntryInput): JournalEntry {
+  return {
+    id: 'server-id',
+    userId: 'u',
+    occurredAt: input.occurredAt ?? '2026-05-01T09:00:00Z',
+    occurredOn: (input.occurredAt ?? '2026-05-01').slice(0, 10),
+    type: input.type,
+    body: input.body,
+    subjectiveSignal: input.subjectiveSignal,
+    createdAt: '2026-05-01T09:00:00Z',
+  };
+}
+
+describe('the outbox', () => {
+  it('keeps the drawer and the mark, not just the text', async () => {
+    await enqueueEntry({ type: 'thought', body: '怖い', subjectiveSignal: 'negative' });
+    const [queued] = await readQueue();
+    expect(queued).toMatchObject({ type: 'thought', subjectiveSignal: 'negative' });
+
+    const entries = queuedToEntries(await readQueue(), 'pending');
+    expect(entries[0]).toMatchObject({ type: 'thought', subjectiveSignal: 'negative' });
   });
 
-  it('keeps a record that could not be sent', async () => {
-    await enqueueEntry({ inputCategory: 'friction', body: '反応がなかった。' });
-    const queue = await readQueue();
-    expect(queue).toHaveLength(1);
-    expect(queue[0]).toMatchObject({ inputCategory: 'friction', body: '反応がなかった。' });
-  });
-
-  it('shows queued records on screen as if they were saved', async () => {
-    await enqueueEntry({
-      inputCategory: 'progress',
-      body: '骨組みを書いた。',
-      occurredAt: '2026-09-05T21:00:00.000Z',
-    });
-    const [entry] = queuedToEntries(await readQueue(), 'pending');
-    expect(entry?.occurredOn).toBe('2026-09-05');
-    expect(entry?.body).toBe('骨組みを書いた。');
-  });
-
-  it('sends what it can and keeps what it cannot', async () => {
-    await enqueueEntry({ inputCategory: 'progress', body: 'ひとつめ' });
-    await enqueueEntry({ inputCategory: 'moved', body: 'ふたつめ' });
+  it('sends everything it kept', async () => {
+    await enqueueEntry({ type: 'event', body: '見せた', subjectiveSignal: 'positive' });
+    const received: NewEntryInput[] = [];
 
     const result = await flushQueue(async (input) => {
-      if (input.body === 'ふたつめ') throw new Error('network');
-      return asEntry(input);
+      received.push(input);
+      return sent(input);
     });
 
-    expect(result).toEqual({ sent: 1, remaining: 1 });
-    const queue = await readQueue();
-    expect(queue[0]).toMatchObject({ body: 'ふたつめ', attempts: 1 });
+    expect(result).toEqual({ sent: 1, remaining: 0 });
+    expect(received[0]).toMatchObject({
+      type: 'event',
+      body: '見せた',
+      subjectiveSignal: 'positive',
+    });
   });
 
-  it('survives a corrupted store rather than throwing at the person', async () => {
-    await AsyncStorage.setItem(QUEUE_KEY, 'not json');
-    expect(await readQueue()).toEqual([]);
+  it('holds on to a record the server refused', async () => {
+    await enqueueEntry({ type: 'event', body: '見せた', subjectiveSignal: 'mixed' });
+
+    const result = await flushQueue(async () => {
+      throw new Error('network');
+    });
+
+    expect(result).toEqual({ sent: 0, remaining: 1 });
+    const [still] = await readQueue();
+    expect(still?.attempts).toBe(1);
+    expect(still?.body).toBe('見せた');
   });
 
-  it('empties on request', async () => {
-    await enqueueEntry({ inputCategory: 'moved', body: 'あ' });
+  it('clears', async () => {
+    await enqueueEntry({ type: 'event', body: 'x', subjectiveSignal: 'mixed' });
     await clearQueue();
     expect(await readQueue()).toEqual([]);
   });

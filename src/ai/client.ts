@@ -6,30 +6,41 @@
  * only place the key exists. When that is unreachable — or the project has no
  * Supabase configuration at all — the local, model-free path runs instead and
  * the person still keeps their record.
+ *
+ * The two stages of §29 are one round trip from here. Splitting them across
+ * the network would double the latency of a save for no benefit: nothing in
+ * between needs to reach the device.
  */
 import type {
+  Clarification,
   EntryAnalysis,
+  EntrySignals,
   EntryWithAnalysis,
-  Gain,
-  GainEvidence,
-  GainType,
   JournalEntry,
-  JourneyLink,
+  Mirror,
   MonthReview,
-  TodaysGain,
+  MonthReviewProgression,
+  Progression,
 } from '@/types';
 import { getSupabase } from '@/lib/supabase';
 import { LocalRepository } from '@/data/localRepository';
 import { getRepository } from '@/data';
-import { isGainMaturity, isGainStatus, isGainType, isJourneyRole } from './gainRules';
+import {
+  emptySignals,
+  isJourneyRole,
+  isProgressionMaturity,
+  isProgressionType,
+} from './progressionRules';
 import { analyzeLocally } from './localAnalysis';
-import { buildTodaysGain } from './todaysGain';
+import { buildMirror } from './mirror';
 
 export interface AnalysisOutcome {
   analysis: EntryAnalysis;
-  /** Gains this entry now stands behind, after the maturity ceiling. */
-  gains: Gain[];
-  todaysGain: TodaysGain;
+  /** Progressions this entry now stands inside, after the maturity ceiling. */
+  progressions: Progression[];
+  mirror: Mirror;
+  /** Present only when answering would change the reading (§14). */
+  clarification: Clarification | null;
   /** True when the reading came from the local path rather than the model. */
   offline: boolean;
 }
@@ -42,73 +53,111 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> 
   return data as T;
 }
 
-interface GainWire {
-  id?: unknown;
-  user_id?: unknown;
-  type?: unknown;
-  label?: unknown;
-  maturity?: unknown;
-  confidence?: unknown;
-  first_detected_at?: unknown;
-  last_detected_at?: unknown;
-  verdict?: unknown;
-}
+// ---------------------------------------------------------------------------
+// Wire reading
+// ---------------------------------------------------------------------------
 
-function readGain(raw: unknown): Gain | null {
+function readProgression(raw: unknown): Progression | null {
   if (typeof raw !== 'object' || raw === null) return null;
-  const g = raw as GainWire;
-  if (typeof g.id !== 'string' || typeof g.label !== 'string') return null;
-  if (!isGainType(g.type) || !isGainMaturity(g.maturity)) return null;
+  const p = raw as Record<string, unknown>;
+  if (typeof p.id !== 'string' || typeof p.title !== 'string') return null;
+  if (!isProgressionType(p.type) || !isProgressionMaturity(p.maturity)) return null;
   const now = new Date().toISOString();
   return {
-    id: g.id,
-    userId: typeof g.user_id === 'string' ? g.user_id : '',
-    type: g.type as GainType,
-    label: g.label,
-    maturity: g.maturity,
-    confidence: typeof g.confidence === 'number' ? g.confidence : 0.3,
-    firstDetectedAt: typeof g.first_detected_at === 'string' ? g.first_detected_at : now,
-    lastDetectedAt: typeof g.last_detected_at === 'string' ? g.last_detected_at : now,
-    verdict: g.verdict === 'accepted' || g.verdict === 'adjusted' ? g.verdict : undefined,
+    id: p.id,
+    userId: typeof p.user_id === 'string' ? p.user_id : '',
+    type: p.type,
+    title: p.title,
+    fromState: typeof p.from_state === 'string' ? p.from_state : undefined,
+    currentState: typeof p.current_state === 'string' ? p.current_state : undefined,
+    summary: typeof p.summary === 'string' ? p.summary : '',
+    maturity: p.maturity,
+    confidence: typeof p.confidence === 'number' ? p.confidence : 0.3,
+    firstDetectedAt: typeof p.first_detected_at === 'string' ? p.first_detected_at : now,
+    lastUpdatedAt: typeof p.last_updated_at === 'string' ? p.last_updated_at : now,
+    verdict: p.verdict === 'accepted' || p.verdict === 'adjusted' ? p.verdict : undefined,
+    userEdited: p.user_edited === true,
+    mergedIntoId: typeof p.merged_into_id === 'string' ? p.merged_into_id : undefined,
+    evidenceCount: typeof p.evidence_count === 'number' ? p.evidence_count : 0,
   };
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function readAnalysis(raw: unknown, logId: string): EntryAnalysis {
   const value = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const signals = { ...emptySignals() } as EntrySignals;
+  if (typeof value.signals === 'object' && value.signals !== null) {
+    const source = value.signals as Record<string, unknown>;
+    for (const key of Object.keys(signals) as (keyof EntrySignals)[]) {
+      signals[key] = readStringArray(source[key]);
+    }
+  }
   return {
     logId,
     eventSummary: typeof value.event_summary === 'string' ? value.event_summary : '',
+    topics: readStringArray(value.topics),
+    actors: readStringArray(value.actors),
+    environment: readStringArray(value.environment),
+    action: readOptionalString(value.action),
+    outcome: readOptionalString(value.outcome),
+    reaction: readOptionalString(value.reaction),
+    hypothesis: readOptionalString(value.hypothesis),
+    futureIntention: readOptionalString(value.future_intention),
     journeyRole: isJourneyRole(value.journey_role) ? value.journey_role : 'neutral',
-    gainStatus: isGainStatus(value.gain_status) ? value.gain_status : 'unresolved',
-    semanticTags: Array.isArray(value.semantic_tags)
-      ? value.semantic_tags.filter((t): t is string => typeof t === 'string')
-      : [],
+    signals,
+    confidence: typeof value.confidence === 'number' ? value.confidence : 0,
     analyzedAt: new Date().toISOString(),
   };
 }
 
+function readClarification(raw: unknown, logId: string): Clarification | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const c = raw as Record<string, unknown>;
+  const options = readStringArray(c.options);
+  if (typeof c.id !== 'string' || typeof c.question !== 'string' || options.length < 2) return null;
+  return { id: c.id, logId, question: c.question, options };
+}
+
+// ---------------------------------------------------------------------------
+// Reading one entry
+// ---------------------------------------------------------------------------
+
 /**
- * Reads one entry. Runs after the entry is already committed, so a failure
- * here can never roll a saved record back.
+ * Reads one entry and, if the retrieval turns anything up, the movement it
+ * belongs to. Runs after the entry is already committed, so a failure here can
+ * never roll a saved record back.
  */
 export async function analyzeEntry(entry: JournalEntry): Promise<AnalysisOutcome> {
   const repository = getRepository();
 
   if (!(repository instanceof LocalRepository)) {
     try {
-      const raw = await invoke<Record<string, unknown>>('analyze-log', { log_id: entry.id });
+      const raw = await invoke<Record<string, unknown>>('analyze-entry', { log_id: entry.id });
       const analysis = readAnalysis(raw.analysis, entry.id);
-      const gains = Array.isArray(raw.gains)
-        ? raw.gains.map(readGain).filter((g): g is Gain => g !== null)
+      const progressions = Array.isArray(raw.progressions)
+        ? raw.progressions.map(readProgression).filter((p): p is Progression => p !== null)
         : [];
+      const joined = Array.isArray(raw.joined_progression_ids)
+        ? progressions.filter((p) => (raw.joined_progression_ids as unknown[]).includes(p.id))
+        : [];
+
       return {
         analysis,
-        gains,
-        todaysGain: buildTodaysGain({
+        progressions,
+        mirror: buildMirror({
           logId: entry.id,
-          gainStatus: analysis.gainStatus,
-          gains,
+          analysis,
+          joined,
+          emerged: raw.emerged === true,
         }),
+        clarification: readClarification(raw.clarification, entry.id),
         offline: false,
       };
     } catch {
@@ -120,96 +169,108 @@ export async function analyzeEntry(entry: JournalEntry): Promise<AnalysisOutcome
 }
 
 /**
- * The offline reading. When the local repository is available the result is
- * persisted there too, so the map keeps working with no backend at all.
+ * The offline reading.
+ *
+ * When the local repository is available the result is persisted there too, so
+ * the map keeps working with no backend at all. It reads a year rather than a
+ * month: a progression that only shows up across months is exactly the kind
+ * this path would otherwise never find.
  */
 async function analyzeEntryLocally(
   entry: JournalEntry,
   local: LocalRepository | null
 ): Promise<AnalysisOutcome> {
   const repository = getRepository();
-  const monthHistory = await repository
-    .listEntriesByMonth(entry.occurredOn.slice(0, 7))
+  const history = await repository
+    .listEntriesByYear(entry.occurredOn.slice(0, 4))
     .catch((): EntryWithAnalysis[] => []);
 
   const result = analyzeLocally({
     logId: entry.id,
-    inputCategory: entry.inputCategory,
+    type: entry.type,
     body: entry.body,
+    subjectiveSignal: entry.subjectiveSignal,
     occurredAt: entry.occurredAt,
-    history: monthHistory,
+    history,
   });
 
-  const gains: Gain[] = [];
+  const progressions: Progression[] = [];
   if (local) {
     await local.saveAnalysis(result.analysis);
-    for (const draft of result.gains) {
-      const gain = await local.upsertGain({
+    for (const draft of result.progressions) {
+      const progression = await local.upsertProgression({
         type: draft.type,
-        label: draft.label,
-        maturity: draft.maturity,
+        title: draft.title,
+        fromState: draft.fromState,
+        currentState: draft.currentState,
+        summary: draft.summary,
+        // The ceiling decides the real value; proposing the floor keeps this
+        // path from ever being the reason a claim gets louder.
+        maturity: 'signal',
         confidence: draft.confidence,
-        firstDetectedAt: entry.occurredAt,
-        lastDetectedAt: entry.occurredAt,
+        occurredAt: entry.occurredAt,
       });
-      const evidence: GainEvidence = {
-        gainId: gain.id,
-        logId: entry.id,
-        relation: 'created',
-        note: draft.evidence,
-        createdAt: new Date().toISOString(),
-      };
-      await local.addEvidence(evidence);
-      for (const logId of draft.supportingLogIds) {
-        await local.addEvidence({ ...evidence, logId, relation: 'supports' });
-      }
-      const links: JourneyLink[] = draft.supportingLogIds.map((logId) => ({
-        fromLogId: logId,
-        toLogId: entry.id,
-        relation: 'same_theme',
-        confidence: 0.4,
-      }));
-      await local.addLinks(links);
-      gains.push(gain);
+      await local.addEvidence(
+        draft.evidence.map((e) => ({
+          progressionId: progression.id,
+          logId: e.logId,
+          role: e.role,
+          occurredAt: e.occurredAt,
+        }))
+      );
+      progressions.push(progression);
     }
   }
 
   return {
     analysis: result.analysis,
-    gains,
-    todaysGain: buildTodaysGain({
-      logId: entry.id,
-      gainStatus: result.analysis.gainStatus,
-      gains,
-    }),
+    progressions,
+    mirror: buildMirror({ logId: entry.id, analysis: result.analysis, joined: progressions }),
+    clarification: null,
     offline: true,
   };
 }
 
+// ---------------------------------------------------------------------------
+// Month
+// ---------------------------------------------------------------------------
+
 interface MonthReviewWire {
-  period_key?: unknown;
   title?: unknown;
   subtitle?: unknown;
-  gains?: unknown;
-  one_change?: unknown;
+  progressions?: unknown;
+  carrying_forward?: unknown;
+}
+
+function readReviewProgression(raw: unknown): MonthReviewProgression | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const p = raw as Record<string, unknown>;
+  if (typeof p.title !== 'string' || p.title.trim().length === 0) return null;
+  return { title: p.title.trim(), line: typeof p.line === 'string' ? p.line.trim() : '' };
 }
 
 /**
- * The month-end reading (§19). Three pieces of information, evidence-based,
- * and never generated for a month with nothing in it.
+ * The month-end reading (§23).
+ *
+ * At most three progressions and never padded to three: a month with two
+ * movements in it says two, and a month with none is not given a title.
  */
 export async function generateMonthReview(periodKey: string): Promise<MonthReview | null> {
   try {
-    const raw = await invoke<MonthReviewWire>('month-review', { period_key: periodKey });
+    const raw = await invoke<MonthReviewWire>('month-progressions', { period_key: periodKey });
     if (typeof raw.title !== 'string' || raw.title.trim().length === 0) return null;
     return {
       periodKey,
       title: raw.title.trim(),
       subtitle: typeof raw.subtitle === 'string' ? raw.subtitle.trim() : '',
-      gains: Array.isArray(raw.gains)
-        ? raw.gains.filter((g): g is string => typeof g === 'string').slice(0, 3)
+      progressions: Array.isArray(raw.progressions)
+        ? raw.progressions
+            .map(readReviewProgression)
+            .filter((p): p is MonthReviewProgression => p !== null)
+            .slice(0, 3)
         : [],
-      oneChange: typeof raw.one_change === 'string' ? raw.one_change.trim() : '',
+      carryingForward:
+        typeof raw.carrying_forward === 'string' ? raw.carrying_forward.trim() : '',
       createdAt: new Date().toISOString(),
     };
   } catch {

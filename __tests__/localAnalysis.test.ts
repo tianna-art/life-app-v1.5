@@ -1,74 +1,94 @@
-import { analyzeLocally, localEventSummary, localJourneyRole } from '../src/ai/localAnalysis';
+import { analyzeLocally, surfaceTerms } from '../src/ai/localAnalysis';
 import type { EntryWithAnalysis } from '../src/types';
 
-const entry = (id: string, body: string): EntryWithAnalysis => ({
-  id,
-  userId: 'u1',
-  occurredAt: '2026-09-01T21:00:00.000Z',
-  occurredOn: '2026-09-01',
-  inputCategory: 'moved',
-  body,
-  createdAt: '2026-09-01T21:00:00.000Z',
+function entry(id: string, body: string, occurredAt: string): EntryWithAnalysis {
+  return {
+    id,
+    userId: 'u',
+    occurredAt,
+    occurredOn: occurredAt.slice(0, 10),
+    type: 'event',
+    body,
+    subjectiveSignal: 'mixed',
+    createdAt: occurredAt,
+  };
+}
+
+describe('the offline reading', () => {
+  it('leaves the first record as a dot (§31)', () => {
+    const result = analyzeLocally({
+      logId: 'first',
+      type: 'event',
+      body: '初めて自分の企画を友達に見せた',
+      subjectiveSignal: 'positive',
+      occurredAt: '2026-05-01T09:00:00Z',
+      history: [],
+    });
+    expect(result.progressions).toEqual([]);
+    expect(result.analysis.eventSummary).toContain('企画');
+  });
+
+  it('connects a second record that overlaps the first', () => {
+    const history = [entry('a', '自分の企画を友達に見せた', '2026-05-01T09:00:00Z')];
+    const result = analyzeLocally({
+      logId: 'b',
+      type: 'event',
+      body: '企画を初対面の人にも見せた',
+      subjectiveSignal: 'positive',
+      occurredAt: '2026-06-01T09:00:00Z',
+      history,
+    });
+    expect(result.progressions).toHaveLength(1);
+    expect(result.progressions[0]?.evidence.map((e) => e.logId)).toContain('a');
+    expect(result.progressions[0]?.evidence.map((e) => e.logId)).toContain('b');
+  });
+
+  it('does not connect two unrelated records', () => {
+    const history = [entry('a', '歯医者に行った', '2026-05-01T09:00:00Z')];
+    const result = analyzeLocally({
+      logId: 'b',
+      type: 'event',
+      body: '企画書を書いた',
+      subjectiveSignal: 'mixed',
+      occurredAt: '2026-06-01T09:00:00Z',
+      history,
+    });
+    expect(result.progressions).toEqual([]);
+  });
+
+  it('never claims a direction it cannot see', () => {
+    const history = [entry('a', '企画を見せた', '2026-05-01T09:00:00Z')];
+    const result = analyzeLocally({
+      logId: 'b',
+      type: 'event',
+      body: '企画をまた見せた',
+      subjectiveSignal: 'positive',
+      occurredAt: '2026-06-01T09:00:00Z',
+      history,
+    });
+    // No from/to and no summary: this path matched strings, it did not read.
+    expect(result.progressions[0]?.summary).toBe('');
+    expect(result.progressions[0]?.fromState).toBeUndefined();
+    expect(result.analysis.confidence).toBeLessThanOrEqual(0.3);
+  });
+
+  it('reads a thought as exploration rather than an attempt', () => {
+    const result = analyzeLocally({
+      logId: 'x',
+      type: 'thought',
+      body: '人に自分の企画を見せるのが怖い',
+      subjectiveSignal: 'negative',
+      occurredAt: '2026-04-01T09:00:00Z',
+      history: [],
+    });
+    expect(result.analysis.journeyRole).toBe('setback');
+  });
 });
 
-describe('the reading with no model attached', () => {
-  it('leaves a setback as a setback', () => {
-    expect(localJourneyRole('friction', '共有した企画に、ほとんど反応がなかった。')).toBe('setback');
-  });
-
-  it('quotes the record instead of summarising it', () => {
-    expect(localEventSummary('骨組みを書き出した。そのあと少し直した。')).toBe('骨組みを書き出した');
-  });
-
-  it('reads nothing into a single ordinary record', () => {
-    const result = analyzeLocally({
-      logId: 'l1',
-      inputCategory: 'moved',
-      body: '常設展を見に行った。',
-      occurredAt: '2026-09-05T21:00:00.000Z',
-      history: [],
-    });
-    expect(result.gains).toEqual([]);
-    expect(result.analysis.gainStatus).toBe('unresolved');
-  });
-
-  it('will not turn a first failure into a lesson', () => {
-    const result = analyzeLocally({
-      logId: 'l1',
-      inputCategory: 'friction',
-      body: '説明が長くなってしまった。',
-      occurredAt: '2026-09-05T21:00:00.000Z',
-      history: [],
-    });
-    expect(result.gains).toEqual([]);
-    expect(result.analysis.journeyRole).toBe('neutral');
-  });
-
-  it('names a repeated word as a direction, never as a preference about the person', () => {
-    const result = analyzeLocally({
-      logId: 'l3',
-      inputCategory: 'moved',
-      body: '小さなチームで作る時間が続いた。',
-      occurredAt: '2026-09-05T21:00:00.000Z',
-      history: [entry('l1', '小さなチームの打ち合わせ。'), entry('l2', '小さなチームで試作した。')],
-    });
-    const direction = result.gains.find((g) => g.type === 'direction');
-    expect(direction).toBeTruthy();
-    expect(direction?.maturity).toBe('emerging');
-    expect(direction?.label).not.toContain('好き');
-  });
-
-  it('records something that was done as evidence, not as a skill', () => {
-    const result = analyzeLocally({
-      logId: 'l1',
-      inputCategory: 'progress',
-      body: 'はじめてイベントを開催した。',
-      occurredAt: '2026-09-05T21:00:00.000Z',
-      history: [],
-    });
-    const evidence = result.gains.find((g) => g.type === 'evidence');
-    expect(evidence).toBeTruthy();
-    expect(evidence?.maturity).toBe('attempt');
-    expect(result.gains.some((g) => g.type === 'capability')).toBe(false);
+describe('surfaceTerms', () => {
+  it('drops particles that would relate every record to every other', () => {
+    const terms = surfaceTerms('これをしたことがある');
+    expect(terms).not.toContain('した');
+    expect(terms).not.toContain('こと');
   });
 });

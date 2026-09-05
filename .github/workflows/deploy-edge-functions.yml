@@ -21,7 +21,7 @@ on:
       llm_model:
         description: 'Model id passed to the provider'
         type: string
-        default: claude-sonnet-4-5
+        default: claude-sonnet-5
 
 concurrency:
   group: deploy-edge-functions
@@ -115,11 +115,11 @@ jobs:
           supabase secrets set --project-ref "$PROJECT_REF" --env-file functions.env
           rm -f functions.env
 
-      - name: Deploy analyze-log
-        run: supabase functions deploy analyze-log --project-ref "$PROJECT_REF"
+      - name: Deploy analyze-entry
+        run: supabase functions deploy analyze-entry --project-ref "$PROJECT_REF"
 
-      - name: Deploy month-review
-        run: supabase functions deploy month-review --project-ref "$PROJECT_REF"
+      - name: Deploy month-progressions
+        run: supabase functions deploy month-progressions --project-ref "$PROJECT_REF"
 
       - name: Summary
         run: |
@@ -128,6 +128,6 @@ jobs:
             echo ""
             echo "| Function | Provider | Model |"
             echo "| --- | --- | --- |"
-            echo "| analyze-log | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
-            echo "| month-review | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
+            echo "| analyze-entry | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
+            echo "| month-progressions | ${{ inputs.llm_provider }} | ${{ inputs.llm_model }} |"
           } >> "$GITHUB_STEP_SUMMARY"
