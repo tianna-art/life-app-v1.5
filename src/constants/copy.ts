@@ -7,8 +7,9 @@ export const HOME = {
   // There is no heading. §8 wants the app to open one tap from recording, and
   // a line naming the screen you are already looking at is one more thing to
   // read before the first tap. The two labels below are the whole prompt.
+  date: 'いつのこと？',
   level1: '出来事のカテゴリ',
-  level2: 'どんな瞬間だった？',
+  level2: '感情のカテゴリ',
   /** Placeholder for the optional answer. Says plainly that it is optional. */
   answerPlaceholder: '答えなくても保存できます',
   save: '保存',

@@ -26,12 +26,17 @@ import type { LogType, Mirror, MomentTag, NewLogInput } from '@/types';
  * button, no list of past records competing for attention, and no analysis on
  * this screen.
  *
- * The month plate steps backwards through the year. What it changes is what is
- * being read — that month's theme, and a way into its reading — never where a
- * record goes: a record always belongs to today, and the composer is only
- * shown on the current month for that reason. Letting someone write into a
- * month they are looking at would silently backdate their evidence, and the
- * whole model rests on records being in the order they happened.
+ * The month plate steps backwards through the year, and the composer goes
+ * with it. It used to be hidden on any month but this one, because a record
+ * always went to today and writing into a month you were merely looking at
+ * would have silently backdated it — and the whole model rests on records
+ * being in the order they happened.
+ *
+ * Naming the day is what makes the other months safe to write into. The
+ * composer opens on today in this month and on the first of any other, the
+ * day is on screen above everything else, and days ahead of today are not
+ * offered. Backdating is now something the person does deliberately and can
+ * see, which is a different thing from the screen doing it for them.
  */
 export default function LogScreen() {
   const router = useRouter();
@@ -109,6 +114,13 @@ export default function LogScreen() {
 
   const themeLine = monthTheme?.initialTheme ?? monthReview?.title ?? '';
 
+  const today = now.toISOString().slice(0, 10);
+  // Today in this month; the first of any other, since there is no "today"
+  // in a month that is not the one we are in.
+  const defaultDay = viewingNow ? today : `${monthKey}-01`;
+  // A month already behind us offers all of its days; this one stops at today.
+  const latestDay = viewingNow ? today : undefined;
+
   return (
     <Screen>
       <KeyboardAvoidingView
@@ -138,43 +150,40 @@ export default function LogScreen() {
             {themeLine ? <Text style={styles.monthTheme}>{themeLine}</Text> : null}
           </View>
 
-          {viewingNow ? (
-            <>
-              <View style={styles.breath} />
+          <View style={styles.breath} />
 
-              <DailyComposer
-                onSave={handleSave}
-                onNeedQuestion={handleNeedQuestion}
-                saving={createLog.isPending}
-              />
+          <DailyComposer
+            monthKey={monthKey}
+            defaultDay={defaultDay}
+            latestDay={latestDay}
+            onSave={handleSave}
+            onNeedQuestion={handleNeedQuestion}
+            saving={createLog.isPending}
+          />
 
-              <MirrorCard
-                mirror={mirror}
-                onDismiss={() => setMirror(null)}
-                onOpenProgression={openProgression}
-              />
+          <MirrorCard
+            mirror={mirror}
+            onDismiss={() => setMirror(null)}
+            onOpenProgression={openProgression}
+          />
 
-              {showMonthComplete ? (
-                <MonthCompleteLine
-                  monthKey={previousMonth}
-                  onPress={(key) => router.push(`/month/${key}`)}
-                />
-              ) : null}
-            </>
-          ) : (
-            // A past month is somewhere to look, not somewhere to write into.
-            <View style={styles.past}>
-              <Text style={styles.pastNotice}>{LABELS.pastMonthNotice}</Text>
-              <Text
-                testID="back-to-this-month"
-                onPress={() => setMonthKey(thisMonth)}
-                accessibilityRole="button"
-                accessibilityLabel={LABELS.thisMonth}
-                style={styles.backToNow}
-              >
-                {LABELS.thisMonth}
-              </Text>
-            </View>
+          {showMonthComplete ? (
+            <MonthCompleteLine
+              monthKey={previousMonth}
+              onPress={(key) => router.push(`/month/${key}`)}
+            />
+          ) : null}
+
+          {viewingNow ? null : (
+            <Text
+              testID="back-to-this-month"
+              onPress={() => setMonthKey(thisMonth)}
+              accessibilityRole="button"
+              accessibilityLabel={LABELS.thisMonth}
+              style={styles.backToNow}
+            >
+              {LABELS.thisMonth}
+            </Text>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -198,9 +207,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   breath: { height: spacing.lg },
-  past: { paddingTop: spacing.xxl, gap: spacing.md, alignItems: 'center' },
-  pastNotice: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   backToNow: {
+    alignSelf: 'center',
     fontFamily: fonts.sans,
     fontSize: 14,
     letterSpacing: 1.2,
