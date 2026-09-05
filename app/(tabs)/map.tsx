@@ -137,6 +137,16 @@ export default function MapScreen() {
           <Text style={styles.plate}>{formatMonthEyebrow(monthKey)}</Text>
           {review?.title ? <Text style={styles.reviewTitle}>{review.title}</Text> : null}
         </View>
+
+        {/* Why the month opens where it does, reasoned back from the year's
+            direction. Under the month's own name rather than under the point
+            it is about: it is a sentence about this month, and on the canvas
+            it had to compete with the title it sat beneath. */}
+        {monthMap?.leadReason ? (
+          <Text testID="month-lead-reason" style={styles.leadReason}>
+            {monthMap.leadReason}
+          </Text>
+        ) : null}
       </TopBar>
 
       <GestureDetector gesture={pan}>
@@ -179,6 +189,13 @@ const styles = StyleSheet.create({
   strip: { alignSelf: 'stretch' },
   plateRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: spacing.md },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
+  leadReason: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 19,
+    textAlign: 'center',
+    color: colors.ivoryDim,
+  },
   reviewTitle: {
     fontFamily: fonts.serif,
     fontSize: 13,

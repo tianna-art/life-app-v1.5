@@ -122,13 +122,6 @@ export function RadialProgressionMap({
             {/* NEW is a fact about when, not a score. There is no counterpart
                 label for the others, because "not new" is not information. */}
             {node.isNew ? <Text style={styles.new}>{LABELS.new}</Text> : null}
-
-            {/* Under the point, and only on the one the month opens with. */}
-            {node.summary ? (
-              <Text numberOfLines={3} style={styles.summary}>
-                {node.summary}
-              </Text>
-            ) : null}
           </View>
         </Pressable>
       ))}
@@ -177,13 +170,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 2.4,
     color: colors.brassDim,
-  },
-  summary: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    lineHeight: 15,
-    textAlign: 'center',
-    color: colors.ivoryFaint,
   },
   stepHit: { position: 'absolute', width: 32, height: 32 },
 });

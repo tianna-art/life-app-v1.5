@@ -38,11 +38,6 @@ export interface ProgressionNode {
   id: string;
   /** The person's own words. Never a type name. */
   title: string;
-  /**
-   * Shown under the leading point only. One point carries the reason the
-   * month starts where it starts; the rest would turn the sky into a page.
-   */
-  summary?: string | undefined;
   x: number;
   y: number;
   r: number;
@@ -301,12 +296,6 @@ export function buildProgressionGraph({
     nodes.push({
       id: item.progression.id,
       title: item.progression.title,
-      // Only the first point explains itself. §13 forbids telling someone
-      // they have changed, so this says why the month opens here, and the
-      // other four are left to be read.
-      ...(index === 0 && (lead?.leadReason || item.progression.summary)
-        ? { summary: lead?.leadReason || item.progression.summary }
-        : {}),
       x,
       y,
       r: radiusFor(weight),
