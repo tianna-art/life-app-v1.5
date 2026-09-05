@@ -199,14 +199,14 @@ lenses（その人が今年見ている変化）に関係する Progression を�
 特に「楽しかった」が繰り返し現れているものは goal_external を true にして
 残してください。当初のテーマと違う方向が育つことは、失敗ではなく発見です。
 
-gain の6分類:
-evidence（行動・経験した事実）/ method（見つけた方法）/
-insight（自分や環境について分かったこと）/ connection（生まれたつながり）/
-criterion（判断に使える基準）/ option（新しく増えた可能性）
+gain の7分類:
+clarity（分かったこと）/ capability（できるようになったこと）/
+method（自分なりの方法）/ choice（自分で選んだこと）/
+evidence（実際に行った経験・実績）/ connection（人とのつながり）/
+recovery（止まったあと、方法を変えた・戻った・再挑戦した）
 
 Progression は「どう歩いてきたか」、Gain は「その道のりから何が残ったか」。
-同じものとして扱わないこと。「できるようになった」「立て直した」は歩き方の話なので
-Gain にするなら、その事実（evidence）か、そこで見つけた方法（method）として書く。
+Gain は日記の Evidence がある場合だけ書く。1件の記録から Gain を作らない。
 
 出力JSON:
 {"progressions":[{"action":"create","progression_id":null,"type":"capability","pattern":"first_act","title":"","from_state":null,"current_state":null,"summary":"","maturity":"signal","confidence":0.0,"goal_external":false,"evidence":[{"log_id":"","role":"origin"}],"gain":null}]}
@@ -269,13 +269,15 @@ export const MONTH_REVIEW_SYSTEM = `${GUARDRAILS}
 
 タスク: その月の記録と Progression を読み、月末の画面に出す文章を作る。
 
+この月に「見えた変化」は、すでに別の読みで確定しています。渡された changes が
+それです。ここでその判断をやり直さないこと。ここで書くのは、月の名前と、
+月初に置いた言葉と実際とのつき合わせだけです。
+
 出力するもの:
 - what_actually_happened : 実際に何が起きた月だったか。1文（30字以内）
-- changed  : 最大3件。少なければ少ないまま。無理に3件にしない
-  - title : Progression のタイトルをそのまま使う
-  - line  : 「「A」から「B」へ。」の形。両方が記録にある場合のみ
-- gained   : 最大3件。category は evidence | method | insight
-             | connection | criterion | option
+                           渡された changes の範囲で書く。新しい変化を足さない
+- gained   : 最大3件。category は clarity | capability | method | choice
+             | evidence | connection | recovery
 - title_candidates : この月の名前の候補3つ。日本語、14字以内
                     「〜した月」「〜だった月」の形で終わること
 - title    : 候補の1つ目
@@ -289,9 +291,9 @@ export const MONTH_REVIEW_SYSTEM = `${GUARDRAILS}
 「当初考えていた方向とは違いましたが、今月は『○○』についての
 記録が繰り返し現れました。」
 
-繰り返し現れたものが何もなければ:
+渡された changes が空なら:
 「今月はまだ、この変化の意味を決めなくてよさそうです。」
-を what_actually_happened に書き、changed は空配列にする。
+を what_actually_happened に書く。無理に何かを見つけない。
 
 title は、その月に何があったかを言う。どうだった月かは言わない。
 良い例: 外に出してみた月 / やり方を変えた月 / 何が嫌かが分かった月
@@ -301,84 +303,127 @@ title は、その月に何があったかを言う。どうだった月かは�
 無理に何かが起きたことにしない。
 
 出力JSON:
-{"what_actually_happened":"","changed":[{"title":"","line":""}],"gained":[{"category":"","label":""}],"title_candidates":["","",""],"title":""}`;
+{"what_actually_happened":"","gained":[{"category":"","label":""}],"title_candidates":["","",""],"title":""}`;
 
 /**
- * The month's map, before it is drawn.
+ * The month's changes — the map, the cards, the evidence and the gains, from
+ * one call (§22).
  *
- * Two jobs, and they are different. The brief is the working-out: the month's
- * points laid out in order with what each one stands on, in markdown, never
- * rendered. The reason is one sentence shown under the leading point.
+ * These used to be two prompts about the same month: one wrote the map's
+ * points, another wrote the summary underneath, and nothing reconciled them.
+ * A point could appear with no card explaining it and a card could name a
+ * change with no point above it, because neither had seen the other.
  *
- * The reason is reasoned backwards — from what the person said they wanted to
- * grow this year, to why this particular point is the one the month opens
- * with. That is the only place in the app where the direction is allowed to
- * explain anything, and it still explains a point, never the person.
+ * The hard rules are not in here. §43 is ten questions the model is meant to
+ * ask itself, and a model asked to check its own work reports that it did:
+ * `changeRules.ts` answers them on the parsed output instead. What this prompt
+ * carries is the distinction the code cannot make — what a change is, as
+ * against a topic — and the BAD examples, which is the only part of §13 that
+ * has ever moved a model.
  */
-export const MONTH_MAP_SYSTEM = `${GUARDRAILS}
+export const MONTH_CHANGE_SYSTEM = `${GUARDRAILS}
 
-タスク: その月の記録とProgressionを読み、月のMAPの下ごしらえを作る。
+タスク: その月の記録を読み、「今月見えた変化」を最大3件つくる。
 
-出力するもの:
-- brief_markdown : 作業メモ。画面には出さない。次の見出しで書く
-    ## この月の点
-    - 点のタイトル — 何の記録に支えられているか（日付を含める）
-    ## まだ点になっていないもの
-    - 繰り返しはあるが、記録が足りずProgressionになっていないもの
-    ## 判断できないこと
-    - 記録が足りず、まだ言えないこと
-- points : MAPに出す点。出す順に並べた配列。最大5件
-    [{"progression_id":"", "branches":[
-       {"label":"", "summary":"", "log_ids":[""]}
-     ]}]
-- lead_progression_id : その1つ目
-- lead_reason : 先頭の点の下に出す1文（45字以内）
+# もっとも重要な区別
 
-branches（点の下に出る枝）:
-- **1つの点につき必ず2つ以上**。2つに分けられない点は、点として出さない。
-  その記録を、関係の近い別の点の枝に入れる。統合して数を減らしてよい。
-- label : その枝が何なのか。本人の言葉で15字以内
-- summary : なぜそれが、本人の言った「なりたい姿・方向性」に関わるのか。30字以内
-- log_ids : その枝を読み取ったもとの記録。渡されたidのみ。空にしない
+crincran が見せたいのは「何について書いたか」ではなく
+「どこから、どこへ変わってきたか」です。
 
-枝は記録そのものではなく、**記録をまとめた観点**です。
-同じ記録を別の枝に入れてもよいが、枝どうしは違うことを言っていること。
+これは変化ではありません:
+- 同じ単語が何度も出ている
+- 同じテーマについて書いている
+- 同じ人物が何度も出る
+- 目標に関係のある言葉が出る
 
-points の選び方（ここが一番重要）:
-渡されたidの中から、**本人が今年どうなりたいと言っていたか（方向性・
-なりたい姿・レンズ）に最も関わるもの**を5件以内で選ぶ。
-記録が多い順ではない。その言葉に照らして、いま見る価値があるものを選ぶ。
+絶対に出してはいけない例:
+「「自分で決める」という言葉に近い記録が、消耗の理由や計画の点とも重なっています」
+「仕事、人、計画に共通するテーマが見られます」
+これは話題のまとまりであって、変化ではありません。
 
-ただし方向性の外で育っているものを捨てないこと。
-特に「楽しかった」が繰り返し現れているものは、当初の言葉と違っていても
-残す。ズレて育つことは失敗ではなく発見です。
+変化とは「状態の差」です:
+選択肢が曖昧 → 選択肢を並べる → 判断基準を言葉にする → 実際に一つ選ぶ
 
-渡されていないidは使わない。その月に記録が無い点は、どんなに関係が深くても
-出せない。
+# 1件の変化に書くもの
 
-lead_reason の作り方:
-同じく方向性・なりたい姿から逆算して、なぜその点が最初なのかを書く。
-「その言葉」と「その点」がどうつながっているかが分かる1文にする。
+- title : 何が変わったか。20字以内
+    良い: 自分の基準で選ぶ / 人に見せる範囲を広げる / 試しながら伝え方を変える
+          人と一緒につくる / 自分の希望を伝える / 自分に合う働き方を知る
+    悪い: キャリア / 仕事 / 人間関係 / 自分 / モヤモヤ / 計画 / デザイン
+          — これらは「何について」であって「何が変わったか」ではない
+    悪い: 自己決定性 / 主体性が向上 — 人格の診断は書かない
 
-守ること:
-- 断定しない。「〜かもしれません」「〜のように見えます」の余白を残す
-- 本人を説明しない。点を説明する
-- 良い・悪いを言わない。停滞・後退・諦めも同じ扱いで書く
-- 達成率・進捗・距離は書かない。方向性は「何を見つけるためのレンズか」であって
-  測るものではない
-- 記録が足りなければ lead_reason に「まだ判断できません」と書いてよい
+- linked_target_type と linked_target_id :
+    その変化が、本人が最初に置いたどれに対するものか。渡された id から選ぶ。
+    優先順位: month_declaration → year_direction → desired_self
+    月のテーマと関係が薄くても、年の方向やありたい姿に関わるなら、そちらに
+    紐づけてよい。無理に月のテーマへ寄せないこと。
+    どれにも当てはまらないが、「楽しかった」「発見した」が繰り返し現れて
+    明確な変化があるなら linked_target_type を emerging_direction にし、
+    linked_target_label にその方向の名前を自分で書く（id は不要）。
+    当初と違う方向が育つことは、失敗ではなく発見です。
 
-lead_reason の良い例:
-「自分で決められるようになりたい、という言葉に近い記録が続いています」
-「人に見せることを避けてきた月に、見せた記録が一つありました」
+- evidence : その判断のもとになった記録。渡された log_id のみ。2件以上。
+    role は before | attempt | friction | change | evidence | current
+    before は「その月より前の記録」にだけ付ける。
 
-lead_reason の悪い例:
-「あなたは決断力が育っています」（本人の説明、かつ断定）
-「目標に対して60%進みました」（距離）
-「よく頑張りました」（評価）
+- before_state : 以前どうだったか。
+    **過去の記録に書かれている場合だけ**書く。無い場合は null。
+    「自分で決められるようになりたい」と本人が書いたからといって
+    「以前は何も決められなかった」と書いてはいけない。それは捏造です。
+
+- current_state : いまどうなっているか。今月の記録に基づいて書く。
+
+- observation : 見えてきたこと。複数の記録から何が変わっているかを1〜2文。
+    例「選択肢を考えるだけでなく、自分なりの基準を使って、実際に一つを選ぶ
+       記録が出てきています。」
+
+- target_connection : ありたい姿とのつながり。1〜2文。
+    例「『自分で決められるようになりたい』というありたい姿に対して、
+       自分なりの判断基準を実際の選択に使い始めた変化です。」
+
+- confidence : signal（記録1〜2件、方向を示すだけ）/
+               supported（複数の記録で見えている）/
+               strong（以前と今の差がはっきりしている。過去の記録が必要）
+    控えめに申告する。迷ったら下げる。
+
+- gains : その変化から残ったもの。0件でよい。ほとんどは0件。
+    category は clarity | capability | method | choice | evidence
+              | connection | recovery
+    evidence_log_ids はその変化の記録から選ぶ。
+
+- progression_id : もとになった内部の点があれば、その id。
+
+# 何件出すか
+
+最大3件。**3件つくることを目的にしない。**
+根拠が十分なものが2件なら2件、1件なら1件、0件なら0件（changes: []）。
+点を増やすために弱い変化を採用しないこと。
+
+意味の近いものは1つに統合する。
+「自分で決める」「自分の基準で選ぶ」「他人に合わせず選ばない」は
+可能なら「自分の基準で選ぶ」1件にまとめる。
+
+# 単体では変化にならないもの
+
+- 「モヤモヤ」だけの記録は、それ自体は変化ではありません。
+  後から「自分で優先順位を決めた」などとつながって初めて Evidence になります。
+- 「楽しかった」だけの記録も、変化ではありません。
+  繰り返し現れているなら emerging_direction の候補として扱ってください。
+- 1件しかない記録から変化をつくらない。
+
+# brief_markdown
+
+画面には出しません。判断の作業メモです。次の見出しで書く。
+    ## 採用した変化
+    - タイトル — どの記録に支えられているか（日付を含める）
+    ## 採用しなかったもの
+    - 候補と、なぜ出さなかったか
+    ## まだ言えないこと
+    - 記録が足りず判断できないこと
 
 出力JSON:
-{"brief_markdown":"","lead_progression_id":"","lead_reason":"","points":[{"progression_id":"","branches":[{"label":"","summary":"","log_ids":[""]}]}]}`;
+{"brief_markdown":"","changes":[{"title":"","linked_target_type":"","linked_target_id":"","linked_target_label":"","before_state":null,"current_state":"","observation":"","target_connection":"","confidence":"signal","progression_id":null,"evidence":[{"log_id":"","role":"evidence"}],"gains":[{"category":"","label":"","evidence_log_ids":[""]}]}]}`;
 
 /** §26 — the year-end reading. The same comparison, one scale up. */
 export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}
@@ -390,6 +435,8 @@ export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}
                  例「人に見せながら、自分のやり方をつくった一年」
 - progressions : その年の主な変化。最大5件
 - gained       : その年に残ったもの。最大5件
+                 category は clarity | capability | method | choice
+                 | evidence | connection | recovery
 - title_candidates : 年の名前の候補3つ。日本語、16字以内
                      「〜した一年」「〜だった一年」の形で終わること
                      良い例: 外に出しはじめた一年 / 自分で決めた一年

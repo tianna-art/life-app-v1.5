@@ -76,12 +76,13 @@ export type JourneyRole =
   | 'neutral';
 
 export type GainCategory =
-  | 'evidence'
+  | 'clarity'
+  | 'capability'
   | 'method'
-  | 'insight'
+  | 'choice'
+  | 'evidence'
   | 'connection'
-  | 'criterion'
-  | 'option';
+  | 'recovery';
 
 export const LOG_TYPES: readonly LogType[] = ['self_action', 'relationship', 'thought'] as const;
 
@@ -147,26 +148,31 @@ export const JOURNEY_ROLES: readonly JourneyRole[] = [
 ] as const;
 
 export const GAIN_CATEGORIES: readonly GainCategory[] = [
-  'evidence',
+  'clarity',
+  'capability',
   'method',
-  'insight',
+  'choice',
+  'evidence',
   'connection',
-  'criterion',
-  'option',
+  'recovery',
 ] as const;
 
 /**
- * Where a gain written before 2026-09 belongs now.
+ * Where a gain written under the six-category reading belongs now.
  *
- * The rows were moved by migration, but a reading stored earlier can still
- * arrive here through cached JSON, and a category the app no longer knows
- * would be dropped rather than shown.
+ * §32 names seven kinds, and the six that briefly replaced them collapsed two
+ * distinctions the spec keeps: what someone can now do, and getting going
+ * again after stopping. The mapping back is one-way and lossy — `evidence`
+ * absorbed both `capability` and `recovery`, so rows that went that way cannot
+ * be told apart again and stay where they are until a reading rewrites them.
+ *
+ * The three names are still resolved rather than dropped: a category the app
+ * no longer knows would silently lose a gain the person was shown once.
  */
 const RETIRED_GAIN_CATEGORIES: Record<string, GainCategory> = {
-  clarity: 'insight',
-  capability: 'evidence',
-  choice: 'criterion',
-  recovery: 'evidence',
+  insight: 'clarity',
+  criterion: 'choice',
+  option: 'clarity',
 };
 
 export function resolveGainCategory(value: unknown): GainCategory | undefined {

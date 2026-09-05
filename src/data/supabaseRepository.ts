@@ -8,9 +8,12 @@ import type {
   LogType,
   LogWithAnalysis,
   MomentTag,
+  Change,
+  ChangeEvidenceEntry,
+  ChangeEvidenceRole,
+  ChangeConfidence,
+  ChangeTargetType,
   MonthProgression,
-  MonthMap,
-  MonthMapPoint,
   MonthReview,
   MonthReviewChange,
   MonthReviewGain,
@@ -34,10 +37,47 @@ import { requireSupabase } from '@/lib/supabase';
 import { monthRange } from '@/utils/period';
 import { logTypeForLegacy } from '@/constants/log';
 import { maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progressionRules';
+import { resolveGainCategory } from '@/ai/progressionRules';
 import type { Repository } from './repository';
 
 const LOG_COLUMNS =
   'id, user_id, occurred_on, occurred_at, type, moment_tags, ai_question, optional_answer, body, created_at';
+
+const CHANGE_COLUMNS =
+  'id, user_id, period_type, year, month, title, linked_target_type, linked_target_id, ' +
+  'linked_target_label, before_state, current_state, observation, target_connection, ' +
+  'confidence, position, progression_id, verdict, user_edited, created_at, updated_at';
+
+interface ChangeRow {
+  id: string;
+  user_id: string;
+  period_type: 'month' | 'year' | 'long_term';
+  year: number;
+  month: number | null;
+  title: string;
+  linked_target_type: ChangeTargetType;
+  linked_target_id: string | null;
+  linked_target_label: string | null;
+  before_state: string | null;
+  current_state: string | null;
+  observation: string | null;
+  target_connection: string | null;
+  confidence: ChangeConfidence;
+  position: number;
+  progression_id: string | null;
+  verdict: ProgressionVerdict | null;
+  user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChangeEvidenceRow {
+  change_id: string;
+  log_id: string;
+  role: ChangeEvidenceRole;
+  occurred_at: string;
+  position: number;
+}
 const REVIEW_COLUMNS =
   'period_key, initial_theme, what_actually_happened, progressions, gained, title_candidates, title, subtitle, created_at';
 const YEAR_REVIEW_COLUMNS =
@@ -110,7 +150,8 @@ interface EvidenceRow {
 
 interface GainRow {
   id: string;
-  progression_id: string;
+  change_id: string | null;
+  progression_id: string | null;
   category: GainCategory | null;
   label: string;
   description: string | null;
@@ -224,10 +265,12 @@ function mapProgression(row: ProgressionRow, evidenceCount = 0): Progression {
 function mapGain(row: GainRow): Gain {
   return {
     id: row.id,
-    progressionId: row.progression_id,
-    // v3 rows predate the seven categories; `evidence` is the widest of them
-    // and the only one that claims nothing beyond "this happened".
-    category: row.category ?? 'evidence',
+    ...(row.change_id ? { changeId: row.change_id } : {}),
+    ...(row.progression_id ? { progressionId: row.progression_id } : {}),
+    // A row written under the six-category reading still resolves; one written
+    // before categories existed falls back to `evidence`, the only name that
+    // claims nothing beyond "this happened".
+    category: resolveGainCategory(row.category) ?? 'evidence',
     label: row.label,
     description: row.description ?? undefined,
     confidence: row.confidence,
@@ -704,29 +747,132 @@ export class SupabaseRepository implements Repository {
   // Month & year
   // -------------------------------------------------------------------------
 
-  async getMonthMap(periodKey: string): Promise<MonthMap | null> {
-    const { data, error } = await this.client
-      .from('month_maps')
-      .select('period_key, lead_progression_id, lead_reason, points, updated_at')
-      .eq('period_key', periodKey)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
+  /**
+   * One month's published changes — the map's points and the cards under them.
+   *
+   * Four reads and no second opinion: the rows, the records they cite, the
+   * text of those records, and whatever settled out of them. The card prints
+   * the record as it was written (§26), so the log's own answer is what comes
+   * back rather than the model's summary of it.
+   */
+  async listMonthChanges(monthKey: string): Promise<Change[]> {
+    const year = Number(monthKey.slice(0, 4));
+    const month = Number(monthKey.slice(5, 7));
 
-    const row = data as {
-      period_key: string;
-      lead_progression_id: string | null;
-      lead_reason: string | null;
-      points: unknown;
-      updated_at: string;
-    };
-    return {
-      periodKey: row.period_key,
-      ...(row.lead_progression_id ? { leadProgressionId: row.lead_progression_id } : {}),
-      leadReason: row.lead_reason ?? '',
-      points: readMonthMapPoints(row.points),
-      generatedAt: row.updated_at,
-    };
+    const { data: changeRows, error: changeError } = await this.client
+      .from('changes')
+      .select(CHANGE_COLUMNS)
+      .eq('period_type', 'month')
+      .eq('year', year)
+      .eq('month', month)
+      .order('position', { ascending: true });
+    if (changeError) throw changeError;
+
+    const changes = (changeRows ?? []) as unknown as ChangeRow[];
+    if (changes.length === 0) return [];
+
+    const ids = changes.map((c) => c.id);
+    const [{ data: evidenceRows, error: evidenceError }, { data: gainRows, error: gainError }] =
+      await Promise.all([
+        this.client
+          .from('change_evidence')
+          .select('change_id, log_id, role, occurred_at, position')
+          .in('change_id', ids)
+          .order('position', { ascending: true }),
+        this.client.from('gains').select('*').in('change_id', ids),
+      ]);
+    if (evidenceError) throw evidenceError;
+    if (gainError) throw gainError;
+
+    const evidence = (evidenceRows ?? []) as ChangeEvidenceRow[];
+    const logIds = [...new Set(evidence.map((row) => row.log_id))];
+    const { data: logs, error: logError } = await this.client
+      .from('logs')
+      .select(LOG_COLUMNS)
+      .in('id', logIds);
+    if (logError) throw logError;
+
+    const logById = new Map(((logs ?? []) as LogRow[]).map((l) => [l.id, l]));
+    const gains = ((gainRows ?? []) as GainRow[]).map(mapGain);
+
+    return changes.map((row) => {
+      const entries: ChangeEvidenceEntry[] = evidence
+        .filter((e) => e.change_id === row.id)
+        .flatMap((e) => {
+          const log = logById.get(e.log_id);
+          if (!log) return [];
+          // The record as written. A card that quoted a paraphrase would be
+          // asking the person to check the reading against the reading.
+          const written = log.optional_answer ?? log.body ?? '';
+          return [
+            {
+              logId: log.id,
+              occurredOn: log.occurred_on,
+              role: e.role,
+              text: written,
+              logType: logTypeForLegacy(log.type),
+              momentTags: log.moment_tags ?? [],
+            },
+          ];
+        })
+        .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        periodType: row.period_type,
+        year: row.year,
+        ...(row.month === null ? {} : { month: row.month }),
+        title: row.title,
+        linkedTargetType: row.linked_target_type,
+        ...(row.linked_target_id ? { linkedTargetId: row.linked_target_id } : {}),
+        linkedTargetLabel: row.linked_target_label ?? '',
+        ...(row.before_state ? { beforeState: row.before_state } : {}),
+        currentState: row.current_state ?? '',
+        observation: row.observation ?? '',
+        targetConnection: row.target_connection ?? '',
+        confidence: row.confidence,
+        position: row.position,
+        ...(row.progression_id ? { progressionId: row.progression_id } : {}),
+        ...(row.verdict ? { verdict: row.verdict } : {}),
+        userEdited: row.user_edited,
+        evidence: entries,
+        gains: gains.filter((g) => g.changeId === row.id),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+  }
+
+  /**
+   * 納得した / 少し違う.
+   *
+   * The one thing on this screen the person writes. It is stored beside the
+   * reading rather than over it: a correction is information about the
+   * reading, and losing what was corrected would lose the correction too.
+   */
+  async setChangeVerdict(input: {
+    changeId: string;
+    verdict: ProgressionVerdict;
+  }): Promise<Change> {
+    const { error } = await this.client
+      .from('changes')
+      .update({ verdict: input.verdict, user_edited: input.verdict === 'adjusted' })
+      .eq('id', input.changeId);
+    if (error) throw error;
+
+    const { data, error: readError } = await this.client
+      .from('changes')
+      .select('year, month')
+      .eq('id', input.changeId)
+      .single();
+    if (readError) throw readError;
+
+    const row = data as { year: number; month: number | null };
+    const monthKey = `${row.year}-${String(row.month ?? 1).padStart(2, '0')}`;
+    const updated = (await this.listMonthChanges(monthKey)).find((c) => c.id === input.changeId);
+    if (!updated) throw new Error('change not found after update');
+    return updated;
   }
 
   async getMonthReview(periodKey: string): Promise<MonthReview | null> {
@@ -806,46 +952,3 @@ export class SupabaseRepository implements Repository {
   }
 }
 
-/**
- * The stored shape of a month's points.
- *
- * Read defensively: this is jsonb the model shaped, and a branch with no
- * records behind it is not a branch — it is a sentence with nothing under it,
- * which is the one thing the whole structure exists to prevent.
- */
-function readMonthMapPoints(value: unknown): MonthMapPoint[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((raw) => {
-    if (typeof raw !== 'object' || raw === null) return [];
-    const point = raw as Record<string, unknown>;
-    const progressionId = typeof point.progression_id === 'string'
-      ? point.progression_id
-      : typeof point.progressionId === 'string'
-        ? point.progressionId
-        : null;
-    if (!progressionId) return [];
-
-    const branches = Array.isArray(point.branches)
-      ? point.branches.flatMap((b) => {
-          if (typeof b !== 'object' || b === null) return [];
-          const branch = b as Record<string, unknown>;
-          const label = typeof branch.label === 'string' ? branch.label.trim() : '';
-          const logIds = Array.isArray(branch.log_ids ?? branch.logIds)
-            ? ((branch.log_ids ?? branch.logIds) as unknown[]).filter(
-                (id): id is string => typeof id === 'string'
-              )
-            : [];
-          if (label.length === 0 || logIds.length === 0) return [];
-          return [
-            {
-              label,
-              summary: typeof branch.summary === 'string' ? branch.summary.trim() : '',
-              logIds,
-            },
-          ];
-        })
-      : [];
-
-    return [{ progressionId, branches }];
-  });
-}

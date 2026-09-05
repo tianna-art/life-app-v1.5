@@ -252,30 +252,30 @@ export interface ProgressionStep {
 // ---------------------------------------------------------------------------
 
 /**
- * Seven categories, and confidence is not among them.
+ * The seven kinds of gain (§32), and confidence is not among them.
  *
  * §20 is explicit about why: confidence is what a person feels after seeing
  * this evidence, not a thing the app can hand them.
- */
-/**
- * The six kinds of gain.
  *
- * Progression is how someone walked; Gain is what the walking left them
- * holding. The seven that came before mixed the two — `capability` and
- * `recovery` described the walking — and split one thing across two names.
- * Each of these is something a person is left with.
+ * A gain is never read off a single record (§33). It is what is left over
+ * once a change has been established, so it hangs off the change and not off
+ * the log.
  */
 export type GainCategory =
-  | 'evidence'
+  | 'clarity'
+  | 'capability'
   | 'method'
-  | 'insight'
+  | 'choice'
+  | 'evidence'
   | 'connection'
-  | 'criterion'
-  | 'option';
+  | 'recovery';
 
 export interface Gain {
   id: string;
-  progressionId: string;
+  /** The change it came out of. Never read straight off a record (§33). */
+  changeId?: string | undefined;
+  /** The detection behind it. Kept for gains written before changes existed. */
+  progressionId?: string | undefined;
   category: GainCategory;
   label: string;
   description?: string | undefined;
@@ -294,6 +294,101 @@ export interface ProgressionDetail {
 }
 
 // ---------------------------------------------------------------------------
+// Change — the published reading (§22, §40)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which of the things the person put down at the start this answers to (§14).
+ *
+ * Priority when more than one fits: the month's declaration, then the year's
+ * direction, then a desired-self card. `emerging_direction` is the one that
+ * points outward — what repeated enjoyment outside the stated direction turns
+ * into (§34). It is a discovery, not a miss, and is never marked as one.
+ */
+export type ChangeTargetType =
+  | 'month_declaration'
+  | 'year_direction'
+  | 'desired_self'
+  | 'emerging_direction';
+
+/**
+ * How much the records will carry (§17).
+ *
+ * It decides the wording and nothing else. `signal` says a record points that
+ * way; `supported` says it is visible across several; `strong` is the only one
+ * allowed to say "以前の〜から、最近は〜へ", and it is the only one that needs
+ * a record from before this month to stand on.
+ */
+export type ChangeConfidence = 'signal' | 'supported' | 'strong';
+
+/** What one record does inside a change. */
+export type ChangeEvidenceRole =
+  | 'before'
+  | 'attempt'
+  | 'friction'
+  | 'change'
+  | 'evidence'
+  | 'current';
+
+/**
+ * One published change (§22).
+ *
+ * The map point and the card under it are this, not two things generated
+ * separately and hoped to agree. `title` is printed in both places, `position`
+ * is the order both use, and `evidence` is what the card prints before it says
+ * anything of its own (§27).
+ *
+ * A progression is how the reading found this; a change is what it decided to
+ * show for this month. They have different lifetimes, which is why they are
+ * different objects.
+ */
+export interface Change {
+  id: string;
+  userId: string;
+  periodType: PeriodType;
+  year: number;
+  month?: number | undefined;
+  /** What changed, in the person's words. Never a topic name (§19). */
+  title: string;
+  linkedTargetType: ChangeTargetType;
+  linkedTargetId?: string | undefined;
+  linkedTargetLabel: string;
+  /** Only ever set when a record from before says so (§16). */
+  beforeState?: string | undefined;
+  currentState: string;
+  /** 見えてきたこと — what the records show. */
+  observation: string;
+  /** ありたい姿とのつながり — what that has to do with what they wanted. */
+  targetConnection: string;
+  confidence: ChangeConfidence;
+  /** The order the map and the card list share. */
+  position: number;
+  /** The detection this was read from. Kept so a reading is never orphaned. */
+  progressionId?: string | undefined;
+  verdict?: ProgressionVerdict | undefined;
+  userEdited: boolean;
+  /** Oldest first. Two or more, always (§20, §36). */
+  evidence: ChangeEvidenceEntry[];
+  /** What is left over, if anything has settled (§32). Usually empty. */
+  gains: Gain[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One record the card prints, resolved for display. */
+export interface ChangeEvidenceEntry {
+  logId: string;
+  occurredOn: string;
+  role: ChangeEvidenceRole;
+  /** The record as it was written. Not a paraphrase (§26). */
+  text: string;
+  logType: LogType;
+  momentTags: MomentTag[];
+}
+
+export type PeriodType = 'month' | 'year' | 'long_term';
+
+// ---------------------------------------------------------------------------
 // Month & year (§25, §26)
 // ---------------------------------------------------------------------------
 
@@ -307,43 +402,20 @@ export interface MonthProgression {
 }
 
 /**
- * The working-out behind one month of the map.
+ * The working-out behind one month, kept and never rendered.
  *
- * `leadReason` is the sentence under the leading point — reasoned back from
- * the year's direction, so it says why that point is where the month opens.
- * The markdown brief is not carried to the device: it is the model's own
- * notes, kept so a later reading can see what an earlier one thought.
- */
-/**
- * One thing that happened under a point, in the person's own words.
+ * Markdown notes the reading wrote for itself while deciding which changes to
+ * publish: the candidates, what each stood on, and what it could not yet say.
+ * It is stored so a later pass can see what an earlier one thought, and so a
+ * reading on screen has something behind it other than the model's memory.
  *
- * Not a record — a grouping of them. Records are what was written; a branch
- * is the観点 the month needed them read under, and it names the records it
- * stands on so the reading can always be checked against them.
+ * What the map draws comes from `Change`, not from here (§22). This used to
+ * carry the points and their branches too, which made it a second opinion
+ * about the month that nothing reconciled with the first.
  */
-export interface MonthMapBranch {
-  label: string;
-  /** Why this bears on what the person said they wanted. */
-  summary: string;
-  /** The records it was read from. Never empty. */
-  logIds: string[];
-}
-
-export interface MonthMapPoint {
-  progressionId: string;
-  /**
-   * Two or more, always. A point that cannot be told apart into two things
-   * is not a point of its own — it belongs inside another one.
-   */
-  branches: MonthMapBranch[];
-}
-
-export interface MonthMap {
+export interface MonthBrief {
   periodKey: string;
-  leadProgressionId?: string | undefined;
-  leadReason: string;
-  /** The points the month opens with, in order. */
-  points: MonthMapPoint[];
+  briefMarkdown: string;
   generatedAt: string;
 }
 

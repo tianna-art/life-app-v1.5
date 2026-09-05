@@ -2,6 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  CHANGE_CONFIDENCES,
+  CHANGE_EVIDENCE_ROLES,
+  CHANGE_TARGET_TYPES,
+} from '@/ai/changeRules';
+import {
   EVIDENCE_ROLES,
   GAIN_CATEGORIES,
   JOURNEY_ROLES,
@@ -70,6 +75,9 @@ describe('enum parity', () => {
     ['progression_evidence_role', EVIDENCE_ROLES],
     ['journey_role', JOURNEY_ROLES],
     ['gain_category', GAIN_CATEGORIES],
+    ['change_target_type', CHANGE_TARGET_TYPES],
+    ['change_confidence', CHANGE_CONFIDENCES],
+    ['change_evidence_role', CHANGE_EVIDENCE_ROLES],
   ];
 
   it.each(pairs)('public.%s accepts everything the app writes', (name, values) => {
