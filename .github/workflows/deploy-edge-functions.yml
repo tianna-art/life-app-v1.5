@@ -37,51 +37,69 @@ jobs:
         with:
           version: latest
 
-      - name: Check required secrets
+      - name: Read the secrets
         env:
           ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          missing=()
-          [ -n "$ACCESS_TOKEN" ] || missing+=(SUPABASE_ACCESS_TOKEN)
-          [ -n "$PROJECT_REF" ] || missing+=(SUPABASE_PROJECT_REF)
-          case "${{ inputs.llm_provider }}" in
-            anthropic) [ -n "$ANTHROPIC_API_KEY" ] || missing+=(ANTHROPIC_API_KEY) ;;
-            openai)    [ -n "$OPENAI_API_KEY" ] || missing+=(OPENAI_API_KEY) ;;
+          # These two get crossed and pasted with their URL around them. Take
+          # what was given, work out what it meant, and report every problem
+          # at once — one wrong value per run is a slow way to learn four.
+          token=$(printf '%s' "$ACCESS_TOKEN" | tr -d '[:space:]')
+          ref=$(printf '%s' "$PROJECT_REF" | tr -d '[:space:]')
+
+          case "$ref" in
+            */dashboard/project/*) ref=${ref##*/dashboard/project/}; ref=${ref%%/*}
+                                   echo "note: took the project ref out of the dashboard URL." ;;
+            *://*.supabase.co*)    ref=${ref#*://}; ref=${ref%%.*}
+                                   echo "note: took the project ref out of the project URL." ;;
+            *.supabase.co*)        ref=${ref%%.*}
+                                   echo "note: dropped .supabase.co from the project ref." ;;
           esac
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Missing repository secrets: ${missing[*]}"
-            echo "Add them under Settings > Secrets and variables > Actions."
+
+          if [ "${ref#sbp_}" != "$ref" ] && [ "${token#sbp_}" = "$token" ]; then
+            echo "note: the access token and the project ref were in each other's"
+            echo "      slots. Using them the right way round for this run — but"
+            echo "      please swap them in Settings so this note goes away."
+            swap=$token; token=$ref; ref=$swap
+          fi
+
+          fail=0
+          say() { echo "::error::$1"; fail=1; }
+
+          if [ -z "$token" ]; then
+            say "SUPABASE_ACCESS_TOKEN is not set. Generate one at https://supabase.com/dashboard/account/tokens"
+          elif [ "${token#sbp_}" = "$token" ]; then
+            say "SUPABASE_ACCESS_TOKEN does not start with sbp_. It comes from https://supabase.com/dashboard/account/tokens (Generate new token) — it is not the project ref, the anon key, or the database password."
+          fi
+
+          if [ -z "$ref" ]; then
+            say "SUPABASE_PROJECT_REF is not set. It is the id in your dashboard URL after /project/."
+          elif [ "${ref#sbp_}" != "$ref" ]; then
+            say "SUPABASE_PROJECT_REF holds an access token. It should be the id in your dashboard URL after /project/ — about 20 lowercase letters."
+          elif ! printf '%s' "$ref" | grep -Eq '^[a-z0-9]{15,30}$'; then
+            say "SUPABASE_PROJECT_REF is not shaped like a project ref (expected about 20 lowercase letters and digits). It is the id in your dashboard URL after /project/."
+          fi
+
+          case "${{ inputs.llm_provider }}" in
+            anthropic) [ -n "$ANTHROPIC_API_KEY" ] || say "ANTHROPIC_API_KEY is not set. Get one at https://console.anthropic.com" ;;
+            openai)    [ -n "$OPENAI_API_KEY" ] || say "OPENAI_API_KEY is not set." ;;
+          esac
+
+          if [ "$fail" -ne 0 ]; then
+            echo "Fix these under Settings > Secrets and variables > Actions, then re-run."
             exit 1
           fi
 
-          # The CLI rejects a malformed token only after the deploy has started,
-          # in a log nobody scrolls to. Say it here, with where to get one.
-          case "$ACCESS_TOKEN" in
-            sbp_*) ;;
-            *)
-              echo "::error::SUPABASE_ACCESS_TOKEN must start with sbp_ (this one does not)."
-              echo "Generate one at https://supabase.com/dashboard/account/tokens"
-              echo "It is NOT the project ref, the anon key, or the database password."
-              exit 1
-              ;;
-          esac
-
-          case "$PROJECT_REF" in
-            sbp_*|http*|*.*)
-              echo "::error::SUPABASE_PROJECT_REF looks wrong: it is the bare id from the"
-              echo "dashboard URL after /project/ (about 20 lowercase letters) — not a URL,"
-              echo "not a token."
-              exit 1
-              ;;
-          esac
+          # Hand the cleaned-up values to the steps that follow.
+          echo "SUPABASE_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+          echo "Secrets look right."
 
       - name: Set function secrets
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -98,14 +116,10 @@ jobs:
           rm -f functions.env
 
       - name: Deploy analyze-log
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy analyze-log --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: supabase functions deploy analyze-log --project-ref "$PROJECT_REF"
 
       - name: Deploy month-review
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy month-review --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: supabase functions deploy month-review --project-ref "$PROJECT_REF"
 
       - name: Summary
         run: |
