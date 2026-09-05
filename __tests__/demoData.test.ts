@@ -54,9 +54,44 @@ describe('demo data', () => {
     const areas = new Set(DIRECTION_AREAS.map((a) => a.label));
     const cards = new Set(DESIRED_SELF_CARDS.map((c) => c.label));
     for (const row of setup) {
+      // The declarations are the person's own sentences, not picks from a
+      // list, so there is nothing to look them up against.
+      if (row.kind === '年テーマ' || row.kind === '月テーマ') continue;
       const known = row.kind === '方向性' ? areas : cards;
       expect(known.has(row.label ?? '') || renamed.has(row.label ?? '')).toBe(true);
     }
+  });
+
+  it('declares a year and a month, and writes both (§5, §14)', () => {
+    // §14 looks for the month's declaration first. A demo without one can only
+    // exercise the fallbacks, which demonstrates the wrong thing — and the
+    // reading would attach every change to a desired-self card by default.
+    const yearTheme = setup.find((r) => r.kind === '年テーマ');
+    const monthTheme = setup.find((r) => r.kind === '月テーマ');
+    expect(yearTheme?.label).toBeTruthy();
+    expect(monthTheme?.label).toBeTruthy();
+    expect(monthTheme?.group).toMatch(/^\d{4}-\d{2}$/);
+
+    const sql = read('supabase/demo/demo_data.sql');
+    expect(sql).toContain('insert into public.month_themes');
+    expect(sql).toContain(monthTheme?.label ?? '');
+    expect(sql).toContain(yearTheme?.label ?? '');
+
+    // Neither is a target, so neither may arrive as a final theme: that is
+    // written at the end of the period, next to what actually happened (§38).
+    expect(sql).not.toContain('final_theme = ');
+  });
+
+  it('never writes a declaration over one the person made (§5)', () => {
+    const sql = read('supabase/demo/demo_data.sql');
+    const months = sql.slice(sql.indexOf('insert into public.month_themes'));
+    expect(months).toContain('where public.month_themes.initial_theme is null');
+    expect(months).toContain('and public.month_themes.final_theme is null');
+
+    // And removing the demo takes back only the sentence the demo wrote.
+    const removal = read('supabase/demo/demo_data_remove.sql');
+    expect(removal).toContain('delete from public.month_themes');
+    expect(removal).toContain(setup.find((r) => r.kind === '月テーマ')?.label ?? '');
   });
 
   it('is strictly in the order it happened (§17)', () => {
@@ -93,8 +128,12 @@ describe('demo data', () => {
 
   it('writes evidence and nothing that should be worked out from it', () => {
     const sql = read('supabase/demo/demo_data.sql');
+    // A declaration is evidence — the person said it at the time. A change is
+    // not: it is what the reading makes of the records, and shipping one in a
+    // fixture would make a broken pipeline look like a working one.
     for (const table of ['progressions', 'progression_evidence', 'gains',
-                         'log_ai_analysis', 'month_reviews', 'year_reviews']) {
+                         'log_ai_analysis', 'changes', 'change_evidence',
+                         'month_reviews', 'year_reviews', 'month_maps']) {
       expect(sql).not.toContain(`public.${table}`);
     }
   });

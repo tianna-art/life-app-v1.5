@@ -22,12 +22,19 @@ begin
      );
   get diagnostics removed = row_count;
 
-  -- Only the rows the demo itself wrote. Once a theme or a lens exists the
-  -- row is the person's own and is left where it is.
+  -- Only the rows the demo itself wrote. A theme the demo did not write, a
+  -- final theme, or a lens means the row is the person's own, and it stays.
+  delete from public.month_themes
+   where user_id = uid
+     and (year, month) in ((2026, 9))
+     and final_theme is null
+     and initial_theme in ('次の一歩を選ぶ');
+
   delete from public.year_directions
    where user_id = uid
      and year = any(array[2026])
-     and initial_theme is null
+     and (initial_theme is null
+          or initial_theme in ('自分の基準で、次の働き方を選ぶ'))
      and final_theme is null
      and progression_lenses = '{}';
 
