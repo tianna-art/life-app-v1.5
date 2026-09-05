@@ -59,8 +59,9 @@ export default function MapScreen() {
 
   const { data: monthProgressions } = useMonthProgressions(monthKey);
   const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
-  // The steps are needed by the canvas as soon as a node opens, so the detail
-  // query is keyed on the expanded node rather than on the sheet.
+  // The sheet needs the whole trail — a progression is its records, and §4
+  // asks that every one of them stay reachable — so the detail query is not
+  // scoped to the month even though the canvas is.
   const detail = useProgressionDetail(expandedId);
   const verdict = useProgressionVerdict();
 
@@ -112,7 +113,6 @@ export default function MapScreen() {
   const canvasHeight = Math.max(320, canvasBox?.height ?? height - 260);
 
   const progressions = monthProgressions ?? [];
-  const steps = expandedId ? (detail.data?.steps ?? []) : [];
 
   return (
     <Screen>
@@ -137,7 +137,6 @@ export default function MapScreen() {
               monthKey={monthKey}
               progressions={progressions}
               expandedId={expandedId}
-              expandedSteps={steps}
               width={canvasWidth}
               height={canvasHeight}
               onSelect={handleSelect}
