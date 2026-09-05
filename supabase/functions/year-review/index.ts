@@ -102,7 +102,7 @@ Deno.serve(async (request: Request) => {
         })),
         gains: gains ?? [],
       }),
-      maxTokens: 1200,
+      maxTokens: 2500,
       temperature: 0.4,
     });
 

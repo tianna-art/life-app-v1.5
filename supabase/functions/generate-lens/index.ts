@@ -62,7 +62,7 @@ Deno.serve(async (request: Request) => {
           : [],
         lenses: Array.isArray(body.lenses) ? body.lenses : [],
       }),
-      maxTokens: 500,
+      maxTokens: 900,
       temperature: 0.5,
     });
 
