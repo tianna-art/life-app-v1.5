@@ -27,8 +27,13 @@ describe('demo data', () => {
   const logs = tsv('supabase/demo/logs.tsv');
 
   it('carries the whole spreadsheet', () => {
-    expect(logs).toHaveLength(480);
-    expect(setup.filter((r) => r.selected === '1')).toHaveLength(22);
+    // Not a fixed number: the spreadsheet gets replaced. What has to hold is
+    // that the SQL was built from exactly these rows.
+    expect(logs.length).toBeGreaterThan(0);
+    expect(setup.filter((r) => r.selected === '1').length).toBeGreaterThan(0);
+
+    const stated = /-- (\d+) records,/.exec(read('supabase/demo/demo_data.sql'))?.[1];
+    expect(Number(stated)).toBe(logs.length);
   });
 
   it('uses only categories and tags the app knows', () => {

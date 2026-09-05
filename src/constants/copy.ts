@@ -81,6 +81,7 @@ export const LABELS = {
   accepted: '納得した',
   adjusted: '少し違う',
   saveEdit: 'この言い方にする',
+  allCategories: 'すべて',
   new: 'NEW',
   back: '戻る',
 } as const;
