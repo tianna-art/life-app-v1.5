@@ -85,6 +85,8 @@ jobs:
           echo "DEMO_FILE=$file" >> "$GITHUB_ENV"
           echo "DEMO_EMAIL=$email" >> "$GITHUB_ENV"
           echo "${{ inputs.action }}: $file for $email"
+          echo "commit: $GITHUB_SHA"
+          head -8 "$file" | sed 's/^/  | /'
 
       - name: Run it
         run: |
@@ -109,12 +111,14 @@ jobs:
 
       - name: What is there now
         run: |
+          # tee, not >: the job summary is not readable from the API, so a run
+          # that cannot be inspected in its own log cannot be checked at all.
           check() {
             printf '{"query":%s}' "$(printf '%s' "$1" | jq -Rs .)" > check.json
             curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
               -H 'Content-Type: application/json' \
-              --data @check.json
+              --data @check.json | tee /dev/stderr
           }
 
           {
