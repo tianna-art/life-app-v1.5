@@ -90,7 +90,9 @@ export function ProgressionSheet({
                 accessibilityLabel={LABELS.close}
                 style={({ pressed }) => [styles.close, pressed && styles.pressed]}
               >
-                <Text style={styles.closeGlyph}>×</Text>
+                <View style={styles.closePlate}>
+                  <Text style={styles.closeGlyph}>×</Text>
+                </View>
               </Pressable>
 
               {editing ? (
@@ -261,12 +263,29 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     minWidth: MIN_TOUCH,
     minHeight: MIN_TOUCH,
-    marginTop: -spacing.sm,
-    marginLeft: -spacing.sm,
+    marginTop: -spacing.xs,
+    marginLeft: -spacing.xs,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
-  closeGlyph: { fontSize: 24, lineHeight: 28, color: colors.ivoryFaint },
+  // Drawn as a plate rather than a bare glyph. At the faint end of the
+  // palette a loose × is easy to miss on a dark ground when you are not
+  // already looking for it, and this is the only way out of the sheet.
+  closePlate: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.brassDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeGlyph: {
+    fontFamily: fonts.sans,
+    fontSize: 19,
+    lineHeight: 22,
+    color: colors.ivory,
+  },
   title: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 34, color: colors.ivory },
   titleInput: {
     fontFamily: fonts.serif,
