@@ -16,6 +16,12 @@ interface MonthActionProps {
   done: number;
   onGenerate: () => void;
   onOpen: () => void;
+  /**
+   * Why the last run here read nothing. Shown instead of leaving the button
+   * looking untouched — a control that changes nothing and says nothing is
+   * indistinguishable from one that is broken.
+   */
+  failure?: string | undefined;
 }
 
 /**
@@ -37,6 +43,7 @@ export function MonthAction({
   done,
   onGenerate,
   onOpen,
+  failure,
 }: MonthActionProps) {
   if (running) {
     return (
@@ -61,6 +68,22 @@ export function MonthAction({
       >
         <Text style={styles.arrow}>→</Text>
         <Text style={styles.label}>{LABELS.openMap}</Text>
+      </Pressable>
+    );
+  }
+
+  if (failure) {
+    return (
+      <Pressable
+        testID="month-generate-map"
+        onPress={onGenerate}
+        hitSlop={HIT_SLOP}
+        accessibilityRole="button"
+        accessibilityLabel={`${failure} ${LABELS.tryAgain}`}
+        style={({ pressed }) => [styles.failed, pressed && styles.pressed]}
+      >
+        <Text style={styles.failure}>{failure}</Text>
+        <Text style={styles.label}>{LABELS.tryAgain}</Text>
       </Pressable>
     );
   }
@@ -96,4 +119,6 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.sans, fontSize: 12, letterSpacing: 0.8, color: colors.brass },
   count: { fontFamily: fonts.sans, fontSize: 11, color: colors.ivoryFaint },
   progress: { fontFamily: fonts.sans, fontSize: 12, color: colors.brassDim },
+  failed: { minHeight: MIN_TOUCH, justifyContent: 'center', alignItems: 'flex-end', gap: 2 },
+  failure: { fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, color: colors.danger },
 });

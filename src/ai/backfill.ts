@@ -40,6 +40,8 @@ export interface BackfillResult {
   /** Attempted but answered by the local path — the model was not reached. */
   fellBack: number;
   stopped: boolean;
+  /** Why the model was not reached, from the first record that could not. */
+  reason?: string | undefined;
 }
 
 /** The last `count` months, ending with the one we are in. */
@@ -83,21 +85,34 @@ export async function runBackfill(
   let read = 0;
   let fellBack = 0;
   let done = 0;
+  let reason: string | undefined;
 
   for (const log of logs) {
     // Between records, not during one: a half-read record would leave the
     // analysis stored and the progressions not.
     if (shouldStop?.()) {
-      return { attempted: done, read, fellBack, stopped: true };
+      return { attempted: done, read, fellBack, stopped: true, reason };
     }
 
     const outcome = await analyzeLog(log);
     done += 1;
-    if (outcome.offline) fellBack += 1;
-    else read += 1;
+    if (outcome.offline) {
+      fellBack += 1;
+      // The first one is the one worth showing: after that they are all the
+      // same failure repeated, and a hundred of them says nothing more.
+      reason = reason ?? outcome.reason;
+    } else {
+      read += 1;
+    }
+
+    // Nothing is going to start working on record forty. Stopping here keeps
+    // the person from watching a progress bar that cannot succeed.
+    if (fellBack >= 3 && read === 0) {
+      return { attempted: done, read, fellBack, stopped: true, reason };
+    }
 
     onProgress?.({ done, total: logs.length, current: log, readByModel: !outcome.offline });
   }
 
-  return { attempted: done, read, fellBack, stopped: false };
+  return { attempted: done, read, fellBack, stopped: false, reason };
 }

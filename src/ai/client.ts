@@ -45,13 +45,62 @@ export interface AnalysisOutcome {
   mirror: Mirror;
   /** True when the reading came from the local path rather than the model. */
   offline: boolean;
+  /**
+   * Why the model was not reached, when it was not.
+   *
+   * The local fallback exists so a save is never lost, and for a save that is
+   * the whole story. Anywhere someone asked for a reading and is paying for
+   * it, silence is the wrong answer — they need to know it did not happen and
+   * what stopped it.
+   */
+  reason?: string | undefined;
+}
+
+/**
+ * A sentence the person can act on, out of an error object they cannot.
+ *
+ * supabase-js reports a non-2xx from a function as a bare "Edge Function
+ * returned a non-2xx status code", which says nothing about which of the four
+ * or five possible causes it was. The status is the one part that separates
+ * them, so it is kept.
+ */
+function describeFailure(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message === 'EDGE_FUNCTIONS_UNAVAILABLE') {
+      return 'サーバーに接続できませんでした。';
+    }
+    const status = (error as { context?: { status?: number } }).context?.status;
+    if (status === 401 || status === 403) return 'ログインし直してからもう一度お試しください。';
+    if (status === 404) return '分析の機能が見つかりません（未デプロイの可能性があります）。';
+    if (typeof status === 'number') return `分析でエラーが起きました（${status}）。`;
+    return error.message.length > 120 ? `${error.message.slice(0, 120)}…` : error.message;
+  }
+  return '分析に届きませんでした。';
 }
 
 async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> {
   const supabase = getSupabase();
   if (!supabase) throw new Error('EDGE_FUNCTIONS_UNAVAILABLE');
   const { data, error } = await supabase.functions.invoke(fn, { body });
-  if (error) throw error;
+  if (error) {
+    // supabase-js reports every non-2xx as the same sentence and leaves the
+    // response unread, so the one thing that says what actually went wrong —
+    // the function's own message — is thrown away. Read it back.
+    const response = (error as { context?: unknown }).context;
+    if (response instanceof Response) {
+      const detail = await response
+        .clone()
+        .json()
+        .then((parsed: unknown) =>
+          parsed && typeof parsed === 'object' && typeof (parsed as { error?: unknown }).error === 'string'
+            ? (parsed as { error: string }).error
+            : null
+        )
+        .catch(() => null);
+      if (detail) throw new Error(detail);
+    }
+    throw error;
+  }
   return data as T;
 }
 
@@ -213,8 +262,11 @@ export async function analyzeLog(log: DailyLog): Promise<AnalysisOutcome> {
         }),
         offline: false,
       };
-    } catch {
+    } catch (error) {
       // Fall through to the local reading: the record is saved either way.
+      // The reason travels with it so a caller that cares can say it out loud.
+      const local = await analyzeLogLocally(log, null);
+      return { ...local, reason: describeFailure(error) };
     }
   }
 

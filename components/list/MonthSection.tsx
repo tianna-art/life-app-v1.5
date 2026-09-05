@@ -15,6 +15,7 @@ interface MonthSectionProps {
   pending: number;
   running: boolean;
   done: number;
+  failure?: string | undefined;
   onGenerate: () => void;
   onOpenMap: () => void;
   onEntryPress: (id: string) => void;
@@ -37,6 +38,7 @@ export function MonthSection({
   pending,
   running,
   done,
+  failure,
   onGenerate,
   onOpenMap,
   onEntryPress,
@@ -70,6 +72,7 @@ export function MonthSection({
           pending={pending}
           running={running}
           done={done}
+          failure={failure}
           onGenerate={onGenerate}
           onOpen={onOpenMap}
         />
