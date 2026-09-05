@@ -37,6 +37,26 @@ jobs:
         with:
           version: latest
 
+      # tsconfig.json excludes supabase/functions, because the app's compiler
+      # cannot resolve Deno's URL imports — which left the functions the only
+      # code here that nothing type-checked. A function that type-errors still
+      # bundles and deploys, then fails at runtime on every call; and the app
+      # answers a failed analysis locally rather than loudly, so the way that
+      # shows up is a button that does nothing. Checking before deploying is
+      # what makes that impossible.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check the functions
+        run: |
+          set -o pipefail
+          deno check --no-lock supabase/functions/*/index.ts 2>&1 | tee check.log || {
+            echo "::error::The Edge Functions do not type-check. Nothing was deployed."
+            exit 1
+          }
+          echo "Type-check clean."
+
       - name: Read the secrets
         env:
           ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
