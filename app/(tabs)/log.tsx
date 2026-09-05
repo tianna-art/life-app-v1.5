@@ -189,15 +189,16 @@ export default function LogScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { paddingBottom: spacing.xxl, gap: spacing.md },
-  header: { paddingTop: spacing.xs, gap: spacing.xs },
+  header: { paddingTop: spacing.xs, gap: spacing.xs, alignItems: 'center' },
   monthTheme: {
     fontFamily: fonts.serif,
     fontSize: 13,
     letterSpacing: 1.4,
     color: colors.ivoryFaint,
+    textAlign: 'center',
   },
   breath: { height: spacing.lg },
-  past: { paddingTop: spacing.xxl, gap: spacing.md, alignItems: 'flex-start' },
+  past: { paddingTop: spacing.xxl, gap: spacing.md, alignItems: 'center' },
   pastNotice: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   backToNow: {
     fontFamily: fonts.sans,

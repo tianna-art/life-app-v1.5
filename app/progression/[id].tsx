@@ -5,6 +5,7 @@ import { EMPTY_STATE, LABELS } from '@/constants/copy';
 import { EVIDENCE_ROLE_JA } from '@/constants/progression';
 import { phraseForMaturity } from '@/ai/progressionRules';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useProgressionDetail, useProgressionVerdict } from '@/hooks/useProgressions';
 import { formatShortDate } from '@/utils/period';
@@ -27,15 +28,7 @@ export default function ProgressionScreen() {
 
   return (
     <Screen>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={LABELS.back}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ {LABELS.back}</Text>
-      </Pressable>
+      <TopBar onBack={() => router.back()} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {progression ? (
@@ -140,8 +133,6 @@ export default function ProgressionScreen() {
 }
 
 const styles = StyleSheet.create({
-  back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   title: { fontFamily: fonts.serif, fontSize: 26, lineHeight: 36, color: colors.ivory },
   maturity: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 20, color: colors.ivoryFaint },

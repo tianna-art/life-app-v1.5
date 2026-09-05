@@ -45,7 +45,11 @@ export function Level1Picker({ value, onChange }: Level1PickerProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  row: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
   chip: {
     minHeight: MIN_TOUCH,
     paddingHorizontal: spacing.md,

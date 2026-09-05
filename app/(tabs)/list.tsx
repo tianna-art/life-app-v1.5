@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { spacing } from '@/theme';
 import { EMPTY_STATE } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { EmptyState } from '@components/ui/EmptyState';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { YearSelector } from '@components/list/YearSelector';
@@ -61,6 +62,8 @@ export default function ListScreen() {
   const menuItems = useMemo<MenuItem[]>(() => {
     const items: MenuItem[] = [
       { label: 'この月をマップで見る', onPress: () => router.push('/map') },
+      // For records that arrived some way other than being written here.
+      { label: '読まれていない記録を読む', onPress: () => router.push('/backfill') },
     ];
     if (!useLocalStore) {
       items.push({
@@ -76,10 +79,9 @@ export default function ListScreen() {
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
+        <TopBar right={<LogMenuButton onPress={() => setMenuOpen(true)} />}>
           <YearSelector year={year} years={years} onChange={setYear} />
-          <LogMenuButton onPress={() => setMenuOpen(true)} />
-        </View>
+        </TopBar>
 
         <HairlineRule />
 
@@ -108,10 +110,4 @@ export default function ListScreen() {
 
 const styles = StyleSheet.create({
   scroll: { paddingBottom: spacing.xxl, gap: spacing.md },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.lg,
-  },
 });

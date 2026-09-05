@@ -1,9 +1,10 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
+import { colors, fonts, spacing } from '@/theme';
 import { LABELS, YEAR } from '@/constants/copy';
 import { GAIN_CATEGORY_JA } from '@/constants/progression';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useYearReview } from '@/hooks/useMonthReview';
 
@@ -24,19 +25,11 @@ export default function YearScreen() {
 
   return (
     <Screen>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={LABELS.back}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ {LABELS.back}</Text>
-      </Pressable>
+      <TopBar onBack={() => router.back()}>
+        <Text style={styles.plate}>{year}</Text>
+      </TopBar>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.plate}>{year}</Text>
-
         {isLoading ? (
           <Text style={styles.dim}>読み込んでいます。</Text>
         ) : review ? (
@@ -92,8 +85,6 @@ export default function YearScreen() {
 }
 
 const styles = StyleSheet.create({
-  back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
   block: { gap: spacing.sm },

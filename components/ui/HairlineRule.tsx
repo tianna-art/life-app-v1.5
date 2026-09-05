@@ -8,6 +8,9 @@ export function HairlineRule({ inset = 0 }: { inset?: number }) {
 
 const styles = StyleSheet.create({
   rule: {
+    // Keeps its full width inside a centred column, where a view with no
+    // width of its own would otherwise collapse to nothing.
+    alignSelf: 'stretch',
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.frameSoft,
   },

@@ -5,6 +5,7 @@ import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { LABELS, MONTH } from '@/constants/copy';
 import { GAIN_CATEGORY_JA } from '@/constants/progression';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useMonthReview } from '@/hooks/useMonthReview';
 import { useSaveMonthTheme } from '@/hooks/useLens';
@@ -44,19 +45,11 @@ export default function MonthScreen() {
 
   return (
     <Screen>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={LABELS.back}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ {LABELS.back}</Text>
-      </Pressable>
+      <TopBar onBack={() => router.back()}>
+        <Text style={styles.plate}>{formatMonthEyebrow(periodKey)}</Text>
+      </TopBar>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.plate}>{formatMonthEyebrow(periodKey)}</Text>
-
         {isLoading ? (
           <Text style={styles.dim}>読み込んでいます。</Text>
         ) : review ? (
@@ -149,8 +142,6 @@ export default function MonthScreen() {
 }
 
 const styles = StyleSheet.create({
-  back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
   complete: {

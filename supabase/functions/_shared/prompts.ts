@@ -273,9 +273,9 @@ export const MONTH_REVIEW_SYSTEM = `${GUARDRAILS}
   - line  : 「「A」から「B」へ。」の形。両方が記録にある場合のみ
 - gained   : 最大3件。category は clarity | capability | method | choice
              | evidence | connection | recovery
-- title_candidates : この月の名前の候補3つ。大文字英語、3語以内
+- title_candidates : この月の名前の候補3つ。日本語、14字以内
+                    「〜した月」「〜だった月」の形で終わること
 - title    : 候補の1つ目
-- subtitle : 日本語で10字程度。「〜した月」の形
 
 重要（§7）:
 月初テーマと実際がズレていても、それを未達として扱わないこと。
@@ -290,11 +290,15 @@ export const MONTH_REVIEW_SYSTEM = `${GUARDRAILS}
 「今月はまだ、この変化の意味を決めなくてよさそうです。」
 を what_actually_happened に書き、changed は空配列にする。
 
-title の良い例: OUT INTO THE WORLD / A DIFFERENT WAY / WHAT BECAME CLEAR
-title の悪い例: GREAT MONTH / YOU GREW / SUCCESS
+title は、その月に何があったかを言う。どうだった月かは言わない。
+良い例: 外に出してみた月 / やり方を変えた月 / 何が嫌かが分かった月
+悪い例: すごい月 / 成長した月 / うまくいった月 / 停滞した月
+
+記録はあるが繰り返し現れたものがない月は「記録の残った月」でよい。
+無理に何かが起きたことにしない。
 
 出力JSON:
-{"what_actually_happened":"","changed":[{"title":"","line":""}],"gained":[{"category":"","label":""}],"title_candidates":["","",""],"title":"","subtitle":""}`;
+{"what_actually_happened":"","changed":[{"title":"","line":""}],"gained":[{"category":"","label":""}],"title_candidates":["","",""],"title":""}`;
 
 /** §26 — the year-end reading. The same comparison, one scale up. */
 export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}
@@ -306,7 +310,9 @@ export const YEAR_REVIEW_SYSTEM = `${GUARDRAILS}
                  例「人に見せながら、自分のやり方をつくった一年」
 - progressions : その年の主な変化。最大5件
 - gained       : その年に残ったもの。最大5件
-- title_candidates : 年の名前の候補3つ
+- title_candidates : 年の名前の候補3つ。日本語、16字以内
+                     「〜した一年」「〜だった一年」の形で終わること
+                     良い例: 外に出しはじめた一年 / 自分で決めた一年
 
 重要:
 年始のテーマと実際がズレていても、それを未達として扱わないこと。

@@ -1,0 +1,147 @@
+# Puts the demo records into an account, from the browser.
+#
+# Same route as Run migration: the Management API and the personal access
+# token this repository already holds. No database password, no service_role
+# key, and nothing to install.
+#
+# What it writes is only what the spreadsheet says — 480 records and the lens
+# they were recorded under. It writes no analysis, no progressions and no month
+# readings: those are what the app works out from evidence, and putting them in
+# by hand would fake the one thing worth looking at.
+name: Load demo data
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'The account to load into (its sign-in email)'
+        type: string
+        required: true
+        default: ''
+      action:
+        description: 'load = write the records, remove = take them out again'
+        type: choice
+        options: [load, remove]
+        default: load
+      confirm:
+        description: 'Type YES to run it against the live database'
+        type: string
+        required: true
+        default: ''
+
+concurrency:
+  group: load-demo-data
+  cancel-in-progress: false
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the request
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          EMAIL: ${{ inputs.email }}
+        run: |
+          problems=""
+          note() { problems="$problems\n  - $1"; }
+
+          if [ "${{ inputs.confirm }}" != "YES" ]; then
+            note "Type YES in the confirm field: this writes to the live database."
+          fi
+
+          email=$(printf '%s' "$EMAIL" | tr -d '[:space:]')
+          # The address goes into a SQL literal, so it is checked rather than
+          # trusted. Anything outside this shape is refused, not escaped.
+          case "$email" in
+            *[!A-Za-z0-9._%@+-]*|*"'"*|""|*@*@*)
+              note "email does not look like an address: '$EMAIL'" ;;
+            *@*.*) ;;
+            *) note "email does not look like an address: '$EMAIL'" ;;
+          esac
+
+          token=$(printf '%s' "$ACCESS_TOKEN" | tr -d '[:space:]')
+          ref=$(printf '%s' "$PROJECT_REF" | tr -d '[:space:]')
+          # A project ref pasted as a dashboard URL is an obvious intent.
+          case "$ref" in */project/*) ref=${ref##*/project/}; ref=${ref%%/*} ;; esac
+          case "$token" in sbp_*) ;; *) note "SUPABASE_ACCESS_TOKEN must start with sbp_." ;; esac
+          [ -n "$ref" ] || note "SUPABASE_PROJECT_REF is not set."
+
+          if [ -n "$problems" ]; then
+            printf '::error::Cannot run:%b\n' "$problems"
+            exit 1
+          fi
+
+          case "${{ inputs.action }}" in
+            load)   file=supabase/demo/demo_data.sql ;;
+            remove) file=supabase/demo/demo_data_remove.sql ;;
+            *) echo "::error::unknown action"; exit 1 ;;
+          esac
+
+          echo "SUPABASE_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+          echo "DEMO_FILE=$file" >> "$GITHUB_ENV"
+          echo "DEMO_EMAIL=$email" >> "$GITHUB_ENV"
+          echo "${{ inputs.action }}: $file for $email"
+
+      - name: Run it
+        run: |
+          # The address is substituted here rather than in the committed file,
+          # so nobody's email lands in the repository.
+          sed "s/__DEMO_EMAIL__/$DEMO_EMAIL/g" "$DEMO_FILE" > statement.sql
+          jq -Rs '{query: .}' statement.sql > body.json
+
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @body.json)
+
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Failed (HTTP $status)."
+            head -c 4000 response.json
+            echo
+            exit 1
+          fi
+          echo "Done."
+
+      - name: What is there now
+        run: |
+          check() {
+            printf '{"query":%s}' "$(printf '%s' "$1" | jq -Rs .)" > check.json
+            curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H 'Content-Type: application/json' \
+              --data @check.json
+          }
+
+          {
+            echo "### ${{ inputs.action }} — $DEMO_EMAIL"
+            echo ""
+            echo "#### records per month"
+            echo '```json'
+            check "select to_char(occurred_on, 'YYYY-MM') as month, count(*)
+                     from public.logs
+                    where user_id = (select id from auth.users
+                                      where lower(email) = lower('$DEMO_EMAIL'))
+                    group by 1 order by 1"
+            echo ''
+            echo '```'
+            echo ""
+            echo "#### the lens"
+            echo '```json'
+            check "select year, cardinality(selected_areas) as areas,
+                          cardinality(desired_self_cards) as cards,
+                          cardinality(progression_lenses) as lenses, initial_theme
+                     from public.year_directions
+                    where user_id = (select id from auth.users
+                                      where lower(email) = lower('$DEMO_EMAIL'))
+                    order by year"
+            echo ''
+            echo '```'
+            echo ""
+            echo "Records are stored, but nothing has been read yet: analysis runs"
+            echo "when a record is saved in the app, so MAP stays empty for these."
+          } >> "$GITHUB_STEP_SUMMARY"

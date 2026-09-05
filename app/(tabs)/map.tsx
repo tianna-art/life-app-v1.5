@@ -7,6 +7,7 @@ import { runOnJS } from 'react-native-reanimated';
 import { colors, fonts, spacing } from '@/theme';
 import { EMPTY_STATE } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { EmptyState } from '@components/ui/EmptyState';
 import { MonthStrip } from '@components/map/MonthStrip';
 import { RadialProgressionMap } from '@components/map/RadialProgressionMap';
@@ -115,13 +116,17 @@ export default function MapScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <MonthStrip months={months} value={monthKey} onChange={setMonthKey} />
+      <TopBar>
+        {/* The strip has to keep the full width to scroll in, so it opts out
+            of the bar's centring rather than shrinking to its contents. */}
+        <View style={styles.strip}>
+          <MonthStrip months={months} value={monthKey} onChange={setMonthKey} />
+        </View>
         <View style={styles.plateRow}>
           <Text style={styles.plate}>{formatMonthEyebrow(monthKey)}</Text>
           {review?.title ? <Text style={styles.reviewTitle}>{review.title}</Text> : null}
         </View>
-      </View>
+      </TopBar>
 
       <GestureDetector gesture={pan}>
         <View style={styles.canvas} testID="map-canvas" onLayout={onCanvasLayout}>
@@ -159,8 +164,8 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: spacing.md, gap: spacing.sm },
-  plateRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md },
+  strip: { alignSelf: 'stretch' },
+  plateRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: spacing.md },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
   reviewTitle: {
     fontFamily: fonts.serif,
