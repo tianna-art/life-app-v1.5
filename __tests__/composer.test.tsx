@@ -1,118 +1,68 @@
-/**
- * Composer contract: type, category and body are all required, and the
- * ×/✓ controls behave as specified.
- */
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { InlineComposer } from '@components/log/InlineComposer';
-import type { Category } from '@/types';
+import { GainComposer } from '../components/log/GainComposer';
+import { HOME } from '../src/constants/copy';
 
-const categories: Category[] = [
-  {
-    id: 'cat-1',
-    name: '楽しかったこと',
-    slug: 'tokimeki',
-    sortOrder: 0,
-    isActive: true,
-    isDefault: true,
-    icon: 'starburst',
-    promptExamples: ['今日ちょっと「いいな」と思ったことは？'],
-  },
-  {
-    id: 'cat-2',
-    name: 'できたこと',
-    slug: 'tsumiage',
-    sortOrder: 1,
-    isActive: true,
-    isDefault: true,
-    icon: 'sun',
-    promptExamples: ['今日、少しでも手を動かしたことは？'],
-  },
-];
-
-describe('InlineComposer', () => {
-  it('refuses to save without a category', () => {
-    const onSave = jest.fn();
-    render(<InlineComposer categories={categories} onSave={onSave} />);
-
-    fireEvent.press(screen.getByTestId('log-type-event'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText('どの引き出しに入れるか選んでください。')).toBeTruthy();
+describe('the ten-second path', () => {
+  it('shows the field immediately — there is no button to press first', () => {
+    render(<GainComposer onSave={jest.fn()} />);
+    expect(screen.getByTestId('entry-body-input')).toBeTruthy();
+    expect(screen.getByTestId('category-chips')).toBeTruthy();
+    expect(screen.getByText(HOME.question)).toBeTruthy();
   });
 
-  it('refuses to save without a type', () => {
+  it('saves after one chip and one sentence', () => {
     const onSave = jest.fn();
-    render(<InlineComposer categories={categories} onSave={onSave} />);
+    render(<GainComposer onSave={onSave} />);
 
-    fireEvent.press(screen.getByTestId('category-tokimeki'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it('refuses to save an empty body', () => {
-    const onSave = jest.fn();
-    render(<InlineComposer categories={categories} onSave={onSave} />);
-
-    fireEvent.press(screen.getByTestId('log-type-thought'));
-    fireEvent.press(screen.getByTestId('category-tokimeki'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '   ');
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it('saves once type, category and body are all present', () => {
-    const onSave = jest.fn();
-    render(<InlineComposer categories={categories} onSave={onSave} />);
-
-    fireEvent.press(screen.getByTestId('log-type-thought'));
-    fireEvent.press(screen.getByTestId('category-tsumiage'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '小さく前に進んだ気がする');
+    fireEvent.press(screen.getByTestId('chip-progress'));
+    fireEvent.changeText(screen.getByTestId('entry-body-input'), '骨組みを書き出した。');
     fireEvent.press(screen.getByTestId('composer-save'));
 
     expect(onSave).toHaveBeenCalledWith({
-      type: 'thought',
-      categoryId: 'cat-2',
-      body: '小さく前に進んだ気がする',
+      inputCategory: 'progress',
+      body: '骨組みを書き出した。',
     });
   });
 
-  it('shows one guidance prompt for the selected category', () => {
-    render(<InlineComposer categories={categories} onSave={jest.fn()} />);
-    expect(screen.queryByTestId('category-prompt')).toBeNull();
-    fireEvent.press(screen.getByTestId('category-tokimeki'));
-    expect(screen.getByTestId('category-prompt')).toBeTruthy();
+  it('offers exactly three drawers and no way to add a fourth', () => {
+    render(<GainComposer onSave={jest.fn()} />);
+    expect(screen.getByTestId('chip-progress')).toBeTruthy();
+    expect(screen.getByTestId('chip-friction')).toBeTruthy();
+    expect(screen.getByTestId('chip-moved')).toBeTruthy();
+    expect(screen.queryByText('カテゴリーの設定')).toBeNull();
   });
 
-  it('clears itself after a save, ready for the next one', () => {
+  it('does not save a chip with no words, or words with no chip', () => {
     const onSave = jest.fn();
-    render(<InlineComposer categories={categories} onSave={onSave} />);
+    render(<GainComposer onSave={onSave} />);
 
-    fireEvent.press(screen.getByTestId('log-type-event'));
-    fireEvent.press(screen.getByTestId('category-tokimeki'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '展示を見に行った');
+    fireEvent.press(screen.getByTestId('chip-friction'));
+    fireEvent.press(screen.getByTestId('composer-save'));
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('entry-body-input'), '   ');
+    fireEvent.press(screen.getByTestId('composer-save'));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('empties itself after a save so the next record starts clean', () => {
+    const onSave = jest.fn();
+    render(<GainComposer onSave={onSave} />);
+
+    fireEvent.press(screen.getByTestId('chip-moved'));
+    fireEvent.changeText(screen.getByTestId('entry-body-input'), '常設展を見に行った。');
     fireEvent.press(screen.getByTestId('composer-save'));
 
+    expect(screen.getByTestId('entry-body-input').props.value).toBe('');
+
+    fireEvent.press(screen.getByTestId('composer-save'));
     expect(onSave).toHaveBeenCalledTimes(1);
-    // The field is on the page, so it has to be empty again immediately.
-    expect(screen.getByTestId('log-body-input').props.value).toBe('');
-    expect(screen.queryByTestId('category-prompt')).toBeNull();
   });
 
-  it('× clears the form', () => {
-    render(<InlineComposer categories={categories} onSave={jest.fn()} />);
-
-    fireEvent.press(screen.getByTestId('log-type-event'));
-    fireEvent.press(screen.getByTestId('category-tokimeki'));
-    fireEvent.changeText(screen.getByTestId('log-body-input'), '書きかけの本文');
-
-    fireEvent.press(screen.getByTestId('composer-reset'));
-
-    expect(screen.getByTestId('log-body-input').props.value).toBe('');
-    expect(screen.queryByTestId('category-prompt')).toBeNull();
+  it('asks no question about meaning', () => {
+    render(<GainComposer onSave={jest.fn()} />);
+    for (const banned of ['なぜ', 'どんな学び', 'どんな意味', '次は何を']) {
+      expect(screen.queryByText(new RegExp(banned))).toBeNull();
+    }
   });
 });

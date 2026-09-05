@@ -2,30 +2,30 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { formatShortDate } from '@/utils/period';
 import { truncate } from '@/utils/text';
-import type { JournalLog } from '@/types';
+import type { JournalEntry } from '@/types';
 
-/** `09/04  新しい企画の方向性が見えて…` — one line, ellipsis, tap for detail. */
+/** `09/04  新しい企画の方向性が見えて…` — one line, ellipsis, tap for the full text. */
 export function TruncatedLogRow({
-  log,
+  entry,
   onPress,
   maxChars = 22,
 }: {
-  log: JournalLog;
+  entry: JournalEntry;
   onPress: (id: string) => void;
   maxChars?: number;
 }) {
-  const preview = truncate(log.body, maxChars);
+  const preview = truncate(entry.body, maxChars);
   return (
     <Pressable
-      testID={`log-row-${log.id}`}
-      onPress={() => onPress(log.id)}
+      testID={`log-row-${entry.id}`}
+      onPress={() => onPress(entry.id)}
       hitSlop={HIT_SLOP}
       accessibilityRole="button"
-      accessibilityLabel={`${formatShortDate(log.occurredOn)} ${preview}`}
-      accessibilityHint="記録の詳細を開きます"
+      accessibilityLabel={`${formatShortDate(entry.occurredOn)} ${preview}`}
+      accessibilityHint="記録の全文を開きます"
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <Text style={styles.date}>{formatShortDate(log.occurredOn)}</Text>
+      <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
       <Text style={styles.body} numberOfLines={1}>
         {preview}
       </Text>

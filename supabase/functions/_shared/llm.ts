@@ -92,39 +92,39 @@ class OpenAiProvider implements LlmProvider {
 }
 
 /**
- * Deterministic stand-in for local development and CI. It returns valid,
- * evidence-shaped JSON without asserting anything about the person.
+ * Deterministic stand-in for local development and CI.
+ *
+ * It returns valid, schema-shaped JSON and reads nothing: every response is
+ * the honest empty answer. That is deliberate — a mock that invented gains
+ * would make a broken pipeline look like a working one, and the "nothing could
+ * be read here" path is the one most likely to regress unnoticed.
  */
 class MockProvider implements LlmProvider {
   readonly name = 'mock';
   readonly model = 'mock';
 
   complete({ user }: LlmRequest): Promise<string> {
-    if (user.includes('"task":"log_analysis"')) {
+    if (user.includes('"task":"gain_analysis"')) {
       return Promise.resolve(
         JSON.stringify({
-          keywords: ['記録'],
-          semantic_tags: ['unclassified'],
-          tone: 'unspecified',
-          confidence: 0.2,
+          event_summary: '',
+          journey_role: 'neutral',
+          gain_status: 'unresolved',
+          gains: [],
+          semantic_tags: [],
+          possible_links: [],
         })
       );
     }
-    if (user.includes('"task":"category_insight"')) {
-      return Promise.resolve(
-        JSON.stringify({
-          insight: 'この期間の記録は、まだ十分な傾向として見えるところまでは来ていません。',
-          keywords: [],
-        })
-      );
+    if (user.includes('"task":"gain_consolidation"')) {
+      return Promise.resolve(JSON.stringify({ merge: false }));
     }
     return Promise.resolve(
       JSON.stringify({
-        candidates: [
-          { title: '静かに続いた期間', reason: '記録が残っていることだけを根拠にしています。' },
-          { title: '点を置き続けた期間', reason: '評価を含まない呼び名です。' },
-          { title: 'まだ言葉になっていない期間', reason: '断定を避けた案です。' },
-        ],
+        title: 'A MONTH OF RECORDS',
+        subtitle: '記録の残った月',
+        gains: [],
+        one_change: '',
       })
     );
   }

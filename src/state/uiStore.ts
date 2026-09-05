@@ -1,46 +1,30 @@
 import { create } from 'zustand';
-import { monthKeyOf, yearKeyOf } from '@/utils/period';
-import type { LogType } from '@/types';
-
-export type ListFilter = 'all' | LogType;
-export type MapMode = 'month' | 'year';
+import { monthKeyOf } from '@/utils/period';
 
 interface UiState {
-  /** MAP: the single period on screen. Months are never merged. */
-  mapMode: MapMode;
+  /** MAP: the single month on screen. Months are never merged (§18). */
   mapMonthKey: string;
-  mapYearKey: string;
-  /** LIST */
+  /** LIST: the year being read. */
   listYear: number;
-  listFilter: ListFilter;
-  /** Logs the user has opened — feeds representative-log ranking in the year map. */
-  openedLogIds: string[];
+  /** Months whose end screen has already been shown, so it appears once. */
+  seenMonthEnds: string[];
 
-  setMapMode: (mode: MapMode) => void;
   setMapMonthKey: (key: string) => void;
-  setMapYearKey: (key: string) => void;
   setListYear: (year: number) => void;
-  setListFilter: (filter: ListFilter) => void;
-  markLogOpened: (id: string) => void;
+  markMonthEndSeen: (key: string) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  mapMode: 'month',
   mapMonthKey: monthKeyOf(new Date()),
-  mapYearKey: yearKeyOf(new Date()),
   listYear: new Date().getFullYear(),
-  listFilter: 'all',
-  openedLogIds: [],
+  seenMonthEnds: [],
 
-  setMapMode: (mapMode) => set({ mapMode }),
   setMapMonthKey: (mapMonthKey) => set({ mapMonthKey }),
-  setMapYearKey: (mapYearKey) => set({ mapYearKey }),
   setListYear: (listYear) => set({ listYear }),
-  setListFilter: (listFilter) => set({ listFilter }),
-  markLogOpened: (id) =>
+  markMonthEndSeen: (key) =>
     set((state) =>
-      state.openedLogIds.includes(id)
+      state.seenMonthEnds.includes(key)
         ? state
-        : { openedLogIds: [...state.openedLogIds, id].slice(-200) }
+        : { seenMonthEnds: [...state.seenMonthEnds, key].slice(-24) }
     ),
 }));

@@ -1,29 +1,43 @@
 /**
- * Every user-facing string that the spec pins down verbatim lives here so that
- * the forbidden phrasing ("記録が足りません" etc.) cannot creep back in.
+ * Every user-facing string the spec pins down lives here, so the forbidden
+ * register — praise, diagnosis, forced meaning — cannot creep back in through
+ * a component someone edits in a hurry.
  */
+export const HOME = {
+  /** The only question the app ever asks. It is about facts, not meaning. */
+  question: '今日、何があった？',
+  placeholder: '今日のことを、そのまま残す。',
+  save: '保存',
+  reset: '入力内容を消す',
+} as const;
+
 export const EMPTY_STATE = {
-  log: 'まだ何も残していません。上の欄から、最初の点を置いてみる。',
-  map: 'この月の空は、まだ静かです。',
-  mapYear: 'この年の空は、まだ静かです。',
+  /** HOME shows nothing at all when empty — the field is the whole screen. */
+  map: 'まだ、中心だけがあります。',
   list: 'この月には、まだ記録がありません。',
+  gainDetail: 'この Gain を支える記録は、まだ1件です。',
 } as const;
 
 export const LABELS = {
-  event: '出来事',
-  thought: 'つぶやき',
-  all: 'すべて',
-  monthly: '月次',
-  yearly: '年次',
-  seeKeywords: 'キーワードを見る',
-  edit: '編集',
-  skip: 'スキップ',
-  accept: '納得した',
-  titleThisMonth: 'この月にタイトルをつける',
-  titleThisYear: 'この年にタイトルをつける',
-  intentionPrompt: '今月、どんな感じで過ごしたい？',
-  saved: '記録しました',
+  todaysGain: "TODAY'S GAIN",
+  howItFormed: 'HOW IT FORMED',
+  me: 'ME',
+  monthComplete: 'THIS MONTH IS COMPLETE.',
+  threeGains: '3 GAINS',
+  oneChange: 'ONE CHANGE',
+  accepted: '納得した',
+  adjusted: '少し違う',
+  saveEdit: 'この言い方にする',
+  new: 'NEW',
+  continuing: 'CONTINUING',
+  back: '戻る',
 } as const;
+
+/**
+ * Shown when nothing could honestly be extracted (§8). Never a substitute
+ * gain, never an apology — the day is simply allowed to stay unread.
+ */
+export const UNRESOLVED_LINE = '今日は、まだ意味を決めなくていい。';
 
 /** Guard used in tests: none of these may appear in shipped copy. */
 export const FORBIDDEN_PHRASES = [
@@ -31,4 +45,7 @@ export const FORBIDDEN_PHRASES = [
   'あなたは',
   '本当のあなた',
   '意味がありました',
+  '素晴らしい',
+  '成長しています',
+  '連続',
 ] as const;

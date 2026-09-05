@@ -1,15 +1,14 @@
 import { QueryClient } from '@tanstack/react-query';
 
 export const queryKeys = {
-  categories: (includeInactive: boolean) => ['categories', includeInactive] as const,
-  monthLogs: (monthKey: string) => ['logs', 'month', monthKey] as const,
-  yearLogs: (yearKey: string) => ['logs', 'year', yearKey] as const,
-  log: (id: string) => ['log', id] as const,
-  title: (periodType: string, periodKey: string) => ['title', periodType, periodKey] as const,
-  titles: (periodType: string, yearKey: string) => ['titles', periodType, yearKey] as const,
-  intention: (periodKey: string) => ['intention', periodKey] as const,
-  insight: (periodType: string, periodKey: string, categoryId: string) =>
-    ['insight', periodType, periodKey, categoryId] as const,
+  monthEntries: (monthKey: string) => ['entries', 'month', monthKey] as const,
+  yearEntries: (yearKey: string) => ['entries', 'year', yearKey] as const,
+  entry: (id: string) => ['entry', id] as const,
+  gains: () => ['gains'] as const,
+  monthGains: (monthKey: string) => ['gains', 'month', monthKey] as const,
+  gainDetail: (gainId: string) => ['gains', 'detail', gainId] as const,
+  monthReview: (periodKey: string) => ['review', periodKey] as const,
+  monthReviews: (yearKey: string) => ['review', 'year', yearKey] as const,
   outbox: () => ['outbox'] as const,
 } as const;
 

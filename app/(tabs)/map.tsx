@@ -1,44 +1,47 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
-import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
+import { colors, fonts, spacing } from '@/theme';
 import { EMPTY_STATE, LABELS } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
-import { Eyebrow } from '@components/ui/Eyebrow';
 import { EmptyState } from '@components/ui/EmptyState';
-import { OrbitGraph } from '@components/map/OrbitGraph';
-import { CategoryArticle } from '@components/map/CategoryArticle';
-import { useCategories, useCategoryLookup } from '@/hooks/useCategories';
-import { useMonthLogs, useYearLogs } from '@/hooks/useLogs';
-import { useCategoryInsight, useKeywordReview } from '@/hooks/useInsight';
+import { MonthStrip } from '@components/map/MonthStrip';
+import { RadialGainMap } from '@components/map/RadialGainMap';
+import { GainSheet } from '@components/map/GainSheet';
+import { useGainDetail, useGainVerdict, useMonthGains } from '@/hooks/useGains';
+import { useYearEntries } from '@/hooks/useEntries';
+import { useMonthReview } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
-import { formatMonthEyebrow, monthKeyOf, shiftMonthKey, shiftYearKey, yearKeyOf } from '@/utils/period';
-import type { KeywordCandidate, LogWithAnalysis } from '@/types';
-
-/** In the year view a category can hold hundreds of records; show the fullest. */
-const YEAR_LEAVES_PER_CATEGORY = 12;
+import {
+  formatMonthEyebrow,
+  isMonthEndReached,
+  monthKeyOf,
+  monthKeyOfDate,
+  monthKeysBetween,
+  shiftMonthKey,
+} from '@/utils/period';
 
 /**
- * 自分 を中心にした放射図. Exactly one period is ever on screen: swiping moves
- * between whole months (or whole years) and never merges two of them.
+ * MAP (§13–§18).
+ *
+ * One month is on screen at a time and months are never merged. What is drawn
+ * is not the records but what has grown from them, so a month with a lot of
+ * writing and nothing settled shows a quiet sky — which is honest.
  */
 export default function MapScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
-  const mode = useUiStore((s) => s.mapMode);
-  const monthKey = useUiStore((s) => s.mapMonthKey);
-  const yearKeyValue = useUiStore((s) => s.mapYearKey);
-  const setMode = useUiStore((s) => s.setMapMode);
-  const setMonthKey = useUiStore((s) => s.setMapMonthKey);
-  const setYearKey = useUiStore((s) => s.setMapYearKey);
 
-  // The figure is drawn to the box it is actually given, not to the window:
-  // on web the app sits inside a phone-width plate, so the window is wider
-  // than the canvas will ever be.
+  const monthKey = useUiStore((s) => s.mapMonthKey);
+  const setMonthKey = useUiStore((s) => s.setMapMonthKey);
+
   const [canvasBox, setCanvasBox] = useState<{ width: number; height: number } | null>(null);
+  const [openGainId, setOpenGainId] = useState<string | null>(null);
+  const [expandedGainId, setExpandedGainId] = useState<string | null>(null);
+
   const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
     const { width: w, height: h } = event.nativeEvent.layout;
     setCanvasBox((current) =>
@@ -48,48 +51,33 @@ export default function MapScreen() {
     );
   }, []);
 
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
+  const { data: monthGains } = useMonthGains(monthKey);
+  const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
+  const gainDetail = useGainDetail(openGainId);
+  const verdict = useGainVerdict();
 
-  const { data: categories } = useCategories(true);
-  const categoryLookup = useCategoryLookup();
-  const monthQuery = useMonthLogs(monthKey);
-  const yearQuery = useYearLogs(yearKeyValue);
-
-  const periodKey = mode === 'month' ? monthKey : yearKeyValue;
-  const allLogs = useMemo(
-    () => (mode === 'month' ? (monthQuery.data ?? []) : (yearQuery.data ?? [])),
-    [mode, monthQuery.data, yearQuery.data]
-  );
-
-  // The year view thins each branch so the figure stays readable on a phone.
-  const graphLogs = useMemo<LogWithAnalysis[]>(() => {
-    if (mode === 'month') return allLogs;
-    const perCategory = new Map<string, LogWithAnalysis[]>();
-    for (const log of allLogs) {
-      const list = perCategory.get(log.categoryId) ?? [];
-      list.push(log);
-      perCategory.set(log.categoryId, list);
-    }
-    return [...perCategory.values()].flatMap((list) =>
-      [...list]
-        .sort((a, b) => b.body.length - a.body.length || a.id.localeCompare(b.id))
-        .slice(0, YEAR_LEAVES_PER_CATEGORY)
-    );
-  }, [mode, allLogs]);
-
-  const canGoForward =
-    mode === 'month' ? monthKey < monthKeyOf(new Date()) : yearKeyValue < yearKeyOf(new Date());
+  // The strip spans from the first month that holds anything to this one, so
+  // it never offers a month the person has no records in.
+  const thisMonth = useMemo(() => monthKeyOf(new Date()), []);
+  const { data: yearEntries } = useYearEntries(monthKey.slice(0, 4));
+  const months = useMemo(() => {
+    const keys = new Set<string>([thisMonth, monthKey]);
+    for (const entry of yearEntries ?? []) keys.add(monthKeyOfDate(entry.occurredOn));
+    const sorted = [...keys].sort();
+    const first = sorted[0] ?? thisMonth;
+    const last = sorted[sorted.length - 1] ?? thisMonth;
+    return monthKeysBetween(first, last > thisMonth ? last : thisMonth);
+  }, [yearEntries, monthKey, thisMonth]);
 
   const step = useCallback(
     (delta: number) => {
-      if (delta > 0 && !canGoForward) return;
-      if (mode === 'month') setMonthKey(shiftMonthKey(monthKey, delta));
-      else setYearKey(shiftYearKey(yearKeyValue, delta));
-      setExpanded(new Set());
-      setOpenCategoryId(null);
+      const next = shiftMonthKey(monthKey, delta);
+      if (delta > 0 && next > thisMonth) return;
+      setMonthKey(next);
+      setExpandedGainId(null);
+      setOpenGainId(null);
     },
-    [mode, monthKey, yearKeyValue, canGoForward, setMonthKey, setYearKey]
+    [monthKey, thisMonth, setMonthKey]
   );
 
   const pan = useMemo(
@@ -105,144 +93,66 @@ export default function MapScreen() {
     [step]
   );
 
-  // A tap opens the branch and the article together: the records fan out
-  // behind the reading view, so closing it lands you on what was just opened.
-  const handleCategoryPress = useCallback((categoryId: string) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      next.add(categoryId);
-      return next;
-    });
-    setOpenCategoryId(categoryId);
+  const handleGainPress = useCallback((gainId: string) => {
+    setExpandedGainId(gainId);
+    setOpenGainId(gainId);
   }, []);
 
-  const selectedCategory = openCategoryId ? categoryLookup.get(openCategoryId) : undefined;
-  const categoryLogs = useMemo(
-    () => allLogs.filter((l) => l.categoryId === openCategoryId),
-    [allLogs, openCategoryId]
-  );
-
-  const insightQuery = useCategoryInsight({
-    periodType: mode,
-    periodKey,
-    categoryId: openCategoryId ?? '',
-    categoryName: selectedCategory?.name ?? '',
-    logs: categoryLogs,
-    enabled: Boolean(openCategoryId),
-  });
-  const review = useKeywordReview();
-
-  const applyReview = (
-    status: 'accepted' | 'edited' | 'skipped',
-    finalKeywords: KeywordCandidate[]
-  ) => {
-    const insight = insightQuery.data;
-    if (!insight) return;
-    review.mutate({ insight, status, finalKeywords });
-  };
-
-  const label = mode === 'month' ? formatMonthEyebrow(monthKey) : yearKeyValue;
-  // Until the first layout lands, the window is a good enough guess.
   const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
-  const canvasHeight = Math.max(320, canvasBox?.height ?? height - 232);
+  const canvasHeight = Math.max(320, canvasBox?.height ?? height - 260);
+
+  const gains = monthGains ?? [];
+  const hasNew = gains.some((g) => g.isNew);
+  const hasContinuing = gains.some((g) => !g.isNew);
 
   return (
     <Screen>
       <View style={styles.header}>
-        <View style={styles.toggle} accessibilityRole="tablist">
-          {(['month', 'year'] as const).map((value) => {
-            const selected = mode === value;
-            return (
-              <Pressable
-                key={value}
-                testID={`map-mode-${value}`}
-                onPress={() => {
-                  setMode(value);
-                  setExpanded(new Set());
-                  setOpenCategoryId(null);
-                }}
-                hitSlop={HIT_SLOP}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={value === 'month' ? LABELS.monthly : LABELS.yearly}
-                style={styles.toggleItem}
-              >
-                <Text style={[styles.toggleLabel, selected && styles.toggleLabelActive]}>
-                  {value === 'month' ? LABELS.monthly : LABELS.yearly}
-                </Text>
-                <View style={[styles.toggleRule, selected && styles.toggleRuleActive]} />
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.periodRow}>
-          <Pressable
-            testID="map-prev"
-            onPress={() => step(-1)}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="前の期間へ"
-            style={styles.arrowHit}
-          >
-            <Text style={styles.arrow}>‹</Text>
-          </Pressable>
-          <Eyebrow>{label}</Eyebrow>
-          <Pressable
-            testID="map-next"
-            onPress={() => step(1)}
-            disabled={!canGoForward}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="次の期間へ"
-            accessibilityState={{ disabled: !canGoForward }}
-            style={styles.arrowHit}
-          >
-            <Text style={[styles.arrow, !canGoForward && styles.arrowDisabled]}>›</Text>
-          </Pressable>
+        <MonthStrip months={months} value={monthKey} onChange={setMonthKey} />
+        <View style={styles.plateRow}>
+          <Text style={styles.plate}>{formatMonthEyebrow(monthKey)}</Text>
+          {review?.title ? <Text style={styles.reviewTitle}>{review.title}</Text> : null}
         </View>
       </View>
 
       <GestureDetector gesture={pan}>
         <View style={styles.canvas} testID="map-canvas" onLayout={onCanvasLayout}>
-          {graphLogs.length === 0 ? (
-            <EmptyState message={mode === 'month' ? EMPTY_STATE.map : EMPTY_STATE.mapYear} />
+          {gains.length === 0 ? (
+            <EmptyState message={EMPTY_STATE.map} />
           ) : (
-            <OrbitGraph
-              periodKey={periodKey}
+            <RadialGainMap
+              monthKey={monthKey}
+              gains={gains}
               width={canvasWidth}
               height={canvasHeight}
-              categories={categories ?? []}
-              logs={graphLogs}
-              expanded={expanded}
-              onCategoryPress={handleCategoryPress}
-              onLogPress={(id) => router.push(`/log/${id}`)}
+              expandedGainId={expandedGainId}
+              onGainPress={handleGainPress}
+              onEvidencePress={(logId) => router.push(`/log/${logId}`)}
             />
           )}
         </View>
       </GestureDetector>
 
-      <Text style={styles.hint}>
-        引き出しをタップすると、まとめが記事として開きます。横スワイプで前後の
-        {mode === 'month' ? '月' : '年'}へ。
-      </Text>
+      {/* NEW / CONTINUING is a distinction, not a count (§18). */}
+      <View style={styles.footer}>
+        {hasNew ? <Text style={styles.footNew}>{LABELS.new}</Text> : null}
+        {hasContinuing ? <Text style={styles.footContinuing}>{LABELS.continuing}</Text> : null}
+      </View>
 
-      <CategoryArticle
-        visible={Boolean(openCategoryId)}
-        categoryName={selectedCategory?.name ?? ''}
-        periodLabel={label}
-        insight={insightQuery.data ?? null}
-        loading={insightQuery.isLoading}
-        logs={categoryLogs}
-        onClose={() => setOpenCategoryId(null)}
-        onLogPress={(id) => {
-          setOpenCategoryId(null);
-          router.push(`/log/${id}`);
+      <GainSheet
+        visible={Boolean(openGainId)}
+        detail={gainDetail.data ?? null}
+        loading={gainDetail.isLoading}
+        busy={verdict.isPending}
+        onClose={() => setOpenGainId(null)}
+        onVerdict={(input) => {
+          if (!openGainId) return;
+          verdict.mutate({ gainId: openGainId, ...input });
         }}
-        onKeywordAccept={(keywords) => applyReview('accepted', keywords)}
-        onKeywordEdit={(keywords) => applyReview('edited', keywords)}
-        onKeywordSkip={() => applyReview('skipped', [])}
-        reviewBusy={review.isPending}
+        onEvidencePress={(logId) => {
+          setOpenGainId(null);
+          router.push(`/log/${logId}`);
+        }}
       />
     </Screen>
   );
@@ -250,28 +160,16 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   header: { paddingTop: spacing.md, gap: spacing.sm },
-  toggle: { flexDirection: 'row', gap: spacing.lg },
-  toggleItem: { minHeight: MIN_TOUCH - 10, justifyContent: 'center', gap: 4 },
-  toggleLabel: { fontFamily: fonts.serif, fontSize: 16, color: colors.ivoryFaint },
-  toggleLabelActive: { color: colors.ivory },
-  toggleRule: { height: 1, backgroundColor: 'transparent' },
-  toggleRuleActive: { backgroundColor: colors.brass },
-  periodRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  arrowHit: {
-    minWidth: MIN_TOUCH,
-    minHeight: MIN_TOUCH - 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrow: { fontSize: 22, color: colors.brassDim, fontFamily: fonts.serif },
-  arrowDisabled: { color: colors.frame },
+  plateRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md },
+  plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
+  reviewTitle: { fontFamily: fonts.serif, fontSize: 13, letterSpacing: 1.4, color: colors.ivoryFaint },
   canvas: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hint: {
-    fontFamily: fonts.sans,
-    fontSize: 11,
-    lineHeight: 18,
-    color: colors.ivoryFaint,
-    textAlign: 'center',
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
     paddingBottom: spacing.sm,
   },
+  footNew: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2.4, color: colors.brassDim },
+  footContinuing: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2.4, color: colors.frame },
 });
