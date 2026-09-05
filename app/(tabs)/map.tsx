@@ -19,6 +19,8 @@ import {
 } from '@/hooks/useProgressions';
 import { useYearLogs } from '@/hooks/useLogs';
 import { useMonthMap, useMonthReview } from '@/hooks/useMonthReview';
+import { useYearDirection } from '@/hooks/useLens';
+import { watchedPatterns } from '@/constants/desiredSelf';
 import { useUiStore } from '@/state/uiStore';
 import {
   formatMonthEyebrow,
@@ -60,6 +62,14 @@ export default function MapScreen() {
   const { data: monthProgressions } = useMonthProgressions(monthKey);
   const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
   const { data: monthMap } = useMonthMap(monthKey);
+
+  // What the person's cards made worth looking for. It moves a point up the
+  // order; it never keeps one off the map (§19).
+  const { data: direction } = useYearDirection(Number(monthKey.slice(0, 4)));
+  const watched = useMemo(
+    () => watchedPatterns(direction?.desiredSelfCards ?? []),
+    [direction?.desiredSelfCards]
+  );
   // The sheet needs the whole trail — a progression is its records, and §4
   // asks that every one of them stay reachable — so the detail query is not
   // scoped to the month even though the canvas is.
@@ -141,6 +151,7 @@ export default function MapScreen() {
               width={canvasWidth}
               height={canvasHeight}
               lead={monthMap ?? null}
+              watched={watched}
               onSelect={handleSelect}
               onSelectStep={(logId) => router.push(`/log/${logId}`)}
             />

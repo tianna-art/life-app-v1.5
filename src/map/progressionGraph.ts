@@ -19,7 +19,12 @@
  * rather than computed, and weight only moves a node nearer or further, never
  * ranks it in a row.
  */
-import type { MonthMap, MonthProgression, ProgressionMaturity } from '@/types';
+import type {
+  MonthMap,
+  MonthProgression,
+  ProgressionMaturity,
+  ProgressionPattern,
+} from '@/types';
 import { MATURITY_OPACITY } from '@/constants/progression';
 import { maturityRank } from '@/ai/progressionRules';
 
@@ -86,6 +91,8 @@ export interface BuildProgressionGraphInput {
    * back to what it can work out for itself.
    */
   lead?: MonthMap | null;
+  /** Patterns the person's cards made worth watching (§19). */
+  watched?: readonly ProgressionPattern[];
   width: number;
   height: number;
 }
@@ -147,24 +154,67 @@ function glowFor(maturity: ProgressionMaturity): number {
   return MATURITY_OPACITY[maturity] ?? MATURITY_OPACITY.signal;
 }
 
+export interface SelectMonthPointsOptions {
+  /**
+   * The patterns the person's chosen cards make worth looking for.
+   *
+   * §19: the lens raises priority and never filters. A progression that
+   * matches none of them is still eligible and still keeps its point when the
+   * month has nothing else — the direction decides what to look at first, not
+   * what is allowed to exist.
+   */
+  watched?: readonly ProgressionPattern[];
+  /** The five the brief chose, having read the direction itself. */
+  brief?: readonly string[];
+  limit?: number;
+}
+
 /**
  * Which of the month's progressions get a point, and in what order.
  *
- * Ordered by what this month actually holds — its own records first, then how
- * settled the progression was by the end of it. A progression that ran all
- * year but was touched once in August does not lead August.
+ * Three things decide it, in this order.
  *
- * Then the branching rule: a month whose points all stand alone is a month
- * that looks like a list. If the plain ordering would leave fewer than two
- * points carrying records of their own, ones that do are pulled up into the
- * five, replacing the ones that do not. Nothing is invented to make this
- * true — a month with only one such progression keeps only one.
+ * The brief first, when there is one: it has read the year's direction and
+ * the cards, and choosing the five that bear on them is exactly the judgement
+ * a model is for. It may only choose from what the month holds — a
+ * progression with no records this month is not a candidate and no reasoning
+ * can make it one.
+ *
+ * Then the lens: a progression whose pattern is one the person's cards made
+ * worth watching comes before one that does not. This is priority, never a
+ * filter (§19) — repeated "enjoyed" growing outside the year's direction is
+ * exactly the thing that must not be filtered away.
+ *
+ * Then what the month actually holds: its own records, then how settled the
+ * progression was by the end of it. A progression that ran all year but was
+ * touched once in August does not lead August.
+ *
+ * Finally the branching rule: a month whose points all stand alone is a month
+ * that looks like a list. If the ordering would leave fewer than two points
+ * carrying records of their own, ones that do are pulled up into the five,
+ * replacing the ones that do not. Nothing is invented to make this true — a
+ * month with only one such progression keeps only one.
  */
 export function selectMonthPoints(
   progressions: readonly MonthProgression[],
-  limit = MAX_POINTS
+  options: SelectMonthPointsOptions | number = {}
 ): MonthProgression[] {
+  const { watched = [], brief = [], limit = MAX_POINTS } =
+    typeof options === 'number' ? { limit: options } : options;
+
+  const watchedSet = new Set(watched);
+  const briefOrder = new Map(brief.map((id, index) => [id, index]));
+
   const ordered = [...progressions].sort((a, b) => {
+    // The brief's own choice, where it named one.
+    const aBrief = briefOrder.get(a.progression.id) ?? Number.POSITIVE_INFINITY;
+    const bBrief = briefOrder.get(b.progression.id) ?? Number.POSITIVE_INFINITY;
+    if (aBrief !== bBrief) return aBrief - bBrief;
+
+    const aWatched = a.progression.pattern && watchedSet.has(a.progression.pattern) ? 1 : 0;
+    const bWatched = b.progression.pattern && watchedSet.has(b.progression.pattern) ? 1 : 0;
+    if (aWatched !== bWatched) return bWatched - aWatched;
+
     const byMonthEvidence = b.evidenceLogIds.length - a.evidenceLogIds.length;
     if (byMonthEvidence !== 0) return byMonthEvidence;
     const bySettled = maturityRank(b.maturityThen) - maturityRank(a.maturityThen);
@@ -195,34 +245,12 @@ export function selectMonthPoints(
   return chosen;
 }
 
-/**
- * The brief's order, where the brief and the month agree.
- *
- * The brief chooses which point opens the month, having read the year's
- * direction; the selection above chooses which five are on the map at all,
- * from what the month holds. The brief may only reorder what the selection
- * already allowed — a point with no records this month cannot be talked onto
- * the map by a sentence about it.
- */
-function orderByBrief(
-  points: MonthProgression[],
-  lead: MonthMap | null
-): MonthProgression[] {
-  const leadId = lead?.leadProgressionId;
-  if (!leadId) return points;
-  const index = points.findIndex((item) => item.progression.id === leadId);
-  if (index <= 0) return points;
-  const reordered = [...points];
-  const [chosen] = reordered.splice(index, 1);
-  if (chosen) reordered.unshift(chosen);
-  return reordered;
-}
-
 export function buildProgressionGraph({
   monthKey,
   progressions,
   expandedId = null,
   lead = null,
+  watched = [],
   width,
   height,
 }: BuildProgressionGraphInput): ProgressionGraph {
@@ -231,7 +259,14 @@ export function buildProgressionGraph({
   const cy = height / 2;
   const me: MeNode = { x: cx, y: cy, r: ME_RADIUS };
 
-  const points = orderByBrief(selectMonthPoints(progressions), lead);
+  const points = selectMonthPoints(progressions, {
+    watched,
+    // The brief's order, with its lead first — it read the direction to
+    // arrive at both.
+    brief: lead?.leadProgressionId
+      ? [lead.leadProgressionId, ...lead.points.filter((id) => id !== lead.leadProgressionId)]
+      : (lead?.points ?? []),
+  });
   if (points.length === 0 || width <= 0 || height <= 0) {
     return { me, progressions: [], steps: [], edges: [] };
   }

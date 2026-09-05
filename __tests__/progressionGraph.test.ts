@@ -116,6 +116,51 @@ describe("a month's map", () => {
     expect(graph.progressions[1]?.summary).toBeUndefined();
   });
 
+  it('puts a point the cards made worth watching ahead of a busier one', () => {
+    // §19: the lens raises priority. It is what makes the five about what the
+    // person said they wanted, rather than about who wrote the most.
+    const graph = buildProgressionGraph({
+      monthKey: '2026-09',
+      progressions: [
+        item('busier', ['a', 'b', 'c'], { pattern: 'repeat' }),
+        item('watched', ['d'], { pattern: 'expose' }),
+      ],
+      watched: ['expose'],
+      ...size,
+    });
+    expect(graph.progressions[0]?.id).toBe('watched');
+  });
+
+  it('keeps what grew outside the direction (§19)', () => {
+    // Repeated enjoyment that has nothing to do with the year's words is
+    // exactly what must not be filtered away.
+    const graph = buildProgressionGraph({
+      monthKey: '2026-09',
+      progressions: [item('outside', ['a', 'b'], { pattern: 'repeat' })],
+      watched: ['expose', 'own_call'],
+      ...size,
+    });
+    expect(graph.progressions.map((n) => n.id)).toEqual(['outside']);
+  });
+
+  it('lets the brief choose which five, not only which is first', () => {
+    const many = Array.from({ length: 8 }, (_, i) => item(`p${i}`, [`l${i}`]));
+    const graph = buildProgressionGraph({
+      monthKey: '2026-09',
+      progressions: many,
+      lead: {
+        periodKey: '2026-09',
+        leadProgressionId: 'p7',
+        leadReason: 'なりたい姿に近い記録が続いています',
+        points: ['p7', 'p6', 'p5'],
+        generatedAt: '2026-09-30T00:00:00.000Z',
+      },
+      ...size,
+    });
+    const shown = graph.progressions.map((n) => n.id);
+    expect(shown.slice(0, 3)).toEqual(['p7', 'p6', 'p5']);
+  });
+
   it('lets the brief choose which point opens the month', () => {
     const graph = buildProgressionGraph({
       monthKey: '2026-08',
