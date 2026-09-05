@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { HOME } from '@/constants/copy';
+import { DatePicker } from './DatePicker';
 import { Level1Picker } from './Level1Picker';
 import { MomentTagPicker } from './MomentTagPicker';
 import type { LogType, MomentTag, NewLogInput } from '@/types';
 
 interface DailyComposerProps {
+  /** The month being written into, `YYYY-MM`. */
+  monthKey: string;
+  /** The day the composer opens on. Today, or the first of another month. */
+  defaultDay: string;
+  /** Days after this are not offered. Absent once the month is behind us. */
+  latestDay?: string | undefined;
   onSave: (input: NewLogInput) => void;
   /**
    * Asks for the one-line question once a door and a tag are chosen. Returns
@@ -31,7 +38,15 @@ interface DailyComposerProps {
  * the moment a door and a tag exist, so a slow network cannot make the fast
  * path slow.
  */
-export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyComposerProps) {
+export function DailyComposer({
+  monthKey,
+  defaultDay,
+  latestDay,
+  onSave,
+  onNeedQuestion,
+  saving = false,
+}: DailyComposerProps) {
+  const [day, setDay] = useState(defaultDay);
   const [logType, setLogType] = useState<LogType | null>(null);
   const [momentTags, setMomentTags] = useState<MomentTag[]>([]);
   const [question, setQuestion] = useState<string | null>(null);
@@ -60,7 +75,14 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
   const canSave = logType !== null && momentTags.length > 0 && !saving;
   const started = logType !== null || momentTags.length > 0 || answer.length > 0;
 
+  // Moving to another month moves the composer with it, rather than leaving
+  // a day from the month the person just left.
+  useEffect(() => {
+    setDay(defaultDay);
+  }, [defaultDay]);
+
   const reset = () => {
+    setDay(defaultDay);
     setLogType(null);
     setMomentTags([]);
     setQuestion(null);
@@ -73,6 +95,9 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
     onSave({
       logType,
       momentTags,
+      // Midday, so a record cannot land on the day before in another
+      // timezone — the day the person chose is the day it belongs to.
+      occurredAt: new Date(`${day}T12:00:00Z`).toISOString(),
       ...(question ? { aiQuestion: question } : {}),
       ...(trimmed ? { optionalAnswer: trimmed } : {}),
     });
@@ -81,6 +106,8 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
 
   return (
     <View style={styles.wrap} testID="daily-composer">
+      <DatePicker value={day} monthKey={monthKey} onChange={setDay} latest={latestDay} />
+
       <View style={styles.level}>
         <Text style={styles.levelLabel}>{HOME.level1}</Text>
         <Level1Picker value={logType} onChange={setLogType} />
