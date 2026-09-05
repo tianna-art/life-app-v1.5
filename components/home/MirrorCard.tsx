@@ -65,7 +65,7 @@ export function MirrorCard({ mirror, onDismiss, onOpenProgression }: MirrorCardP
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: spacing.xl, gap: spacing.sm },
+  card: { marginTop: spacing.xl, gap: spacing.sm, alignItems: 'center' },
   pressed: { opacity: 0.6 },
   eyebrow: {
     fontFamily: fonts.sans,
@@ -78,5 +78,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 28,
     color: colors.ivory,
+    textAlign: 'center',
   },
 });

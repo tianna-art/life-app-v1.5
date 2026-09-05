@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { MONTH, ONBOARDING } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useMonthThemeCandidates, useSaveMonthTheme } from '@/hooks/useLens';
 import { formatMonthEyebrow, monthKeyOf } from '@/utils/period';
@@ -69,6 +70,10 @@ export default function MonthThemeScreen() {
 
   return (
     <Screen>
+      <TopBar>
+        <Text style={styles.plate}>{formatMonthEyebrow(monthKeyOf(now))}</Text>
+      </TopBar>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -78,7 +83,6 @@ export default function MonthThemeScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.plate}>{formatMonthEyebrow(monthKeyOf(now))}</Text>
           <Text style={styles.heading}>{MONTH.themeHeading}</Text>
           <HairlineRule />
 

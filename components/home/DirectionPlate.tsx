@@ -55,7 +55,7 @@ export function DirectionPlate({ direction, onPress }: DirectionPlateProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 3 },
+  wrap: { gap: 3, alignItems: 'center' },
   pressed: { opacity: 0.6 },
   eyebrow: {
     fontFamily: fonts.sans,
@@ -68,7 +68,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 26,
     color: colors.ivory,
+    textAlign: 'center',
   },
-  lenses: { flexDirection: 'row', flexWrap: 'wrap' },
+  lenses: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   lens: { fontFamily: fonts.sans, fontSize: 11, color: colors.brassDim },
 });

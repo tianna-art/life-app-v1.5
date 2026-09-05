@@ -40,6 +40,7 @@ const styles = StyleSheet.create({
   row: {
     minHeight: MIN_TOUCH,
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 3,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,

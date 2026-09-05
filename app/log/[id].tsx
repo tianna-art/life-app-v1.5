@@ -5,6 +5,7 @@ import { LABELS } from '@/constants/copy';
 import { EVIDENCE_ROLE_JA, JOURNEY_ROLE_JA } from '@/constants/progression';
 import { logTypeLabel, momentTagLabel } from '@/constants/log';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useLog } from '@/hooks/useLogs';
 import type { ProgressionRef } from '@/types';
@@ -24,15 +25,7 @@ export default function EntryDetailScreen() {
 
   return (
     <Screen>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={LABELS.back}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ {LABELS.back}</Text>
-      </Pressable>
+      <TopBar onBack={() => router.back()} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {entry ? (
@@ -101,8 +94,6 @@ export default function EntryDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
   date: { fontFamily: fonts.serif, fontSize: 20, color: colors.brass },

@@ -52,7 +52,11 @@ export function MomentTagPicker({ value, onChange }: MomentTagPickerProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  wrap: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
   chip: {
     minHeight: MIN_TOUCH,
     paddingHorizontal: spacing.md,

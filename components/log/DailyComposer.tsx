@@ -149,17 +149,32 @@ export function DailyComposer({ onSave, onNeedQuestion, saving = false }: DailyC
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.lg },
-  heading: { fontFamily: fonts.serif, fontSize: 22, lineHeight: 32, color: colors.ivory },
-  level: { gap: spacing.sm },
+  wrap: { gap: spacing.lg, alignItems: 'stretch' },
+  heading: {
+    fontFamily: fonts.serif,
+    fontSize: 22,
+    lineHeight: 32,
+    color: colors.ivory,
+    textAlign: 'center',
+  },
+  level: { gap: spacing.sm, alignItems: 'center' },
   levelLabel: {
     fontFamily: fonts.sans,
     fontSize: 10,
     letterSpacing: 2.4,
     color: colors.ivoryFaint,
+    textAlign: 'center',
   },
-  question: { fontFamily: fonts.serif, fontSize: 17, lineHeight: 26, color: colors.ivory },
+  question: {
+    fontFamily: fonts.serif,
+    fontSize: 17,
+    lineHeight: 26,
+    color: colors.ivory,
+    textAlign: 'center',
+  },
   input: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
     minHeight: MIN_TOUCH,
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -169,7 +184,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xl,
+  },
   action: {
     minWidth: MIN_TOUCH,
     minHeight: MIN_TOUCH,

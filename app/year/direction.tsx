@@ -15,6 +15,7 @@ import { LABELS, ONBOARDING } from '@/constants/copy';
 import { directionAreaLabel } from '@/constants/areas';
 import { desiredSelfLabel } from '@/constants/desiredSelf';
 import { Screen } from '@components/ui/Screen';
+import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { useSaveYearDirection, useYearDirection } from '@/hooks/useLens';
 
@@ -62,15 +63,9 @@ export default function DirectionScreen() {
 
   return (
     <Screen>
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={LABELS.back}
-        style={styles.back}
-      >
-        <Text style={styles.backLabel}>‹ {LABELS.back}</Text>
-      </Pressable>
+      <TopBar onBack={() => router.back()}>
+        <Text style={styles.plate}>{year}</Text>
+      </TopBar>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -81,8 +76,6 @@ export default function DirectionScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.plate}>{year}</Text>
-
           {direction ? (
             <>
               <Text style={styles.eyebrow}>{LABELS.direction}</Text>
@@ -191,8 +184,6 @@ export default function DirectionScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  back: { paddingTop: spacing.lg, paddingBottom: spacing.md },
-  backLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
   eyebrow: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2.6, color: colors.ivoryFaint },

@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.5 },
   arrowGlyph: { fontFamily: fonts.serif, fontSize: 20, color: colors.brassDim, lineHeight: 24 },
   arrowIdle: { color: colors.frame },
-  plateBox: { flex: 1, minHeight: MIN_TOUCH, justifyContent: 'center' },
+  plateBox: { flex: 1, minHeight: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   plate: {
     fontFamily: fonts.sans,
     fontSize: 11,
