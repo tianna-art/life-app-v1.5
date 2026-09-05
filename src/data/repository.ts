@@ -2,8 +2,8 @@ import type {
   DailyLog,
   Gain,
   LogWithAnalysis,
+  Change,
   MonthProgression,
-  MonthMap,
   MonthReview,
   MonthTheme,
   NewLogInput,
@@ -75,9 +75,20 @@ export interface Repository {
   /** Everything that has settled, for the year's reading. */
   listGains(): Promise<Gain[]>;
 
+  // -- Change: what the map draws and the cards print (§22) -----------------
+
+  /**
+   * One month's published changes, in the order the map and the cards share.
+   *
+   * The same rows answer both questions on that screen. There is no separate
+   * read for "what the map shows" — that split is what let a point exist with
+   * no card under it.
+   */
+  listMonthChanges(monthKey: string): Promise<Change[]>;
+  setChangeVerdict(input: { changeId: string; verdict: ProgressionVerdict }): Promise<Change>;
+
   // -- Month & year (§25, §26) ----------------------------------------------
 
-  getMonthMap(periodKey: string): Promise<MonthMap | null>;
   getMonthReview(periodKey: string): Promise<MonthReview | null>;
   listMonthReviews(yearKey: string): Promise<MonthReview[]>;
   saveMonthReview(review: MonthReview): Promise<MonthReview>;

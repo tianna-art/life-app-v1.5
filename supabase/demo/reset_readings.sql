@@ -6,9 +6,10 @@
 -- progressions standing on records marked unread — the readings are wrong and
 -- the records are fine.
 --
--- What goes: the per-record analysis, the progressions and their evidence and
--- gains, the month briefs, and the month and year readings. All of it is
--- derived, and all of it can be made again from the records.
+-- What goes: the per-record analysis, the progressions and their evidence, the
+-- published changes with their evidence and gains, the month briefs, and the
+-- month and year readings. All of it is derived, and all of it can be made
+-- again from the records.
 --
 -- What stays: every log, the year's direction, the month themes. Nothing the
 -- person wrote or chose is touched.
@@ -34,6 +35,9 @@ begin
   -- Evidence and gains hang off progressions and go with them.
   delete from public.progressions where user_id = uid;
   get diagnostics removed_progressions = row_count;
+
+  -- Evidence and gains hang off changes and go with them.
+  delete from public.changes where user_id = uid;
 
   delete from public.month_maps where user_id = uid;
   delete from public.month_reviews where user_id = uid;

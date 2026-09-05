@@ -265,6 +265,14 @@ begin
      );
   get diagnostics removed_progressions = row_count;
 
+  -- A change stands on records. When the records it cited are gone, so is
+  -- the argument for it, and a card quoting nothing is worse than no card.
+  delete from public.changes c
+   where c.user_id = uid
+     and not exists (
+       select 1 from public.change_evidence e where e.change_id = c.id
+     );
+
   delete from public.month_reviews where user_id = uid;
   delete from public.year_reviews where user_id = uid;
 

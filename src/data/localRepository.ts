@@ -293,7 +293,7 @@ export class LocalRepository implements Repository {
     return {
       progression,
       steps,
-      gains: store.gains.filter((g) => absorbed.has(g.progressionId)),
+      gains: store.gains.filter((g) => g.progressionId != null && absorbed.has(g.progressionId)),
     };
   }
 
@@ -334,6 +334,22 @@ export class LocalRepository implements Repository {
   // -------------------------------------------------------------------------
 
   /** No model on this path, so a month has no brief and says so by absence. */
+  /**
+   * The local store never publishes changes.
+   *
+   * Reading a month into changes needs the whole archive and a model; the
+   * offline path has neither. An empty month is the honest answer and is the
+   * same one a month nothing has read yet gives — so the screen has one state
+   * to handle rather than two.
+   */
+  async listMonthChanges(): Promise<never[]> {
+    return [];
+  }
+
+  async setChangeVerdict(): Promise<never> {
+    throw new Error('この端末では、変化に返事を書けません。');
+  }
+
   async getMonthMap(): Promise<null> {
     return null;
   }

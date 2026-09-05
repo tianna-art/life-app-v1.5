@@ -1,26 +1,20 @@
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { colors, fonts, spacing } from '@/theme';
-import { EMPTY_STATE } from '@/constants/copy';
+import { CHANGE } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { TopBar } from '@components/ui/TopBar';
-import { EmptyState } from '@components/ui/EmptyState';
+import { HairlineRule } from '@components/ui/HairlineRule';
 import { MonthStrip } from '@components/map/MonthStrip';
-import { RadialProgressionMap } from '@components/map/RadialProgressionMap';
-import { ProgressionSheet } from '@components/map/ProgressionSheet';
-import {
-  useMonthProgressions,
-  useProgressionDetail,
-  useProgressionVerdict,
-} from '@/hooks/useProgressions';
+import { RadialChangeMap } from '@components/map/RadialChangeMap';
+import { ChangeCard } from '@components/map/ChangeCard';
+import { useChangeVerdict, useMonthChanges } from '@/hooks/useChanges';
 import { useYearLogs } from '@/hooks/useLogs';
-import { useMonthMap, useMonthReview } from '@/hooks/useMonthReview';
-import { useYearDirection } from '@/hooks/useLens';
-import { watchedPatterns } from '@/constants/desiredSelf';
+import { useMonthReview } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
 import {
   formatMonthEyebrow,
@@ -32,12 +26,19 @@ import {
 } from '@/utils/period';
 
 /**
- * MAP (§16–§20).
+ * MAP (§18–§24).
  *
- * One month is on screen at a time and months are never merged (§24). What is
- * drawn is not the records but the movement between them, so a month with a
- * lot of writing and nothing connected yet shows a quiet sky — which is
- * honest, and is what the first weeks look like.
+ * One screen and one object. The sky at the top is the index; the cards below
+ * are what each point means, in the order §27 fixes — the person's own records
+ * first, then what those show, then what that has to do with what they put
+ * down at the start.
+ *
+ * They are not two readings that have to be kept in step. Every point above is
+ * a card below, drawn from the same row, so a point with nothing explaining it
+ * cannot exist and a card with no point above it cannot either.
+ *
+ * A month with nothing to show draws ME alone and says so plainly (§31). That
+ * is the common state early on and it is not apologised for.
  */
 export default function MapScreen() {
   const router = useRouter();
@@ -47,8 +48,12 @@ export default function MapScreen() {
   const setMonthKey = useUiStore((s) => s.setMapMonthKey);
 
   const [canvasBox, setCanvasBox] = useState<{ width: number; height: number } | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  const scrollRef = useRef<ScrollView>(null);
+  // Where each card sits, so a tap on its point can go there. Measured rather
+  // than estimated: the cards are different heights and always will be.
+  const cardTops = useRef<Record<string, number>>({});
 
   const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
     const { width: w, height: h } = event.nativeEvent.layout;
@@ -59,22 +64,9 @@ export default function MapScreen() {
     );
   }, []);
 
-  const { data: monthProgressions } = useMonthProgressions(monthKey);
+  const { data: changes } = useMonthChanges(monthKey);
   const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
-  const { data: monthMap } = useMonthMap(monthKey);
-
-  // What the person's cards made worth looking for. It moves a point up the
-  // order; it never keeps one off the map (§19).
-  const { data: direction } = useYearDirection(Number(monthKey.slice(0, 4)));
-  const watched = useMemo(
-    () => watchedPatterns(direction?.desiredSelfCards ?? []),
-    [direction?.desiredSelfCards]
-  );
-  // The sheet needs the whole trail — a progression is its records, and §4
-  // asks that every one of them stay reachable — so the detail query is not
-  // scoped to the month even though the canvas is.
-  const detail = useProgressionDetail(expandedId);
-  const verdict = useProgressionVerdict();
+  const verdict = useChangeVerdict(monthKey);
 
   // The strip spans from the first month that holds anything to this one, so
   // it never offers a month the person has no records in.
@@ -94,8 +86,9 @@ export default function MapScreen() {
       const next = shiftMonthKey(monthKey, delta);
       if (delta > 0 && next > thisMonth) return;
       setMonthKey(next);
-      setExpandedId(null);
-      setOpenId(null);
+      setFocusedId(null);
+      cardTops.current = {};
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
     },
     [monthKey, thisMonth, setMonthKey]
   );
@@ -113,42 +106,28 @@ export default function MapScreen() {
     [step]
   );
 
-  // One tap opens what is under a point, and closes it again. It changes the
-  // sky and nothing else — asking "what happened here" should not also put a
-  // sheet over the thing you were looking at.
-  const handleToggle = useCallback((id: string) => {
-    setExpandedId((current) => (current === id ? null : id));
+  /**
+   * §24. A point is a question, and the card is where it is answered.
+   *
+   * Tapping moves the page rather than opening a sheet over the sky, so the
+   * point stays visible beside its explanation and the person can look from
+   * one to the other.
+   */
+  const handleSelect = useCallback((changeId: string) => {
+    setFocusedId(changeId);
+    const top = cardTops.current[changeId];
+    if (top === undefined) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, top - 12), animated: true });
   }, []);
-
-  // Two taps ask what the point is, which is the sheet's question.
-  const handleOpenPoint = useCallback((id: string) => {
-    setExpandedId(id);
-    setOpenId(id);
-  }, []);
-
-  // Two taps on a branch: the records it was read from. One goes straight to
-  // the record; several open the month's list filtered to them, because a
-  // reading standing on four records is only checkable against all four.
-  const handleOpenBranch = useCallback(
-    (logIds: readonly string[]) => {
-      const first = logIds[0];
-      if (!first) return;
-      if (logIds.length === 1) router.push(`/log/${first}`);
-      else router.push(`/records/${logIds.join(',')}`);
-    },
-    [router]
-  );
 
   const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
-  const canvasHeight = Math.max(320, canvasBox?.height ?? height - 260);
+  const canvasHeight = Math.max(300, Math.min(420, height * 0.44));
 
-  const progressions = monthProgressions ?? [];
+  const list = changes ?? [];
 
   return (
     <Screen>
       <TopBar>
-        {/* The strip has to keep the full width to scroll in, so it opts out
-            of the bar's centring rather than shrinking to its contents. */}
         <View style={styles.strip}>
           <MonthStrip months={months} value={monthKey} onChange={setMonthKey} />
         </View>
@@ -156,71 +135,98 @@ export default function MapScreen() {
           <Text style={styles.plate}>{formatMonthEyebrow(monthKey)}</Text>
           {review?.title ? <Text style={styles.reviewTitle}>{review.title}</Text> : null}
         </View>
-
-        {/* Why the month opens where it does, reasoned back from the year's
-            direction. Under the month's own name rather than under the point
-            it is about: it is a sentence about this month, and on the canvas
-            it had to compete with the title it sat beneath. */}
-        {monthMap?.leadReason ? (
-          <Text testID="month-lead-reason" style={styles.leadReason}>
-            {monthMap.leadReason}
-          </Text>
-        ) : null}
       </TopBar>
 
-      <GestureDetector gesture={pan}>
-        <View style={styles.canvas} testID="map-canvas" onLayout={onCanvasLayout}>
-          {progressions.length === 0 ? (
-            <EmptyState message={EMPTY_STATE.map} />
-          ) : (
-            <RadialProgressionMap
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        <GestureDetector gesture={pan}>
+          <View
+            style={[styles.canvas, { height: canvasHeight }]}
+            testID="map-canvas"
+            onLayout={onCanvasLayout}
+          >
+            <RadialChangeMap
               monthKey={monthKey}
-              progressions={progressions}
-              expandedId={expandedId}
+              changes={list}
+              selectedId={focusedId}
               width={canvasWidth}
               height={canvasHeight}
-              lead={monthMap ?? null}
-              watched={watched}
-              onToggle={handleToggle}
-              onOpenPoint={handleOpenPoint}
-              onOpenBranch={handleOpenBranch}
+              onSelect={handleSelect}
             />
-          )}
-        </View>
-      </GestureDetector>
+          </View>
+        </GestureDetector>
 
-      <ProgressionSheet
-        detail={openId ? detail.data : null}
-        onClose={() => setOpenId(null)}
-        onOpenLog={(logId) => {
-          setOpenId(null);
-          router.push(`/log/${logId}`);
-        }}
-        onVerdict={(input) => {
-          if (!openId) return;
-          verdict.mutate({ progressionId: openId, ...input });
-        }}
-      />
+        <HairlineRule />
+
+        <Text style={styles.heading}>{CHANGE.heading}</Text>
+
+        {list.length === 0 ? (
+          // §31: nothing yet, said without apology and without a consoling
+          // sentence after it.
+          <Text testID="no-changes" style={styles.none}>
+            {CHANGE.none}
+          </Text>
+        ) : (
+          list.map((change) => (
+            <View
+              key={change.id}
+              onLayout={(event) => {
+                cardTops.current[change.id] = event.nativeEvent.layout.y;
+              }}
+            >
+              <ChangeCard
+                change={change}
+                focused={focusedId === change.id}
+                onOpenLog={(logId) => router.push(`/log/${logId}`)}
+                onOpenAllEvidence={(logIds) => router.push(`/records/${logIds.join(',')}`)}
+                onVerdict={(value) =>
+                  verdict.mutate({ changeId: change.id, verdict: value })
+                }
+              />
+            </View>
+          ))
+        )}
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   strip: { alignSelf: 'stretch' },
-  plateRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: spacing.md },
-  plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
-  leadReason: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 19,
-    textAlign: 'center',
-    color: colors.ivoryDim,
+  plateRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: spacing.md,
   },
+  plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
   reviewTitle: {
     fontFamily: fonts.serif,
     fontSize: 13,
     letterSpacing: 1.4,
     color: colors.ivoryFaint,
   },
-  canvas: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
+  canvas: { alignItems: 'center', justifyContent: 'center' },
+  // The section §25 names. Set as a heading rather than an eyebrow: it is
+  // Japanese, and the tracking that suits small caps turns kana into texture.
+  heading: {
+    fontFamily: fonts.serif,
+    fontSize: 15,
+    letterSpacing: 2,
+    lineHeight: 24,
+    color: colors.ivoryDim,
+    textAlign: 'center',
+  },
+  none: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 24,
+    textAlign: 'center',
+    color: colors.ivoryFaint,
+    paddingVertical: spacing.xl,
+  },
 });

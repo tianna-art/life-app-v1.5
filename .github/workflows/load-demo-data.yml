@@ -158,10 +158,11 @@ jobs:
             echo "#### what has been read"
             echo '```json'
             # Records alone draw nothing. The map needs readings, the readings
-            # make progressions, and the sentence under the month's name comes
-            # from a brief that only exists once a month has been generated —
-            # so "nothing is showing" has four possible causes and these
-            # separate them.
+            # make progressions, the month's reading turns some of those into
+            # published changes, and the cards print the records each change
+            # cites — so "nothing is showing" has several possible causes and
+            # these separate them. `changes` at 0 with `progressions` above 0
+            # is the honest case §31 allows, not a failure.
             check "select
                      (select count(*) from public.logs l
                        where l.user_id = u.id) as records,
@@ -170,6 +171,11 @@ jobs:
                        where l.user_id = u.id) as read,
                      (select count(*) from public.progressions p
                        where p.user_id = u.id) as progressions,
+                     (select count(*) from public.changes c
+                       where c.user_id = u.id) as changes,
+                     (select count(*) from public.change_evidence e
+                        join public.changes c on c.id = e.change_id
+                       where c.user_id = u.id) as change_evidence,
                      (select count(*) from public.month_maps m
                        where m.user_id = u.id) as briefs
                    from auth.users u

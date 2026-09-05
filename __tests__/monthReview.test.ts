@@ -102,7 +102,7 @@ describe('the month-end reading (§25)', () => {
       progressions: [item({ id: 'moved', fromState: 'A', currentState: 'B' })],
       gains: [
         { category: 'method', label: '結論から伝える', progressionId: 'moved' },
-        { category: 'insight', label: '別の何か', progressionId: 'elsewhere' },
+        { category: 'clarity', label: '別の何か', progressionId: 'elsewhere' },
       ],
     });
     expect(review?.gained).toEqual([{ category: 'method', label: '結論から伝える' }]);

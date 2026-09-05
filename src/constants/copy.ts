@@ -34,9 +34,28 @@ export const MONTH = {
   skip: '今月は決めない',
   startedWith: 'YOU STARTED WITH',
   actuallyHappened: 'WHAT ACTUALLY HAPPENED',
-  changed: 'WHAT CHANGED',
+  /** §25 names this section, and it is not 'Progression Summary' (§2). */
+  changed: '今月見えた変化',
   gained: 'WHAT YOU GAINED',
   chooseTitle: 'この月の名前',
+} as const;
+
+/**
+ * The summary card (§26).
+ *
+ * Four labels in one place, because their order is the argument: the person's
+ * own records, then what those show, then what that has to do with what they
+ * put down at the start. Nothing here may read as a verdict on the month.
+ */
+export const CHANGE = {
+  heading: '今月見えた変化',
+  fromRecords: '記録から',
+  before: '以前の記録では',
+  observation: '見えてきたこと',
+  targetConnection: 'ありたい姿とのつながり',
+  allEvidence: 'この変化のもとになった記録',
+  /** §31: nothing yet is a real answer, and is said without apology. */
+  none: '今月はまだ、過去との差がはっきり見える変化はありません。',
 } as const;
 
 export const YEAR = {

@@ -17,7 +17,7 @@ import { useMonthReviews } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
 import { monthKeyOfDate, selectableYears } from '@/utils/period';
 import { runBackfill } from '@/ai/backfill';
-import { generateMonthMap } from '@/ai/client';
+import { generateMonthChanges } from '@/ai/client';
 import { signOutEverywhere } from '@/lib/session';
 import { useLocalStore } from '@/lib/env';
 import type { MenuItem } from '@components/log/LogMenu';
@@ -141,7 +141,7 @@ export default function ListScreen() {
         const result = await runBackfill(pending, { onProgress: (p) => setDone(p.done) });
         // The brief reasons over the points the records just produced, so it
         // runs after them and only when something was actually read.
-        if (result.read > 0) await generateMonthMap(monthKey);
+        if (result.read > 0) await generateMonthChanges(monthKey);
         // A run that read nothing has to say so. Silence here is what makes a
         // working button and a broken one look the same.
         if (result.read === 0 && result.fellBack > 0) {

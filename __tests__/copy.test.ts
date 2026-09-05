@@ -94,23 +94,33 @@ describe('the app does not praise, diagnose or count', () => {
   });
 
 
-  it('asks the month brief for a hypothesis, never a verdict', () => {
+  it('asks the month reading for a change, never a topic and never a verdict', () => {
     const prompt = readFileSync(
       join(ROOT, 'supabase/functions/_shared/prompts.ts'),
       'utf8'
     );
     const section = prompt.slice(
-      prompt.indexOf('export const MONTH_MAP_SYSTEM'),
+      prompt.indexOf('export const MONTH_CHANGE_SYSTEM'),
       prompt.indexOf('export const YEAR_REVIEW_SYSTEM')
     );
-    // The one place the direction explains anything, so it is also the one
-    // place most likely to slip into explaining the person.
-    expect(section).toContain('断定しない');
-    expect(section).toContain('本人を説明しない');
-    for (const banned of ['達成率', '進捗']) {
-      // Named as forbidden, not used.
-      expect(section).toContain(banned);
-      expect(section).toContain('書かない');
+
+    // §13's BAD example, printed in the prompt as the thing not to produce.
+    // It is the failure this reading falls into by default, because grouping
+    // records by subject is easy and grouping them by what moved is not.
+    expect(section).toContain('話題のまとまりであって、変化ではありません');
+    expect(section).toContain('状態の差');
+
+    // §16. The one invention the app must never make.
+    expect(section).toContain('捏造');
+    expect(section).toContain('過去の記録に書かれている場合だけ');
+
+    // §31. Three is a ceiling, and the prompt has to say so in the same
+    // breath as the number, or the number reads as a quota.
+    expect(section).toContain('3件つくることを目的にしない');
+
+    // §19's BAD list, so the model has seen what a topic title looks like.
+    for (const topic of ['キャリア', '人間関係', 'モヤモヤ']) {
+      expect(section).toContain(topic);
     }
   });
 

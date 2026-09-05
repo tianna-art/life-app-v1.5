@@ -58,19 +58,28 @@ export const JOURNEY_ROLE_JA: Record<JourneyRole, string> = {
  * seeing this evidence, not a category the app can hand them.
  */
 export const GAIN_CATEGORY_JA: Record<GainCategory, string> = {
-  evidence: '行動・経験した事実',
-  method: '見つけた方法',
-  insight: '自分や環境について分かったこと',
-  connection: '生まれたつながり',
-  criterion: '判断に使える基準',
-  option: '新しく増えた可能性',
+  clarity: '分かったこと',
+  capability: 'できるようになったこと',
+  method: '自分なりの方法',
+  choice: '自分で選んだこと',
+  evidence: '実際に行った経験',
+  connection: '人とのつながり',
+  recovery: '止まったあと、また動いたこと',
 };
 
 export const GAIN_CATEGORY_LABEL: Record<GainCategory, string> = {
-  evidence: 'EVIDENCE',
+  clarity: 'CLARITY',
+  capability: 'CAPABILITY',
   method: 'METHOD',
-  insight: 'INSIGHT',
+  choice: 'CHOICE',
+  evidence: 'EVIDENCE',
   connection: 'CONNECTION',
-  criterion: 'CRITERION',
-  option: 'OPTION',
+  recovery: 'RECOVERY',
 };
+
+/**
+ * What §17 lets the screen say at each level of confidence.
+ *
+ * Re-exported here so a component reaches for one module rather than two.
+ */
+export { phraseForConfidence } from '@/ai/changeRules';

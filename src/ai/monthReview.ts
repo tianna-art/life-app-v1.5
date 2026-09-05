@@ -62,7 +62,7 @@ export interface BuildLocalMonthReviewInput {
   periodKey: string;
   logs: readonly LogWithAnalysis[];
   progressions: readonly MonthProgression[];
-  gains: readonly { category: GainCategory; label: string; progressionId: string }[];
+  gains: readonly { category: GainCategory; label: string; progressionId?: string | undefined }[];
   /** What the month set out with, if anything (§25). */
   initialTheme?: string | undefined;
 }
@@ -98,7 +98,7 @@ export function buildLocalMonthReview({
 
   const movedIds = new Set(ranked.map((item) => item.progression.id));
   const gained: MonthReviewGain[] = gains
-    .filter((g) => movedIds.has(g.progressionId))
+    .filter((g) => g.progressionId != null && movedIds.has(g.progressionId))
     .slice(0, 3)
     .map((g) => ({ category: g.category, label: g.label }));
 

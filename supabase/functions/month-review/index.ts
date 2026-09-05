@@ -127,10 +127,37 @@ Deno.serve(async (request: Request) => {
         .map((item) => ({ row: item.row, count: item.summary.distinctLogCount }));
     }
 
+    // §22: what changed this month was decided once, by month-changes. This
+    // reading does not get a second opinion on it — it names the month and
+    // compares that with what was set out with, and the changes it prints are
+    // the published ones, verbatim.
+    const { data: changeRows } = await db
+      .from('changes')
+      .select('id, title, observation, target_connection, linked_target_label, confidence, position')
+      .eq('user_id', user.id)
+      .eq('period_type', 'month')
+      .eq('year', year)
+      .eq('month', month)
+      .order('position', { ascending: true });
+    const publishedChanges = (changeRows ?? []) as Array<{
+      id: string;
+      title: string;
+      observation: string;
+      target_connection: string;
+      linked_target_label: string | null;
+      confidence: string;
+      position: number;
+    }>;
+
     const { data: gains } = await db
       .from('gains')
-      .select('progression_id, category, label')
-      .in('progression_id', ranked.length > 0 ? ranked.map((r) => r.row.id) : ['00000000-0000-0000-0000-000000000000']);
+      .select('change_id, category, label')
+      .in(
+        'change_id',
+        publishedChanges.length > 0
+          ? publishedChanges.map((c) => c.id)
+          : ['00000000-0000-0000-0000-000000000000']
+      );
 
     const provider = createProvider();
     const raw = await provider.complete({
@@ -140,6 +167,14 @@ Deno.serve(async (request: Request) => {
         period_key: periodKey,
         initial_theme: initialTheme || null,
         log_count: monthLogs.length,
+        // Already decided. The prompt is told not to redo this.
+        changes: publishedChanges.map((c) => ({
+          title: c.title,
+          observation: c.observation,
+          target_connection: c.target_connection,
+          linked_target_label: c.linked_target_label,
+          confidence: c.confidence,
+        })),
         progressions: ranked.map(({ row, count }) => ({
           title: row.title,
           pattern: row.pattern,
@@ -169,20 +204,13 @@ Deno.serve(async (request: Request) => {
     const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
     if (title.length === 0) return jsonResponse({ title: '' });
 
-    // Titles are pinned to the stored ones: the month screen must name the
-    // same progressions the map does, not paraphrases of them.
-    const allowed = new Set(ranked.map(({ row }) => row.title));
-    const changed = Array.isArray(parsed.changed)
-      ? parsed.changed
-          .flatMap((item) => {
-            if (typeof item !== 'object' || item === null) return [];
-            const c = item as Record<string, unknown>;
-            const itemTitle = typeof c.title === 'string' ? c.title.trim() : '';
-            if (!allowed.has(itemTitle)) return [];
-            return [{ title: itemTitle, line: typeof c.line === 'string' ? c.line.trim() : '' }];
-          })
-          .slice(0, 3)
-      : [];
+    // §22, §23: not the model's answer — the month's published changes, by the
+    // titles the map prints. Anything the model wrote here is discarded, so
+    // the month screen and the map cannot describe the month differently.
+    const changed = publishedChanges.map((c) => ({
+      title: c.title,
+      line: c.observation,
+    }));
 
     const gained = Array.isArray(parsed.gained)
       ? parsed.gained

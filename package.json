@@ -12,7 +12,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "tsx scripts/seed.ts",
-    "sync:progression-rules": "node scripts/sync-progression-rules.mjs"
+    "sync:shared": "tsx scripts/sync-shared.ts"
   },
   "jest": {
     "preset": "jest-expo",

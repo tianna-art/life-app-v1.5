@@ -78,7 +78,7 @@ export default function MonthScreen() {
               <>
                 <HairlineRule />
                 <View style={styles.block}>
-                  <Text style={styles.section}>{MONTH.changed}</Text>
+                  <Text style={styles.sectionJa}>{MONTH.changed}</Text>
                   {review.changed.map((item) => (
                     <View key={item.title} style={styles.change}>
                       <Text style={styles.changeTitle}>{item.title}</Text>
@@ -152,6 +152,14 @@ const styles = StyleSheet.create({
   },
   block: { gap: spacing.sm },
   section: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 3, color: colors.ivoryFaint },
+  // §25 names this one in Japanese, which the eyebrow's tracking cannot carry.
+  sectionJa: {
+    fontFamily: fonts.serif,
+    fontSize: 15,
+    letterSpacing: 2,
+    lineHeight: 24,
+    color: colors.ivoryDim,
+  },
   initial: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 26, color: colors.ivoryDim },
   actual: { fontFamily: fonts.serif, fontSize: 20, lineHeight: 32, color: colors.ivory },
   title: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 34, color: colors.ivory },
