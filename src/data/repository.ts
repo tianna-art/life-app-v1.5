@@ -3,6 +3,7 @@ import type {
   Gain,
   LogWithAnalysis,
   MonthProgression,
+  MonthMap,
   MonthReview,
   MonthTheme,
   NewLogInput,
@@ -76,6 +77,7 @@ export interface Repository {
 
   // -- Month & year (§25, §26) ----------------------------------------------
 
+  getMonthMap(periodKey: string): Promise<MonthMap | null>;
   getMonthReview(periodKey: string): Promise<MonthReview | null>;
   listMonthReviews(yearKey: string): Promise<MonthReview[]>;
   saveMonthReview(review: MonthReview): Promise<MonthReview>;

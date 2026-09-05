@@ -218,6 +218,25 @@ function readAnalysis(raw: unknown, logId: string): LogAnalysis {
 }
 
 /**
+ * The month's map brief.
+ *
+ * One call for the whole month, run after its records have been read —
+ * it has nothing to reason over until then. Returns null rather than
+ * throwing when the month has nothing to brief: a month with no points is a
+ * working state, not a failure.
+ */
+export async function generateMonthMap(monthKey: string): Promise<boolean> {
+  try {
+    await invoke<Record<string, unknown>>('month-map', { month_key: monthKey });
+    return true;
+  } catch {
+    // The records are read and stored either way. The brief is the part that
+    // can be missing without costing the person anything they wrote.
+    return false;
+  }
+}
+
+/**
  * Reads one record and, if retrieval turns anything up, the movement it
  * belongs to. Runs after the record is committed, so a failure here can never
  * roll a saved record back.

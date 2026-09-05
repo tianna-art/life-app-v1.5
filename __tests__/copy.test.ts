@@ -93,6 +93,27 @@ describe('the app does not praise, diagnose or count', () => {
     }
   });
 
+
+  it('asks the month brief for a hypothesis, never a verdict', () => {
+    const prompt = readFileSync(
+      join(ROOT, 'supabase/functions/_shared/prompts.ts'),
+      'utf8'
+    );
+    const section = prompt.slice(
+      prompt.indexOf('export const MONTH_MAP_SYSTEM'),
+      prompt.indexOf('export const YEAR_REVIEW_SYSTEM')
+    );
+    // The one place the direction explains anything, so it is also the one
+    // place most likely to slip into explaining the person.
+    expect(section).toContain('断定しない');
+    expect(section).toContain('本人を説明しない');
+    for (const banned of ['達成率', '進捗']) {
+      // Named as forbidden, not used.
+      expect(section).toContain(banned);
+      expect(section).toContain('書かない');
+    }
+  });
+
   it('stores no column that could hold a distance from the target (§1, §19)', () => {
     // The lens must not become a score. A column for "how close are they"
     // would be on a screen within a month of existing, so the migration is

@@ -116,6 +116,41 @@ describe("a month's map", () => {
     expect(graph.progressions[1]?.summary).toBeUndefined();
   });
 
+  it('lets the brief choose which point opens the month', () => {
+    const graph = buildProgressionGraph({
+      monthKey: '2026-08',
+      progressions: [item('busiest', ['a', 'b', 'c']), item('chosen', ['d'])],
+      lead: {
+        periodKey: '2026-08',
+        leadProgressionId: 'chosen',
+        leadReason: '自分で決められるようになりたい、という言葉に近い記録が続いています',
+        points: ['chosen', 'busiest'],
+        generatedAt: '2026-09-01T00:00:00.000Z',
+      },
+      ...size,
+    });
+    expect(graph.progressions[0]?.id).toBe('chosen');
+    expect(graph.progressions[0]?.summary).toContain('自分で決められる');
+    expect(graph.progressions[1]?.summary).toBeUndefined();
+  });
+
+  it('will not let a sentence put a point on a map it has no records on', () => {
+    // The brief decides the order; the month decides who is there at all.
+    const graph = buildProgressionGraph({
+      monthKey: '2026-08',
+      progressions: [item('here', ['a'])],
+      lead: {
+        periodKey: '2026-08',
+        leadProgressionId: 'not-in-this-month',
+        leadReason: 'これが最初です',
+        points: ['not-in-this-month'],
+        generatedAt: '2026-09-01T00:00:00.000Z',
+      },
+      ...size,
+    });
+    expect(graph.progressions.map((n) => n.id)).toEqual(['here']);
+  });
+
   it('draws the same month the same way twice', () => {
     const build = () =>
       buildProgressionGraph({

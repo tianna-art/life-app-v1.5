@@ -18,7 +18,7 @@ import {
   useProgressionVerdict,
 } from '@/hooks/useProgressions';
 import { useYearLogs } from '@/hooks/useLogs';
-import { useMonthReview } from '@/hooks/useMonthReview';
+import { useMonthMap, useMonthReview } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
 import {
   formatMonthEyebrow,
@@ -59,6 +59,7 @@ export default function MapScreen() {
 
   const { data: monthProgressions } = useMonthProgressions(monthKey);
   const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
+  const { data: monthMap } = useMonthMap(monthKey);
   // The sheet needs the whole trail — a progression is its records, and §4
   // asks that every one of them stay reachable — so the detail query is not
   // scoped to the month even though the canvas is.
@@ -139,6 +140,7 @@ export default function MapScreen() {
               expandedId={expandedId}
               width={canvasWidth}
               height={canvasHeight}
+              lead={monthMap ?? null}
               onSelect={handleSelect}
               onSelectStep={(logId) => router.push(`/log/${logId}`)}
             />
