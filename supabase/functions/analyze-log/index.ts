@@ -80,7 +80,12 @@ Deno.serve(async (request: Request) => {
 
     const analysis = parseLogAnalysis(extractJson(rawExtraction), answer);
 
-    await db.from('log_ai_analysis').upsert(
+    // Checked, unlike before. This write failing silently is what produced
+    // an account with nine progressions and no readings behind any of them:
+    // STAGE 2 runs whatever STAGE 1's storage did, so the trail got built and
+    // the records it was built from stayed marked unread — which also meant
+    // the month never turned green and could be paid for twice.
+    const { error: analysisError } = await db.from('log_ai_analysis').upsert(
       {
         log_id: log.id,
         event_summary: analysis.eventSummary,
@@ -104,6 +109,7 @@ Deno.serve(async (request: Request) => {
       },
       { onConflict: 'log_id' }
     );
+    if (analysisError) throw new Error(`log_ai_analysis: ${analysisError.message}`);
 
     // ---- STAGE 2 ---------------------------------------------------------
     const related = await retrieveRelatedLogs(db, user.id, {

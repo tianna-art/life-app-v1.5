@@ -355,10 +355,11 @@ async function upsertGain(
     .maybeSingle();
 
   if (existing) {
-    await db
+    const { error } = await db
       .from('gains')
       .update({ last_detected_at: input.occurredAt })
       .eq('id', (existing as { id: string }).id);
+    if (error) throw new Error(`gains: ${error.message}`);
     return;
   }
 
@@ -372,7 +373,7 @@ async function upsertGain(
   if (!progression) return;
   const owner = progression as { user_id: string; type: ProgressionType };
 
-  await db.from('gains').insert({
+  const { error: gainError } = await db.from('gains').insert({
     user_id: owner.user_id,
     progression_id: input.progressionId,
     category: input.category,
@@ -386,6 +387,10 @@ async function upsertGain(
     first_detected_at: input.occurredAt,
     last_detected_at: input.occurredAt,
   });
+  // A gain colliding on its unique key is expected — the same thing turning
+  // up twice — and the caller swallows that so a collision never costs the
+  // progression. Anything else is a real failure and has to be seen.
+  if (gainError) throw new Error(`gains: ${gainError.message}`);
 }
 
 /** Fills the surviving v2 gain_type column. Not read anywhere. */
@@ -415,7 +420,7 @@ export async function mergeProgressions(
   // behind as a redirect, which keeps the merge reversible.
   const path = await loadEvidencePath(db, input.sourceId);
   if (path.length > 0) {
-    await db.from('progression_evidence').upsert(
+    const { error } = await db.from('progression_evidence').upsert(
       path.map((e) => ({
         progression_id: input.targetId,
         log_id: e.log_id,
@@ -424,13 +429,29 @@ export async function mergeProgressions(
       })),
       { onConflict: 'progression_id,log_id' }
     );
+    // A half-done merge is worse than none: the survivor would be missing the
+    // path it was merged for, and the source would already be a redirect.
+    if (error) throw new Error(`progression_evidence: ${error.message}`);
   }
 
-  await db.from('gains').update({ progression_id: input.targetId }).eq('progression_id', input.sourceId);
-  await db.from('progressions').update({ merged_into_id: input.targetId }).eq('id', input.sourceId);
+  const moved = await db
+    .from('gains')
+    .update({ progression_id: input.targetId })
+    .eq('progression_id', input.sourceId);
+  if (moved.error) throw new Error(`gains: ${moved.error.message}`);
+
+  const redirected = await db
+    .from('progressions')
+    .update({ merged_into_id: input.targetId })
+    .eq('id', input.sourceId);
+  if (redirected.error) throw new Error(`progressions: ${redirected.error.message}`);
 
   if (input.title) {
-    await db.from('progressions').update({ title: input.title }).eq('id', input.targetId);
+    const renamed = await db
+      .from('progressions')
+      .update({ title: input.title })
+      .eq('id', input.targetId);
+    if (renamed.error) throw new Error(`progressions: ${renamed.error.message}`);
   }
 
   // The absorbed evidence can lift the survivor a rung; recompute rather than
@@ -445,11 +466,12 @@ export async function mergeProgressions(
     .eq('id', input.targetId)
     .single();
   if (target) {
-    await db
+    const { error } = await db
       .from('progressions')
       .update({
         maturity: clampMaturity((target as { maturity: ProgressionMaturity }).maturity, summary),
       })
       .eq('id', input.targetId);
+    if (error) throw new Error(`progressions: ${error.message}`);
   }
 }

@@ -19,9 +19,9 @@ on:
         required: true
         default: ''
       action:
-        description: 'load = write the records, remove = take them out again, purge_others = DELETE everything else in the account'
+        description: 'load / remove / purge_others = DELETE everything else / reset_readings = forget the analysis, keep the records'
         type: choice
-        options: [load, remove, purge_others]
+        options: [load, remove, purge_others, reset_readings]
         default: load
       confirm:
         description: 'Type YES to run it against the live database (purge_others needs DELETE MY RECORDS)'
@@ -85,6 +85,7 @@ jobs:
             load)          file=supabase/demo/demo_data.sql ;;
             remove)        file=supabase/demo/demo_data_remove.sql ;;
             purge_others)  file=supabase/demo/purge_others.sql ;;
+            reset_readings) file=supabase/demo/reset_readings.sql ;;
             *) echo "::error::unknown action"; exit 1 ;;
           esac
 
