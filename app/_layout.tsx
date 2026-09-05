@@ -8,7 +8,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '@/lib/queryClient';
 import { colors } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { useOutboxSync } from '@/hooks/useEntries';
+import { useOutboxSync } from '@/hooks/useLogs';
 import { AuthGate } from '@components/ui/AuthGate';
 import { PhoneFrame } from '@components/ui/PhoneFrame';
 
@@ -55,6 +55,14 @@ function AppShell() {
       <Stack.Screen name="log/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="month/[key]" options={{ presentation: 'card' }} />
       <Stack.Screen name="progression/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="month/theme" options={{ presentation: 'card' }} />
+      <Stack.Screen name="year/[year]" options={{ presentation: 'card' }} />
+      {/* The opening screens replace the tabs rather than sitting over them:
+          there is nothing behind them yet to go back to. */}
+      <Stack.Screen name="onboarding/direction" options={{ presentation: 'card' }} />
+      <Stack.Screen name="onboarding/desired" options={{ presentation: 'card' }} />
+      <Stack.Screen name="onboarding/lens" options={{ presentation: 'card' }} />
+      <Stack.Screen name="onboarding/theme" options={{ presentation: 'card' }} />
     </Stack>
   );
 }

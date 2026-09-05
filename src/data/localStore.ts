@@ -1,39 +1,45 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  Clarification,
-  EntryAnalysis,
+  DailyLog,
   Gain,
-  JournalEntry,
+  LogAnalysis,
   MonthReview,
+  MonthTheme,
   Progression,
   ProgressionEvidence,
+  YearDirection,
+  YearReview,
 } from '@/types';
 
 /**
- * v3 key: the centre of the model moved from Gain to Progression, so a
- * half-read v2 store would be worse than an empty one. The older keys are left
- * in place — nothing on a device is destroyed by this release.
+ * v4 key: the daily record changed shape (a body became optional, tags became
+ * required), so a half-read v3 store would be worse than an empty one. The
+ * older keys are left in place — nothing on a device is destroyed by this.
  */
-export const LOCAL_STORE_KEY = 'crincran:store:v3';
+export const LOCAL_STORE_KEY = 'crincran:store:v4';
 
 export interface LocalStoreShape {
-  entries: JournalEntry[];
-  analyses: Record<string, EntryAnalysis>;
+  logs: DailyLog[];
+  analyses: Record<string, LogAnalysis>;
   progressions: Progression[];
   evidence: ProgressionEvidence[];
   gains: Gain[];
-  clarifications: Clarification[];
+  yearDirections: YearDirection[];
+  monthThemes: MonthTheme[];
   reviews: MonthReview[];
+  yearReviews: YearReview[];
 }
 
 export const EMPTY_STORE: LocalStoreShape = {
-  entries: [],
+  logs: [],
   analyses: {},
   progressions: [],
   evidence: [],
   gains: [],
-  clarifications: [],
+  yearDirections: [],
+  monthThemes: [],
   reviews: [],
+  yearReviews: [],
 };
 
 export async function readStore(): Promise<LocalStoreShape> {

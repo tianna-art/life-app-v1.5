@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
 import type {
-  Clarification,
+  Gain,
   MonthProgression,
   Progression,
   ProgressionDetail,
@@ -17,7 +17,7 @@ export function useProgressions() {
   });
 }
 
-/** One month's sky. Exactly one month is ever on screen (§24). */
+/** One month's sky. Exactly one month is ever on screen. */
 export function useMonthProgressions(monthKey: string) {
   return useQuery<MonthProgression[]>({
     queryKey: queryKeys.monthProgressions(monthKey),
@@ -26,7 +26,7 @@ export function useMonthProgressions(monthKey: string) {
   });
 }
 
-/** The path and whatever remains — loaded only when a node is tapped (§21). */
+/** The path and whatever remains — loaded only when a node is tapped (§23). */
 export function useProgressionDetail(id: string | null) {
   return useQuery<ProgressionDetail | null>({
     queryKey: queryKeys.progressionDetail(id ?? ''),
@@ -35,8 +35,15 @@ export function useProgressionDetail(id: string | null) {
   });
 }
 
+export function useGains() {
+  return useQuery<Gain[]>({
+    queryKey: queryKeys.gains(),
+    queryFn: () => getRepository().listGains(),
+  });
+}
+
 /**
- * 納得した / 少し違う (§28).
+ * 納得した / 少し違う.
  *
  * The whole feedback surface: a verdict, and — when the person says it is
  * slightly off — their own wording in place of the model's. Asked only when
@@ -52,33 +59,7 @@ export function useProgressionVerdict() {
     mutationFn: (input) => getRepository().setProgressionVerdict(input),
     onSuccess: (progression) => {
       void client.invalidateQueries({ queryKey: queryKeys.progressions() });
-      void client.invalidateQueries({
-        queryKey: queryKeys.progressionDetail(progression.id),
-      });
-    },
-  });
-}
-
-/**
- * The one optional question (§14).
- *
- * At most one is ever outstanding, and skipping counts as answering, so the
- * same question never comes back.
- */
-export function usePendingClarification() {
-  return useQuery<Clarification | null>({
-    queryKey: queryKeys.clarification(),
-    queryFn: () => getRepository().getPendingClarification(),
-  });
-}
-
-export function useAnswerClarification() {
-  const client = useQueryClient();
-  return useMutation<void, Error, { id: string; answer: string | null }>({
-    mutationFn: (input) => getRepository().answerClarification(input),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.clarification() });
-      void client.invalidateQueries({ queryKey: queryKeys.progressions() });
+      void client.invalidateQueries({ queryKey: queryKeys.progressionDetail(progression.id) });
     },
   });
 }

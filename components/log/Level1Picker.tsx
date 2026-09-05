@@ -1,29 +1,29 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
-import { ENTRY_TYPES } from '@/constants/entry';
-import type { EntryType } from '@/types';
+import { LOG_TYPES } from '@/constants/log';
+import type { LogType } from '@/types';
 
-interface TypeToggleProps {
-  value: EntryType | null;
-  onChange: (value: EntryType) => void;
+interface Level1PickerProps {
+  value: LogType | null;
+  onChange: (value: LogType) => void;
 }
 
 /**
- * 出来事 / つぶやき (§3).
+ * 自分の行動 / 人との関わり / つぶやき (§9).
  *
- * Two words, no explanation. Neither is the "right" one and neither is worth
- * more than the other, so they are drawn identically — a difference in weight
- * would turn a one-tap sort into a small decision about oneself.
+ * The door the record is left through, not a classification of it. The three
+ * overlap on purpose, so they are drawn identically — making one look like the
+ * "main" one would turn a reflex into a small decision about oneself.
  */
-export function TypeToggle({ value, onChange }: TypeToggleProps) {
+export function Level1Picker({ value, onChange }: Level1PickerProps) {
   return (
-    <View style={styles.row} accessibilityRole="radiogroup" testID="type-toggle">
-      {ENTRY_TYPES.map((type) => {
+    <View style={styles.row} accessibilityRole="radiogroup" testID="level1-picker">
+      {LOG_TYPES.map((type) => {
         const selected = value === type.id;
         return (
           <Pressable
             key={type.id}
-            testID={`type-${type.id}`}
+            testID={`level1-${type.id}`}
             onPress={() => onChange(type.id)}
             hitSlop={HIT_SLOP}
             accessibilityRole="radio"
@@ -45,7 +45,7 @@ export function TypeToggle({ value, onChange }: TypeToggleProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.sm },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     minHeight: MIN_TOUCH,
     paddingHorizontal: spacing.md,
@@ -56,11 +56,6 @@ const styles = StyleSheet.create({
   },
   chipSelected: { borderColor: colors.brass },
   pressed: { opacity: 0.6 },
-  label: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    letterSpacing: 1.2,
-    color: colors.ivoryFaint,
-  },
+  label: { fontFamily: fonts.sans, fontSize: 13, letterSpacing: 1, color: colors.ivoryFaint },
   labelSelected: { color: colors.brass },
 });

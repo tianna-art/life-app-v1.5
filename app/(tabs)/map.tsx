@@ -16,7 +16,7 @@ import {
   useProgressionDetail,
   useProgressionVerdict,
 } from '@/hooks/useProgressions';
-import { useYearEntries } from '@/hooks/useEntries';
+import { useYearLogs } from '@/hooks/useLogs';
 import { useMonthReview } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
 import {
@@ -66,7 +66,7 @@ export default function MapScreen() {
   // The strip spans from the first month that holds anything to this one, so
   // it never offers a month the person has no records in.
   const thisMonth = useMemo(() => monthKeyOf(new Date()), []);
-  const { data: yearEntries } = useYearEntries(monthKey.slice(0, 4));
+  const { data: yearEntries } = useYearLogs(monthKey.slice(0, 4));
   const months = useMemo(() => {
     const keys = new Set<string>([thisMonth, monthKey]);
     for (const entry of yearEntries ?? []) keys.add(monthKeyOfDate(entry.occurredOn));

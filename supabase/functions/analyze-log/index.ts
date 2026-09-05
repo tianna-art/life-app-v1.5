@@ -1,28 +1,29 @@
-// The two stages of §29, in one round trip.
+// STAGE 1 and STAGE 2, in one round trip.
 //
-// STAGE 1 reads the entry on its own. STAGE 2 compares it with the records
-// retrieval turned up and decides whether anything is a movement. Splitting
-// them across the network would double the latency of a save for no benefit —
-// nothing in between needs to reach the device — but they stay two separate
-// model calls, because asking for both at once produces a reading of the entry
-// that has already been bent to fit a trajectory.
+// STAGE 1 reads the record on its own. STAGE 2 compares it with what retrieval
+// turned up and decides whether anything is a movement. Splitting them across
+// the network would double the latency of a save for no benefit — nothing in
+// between needs to reach the device — but they stay two separate model calls,
+// because asking for both at once produces a reading of the record that has
+// already been bent to fit a trajectory.
 //
-// Runs after the entry is committed. A failure here returns an error and never
-// touches the stored record: the person keeps their text whatever the model
-// does.
+// Runs after the record is committed. A failure here returns an error and
+// never touches what was stored: the person keeps what they tapped whatever
+// the model does.
 import { createProvider } from '../_shared/llm.ts';
 import {
   CONSOLIDATION_SYSTEM,
   CROSS_TIME_SYSTEM,
-  ENTRY_EXTRACTION_SYSTEM,
+  LOG_EXTRACTION_SYSTEM,
 } from '../_shared/prompts.ts';
 import { extractJson, jsonResponse, preflight } from '../_shared/json.ts';
 import { requireUser, serviceClient } from '../_shared/db.ts';
 import { retrieveRelatedLogs } from '../_shared/retrieval.ts';
 import {
+  MIN_EVIDENCE_FOR_PROGRESSION,
   nominateConsolidations,
   parseCrossTimeReading,
-  parseEntryAnalysis,
+  parseLogAnalysis,
   type ProgressionType,
 } from '../_shared/progressionRules.ts';
 import {
@@ -33,7 +34,7 @@ import {
   type ProgressionRow,
 } from '../_shared/progressionStore.ts';
 
-const ANALYSIS_VERSION = 'v3-progression';
+const ANALYSIS_VERSION = 'v4-lens';
 /** Consolidation asks the model; a couple of questions per save is enough. */
 const MAX_CONSOLIDATION_CHECKS = 2;
 
@@ -49,49 +50,54 @@ Deno.serve(async (request: Request) => {
     const db = serviceClient();
     const { data: log, error } = await db
       .from('logs')
-      .select('id, user_id, body, type, subjective_signal, occurred_on, occurred_at')
+      .select(
+        'id, user_id, type, moment_tags, ai_question, optional_answer, body, occurred_on, occurred_at'
+      )
       .eq('id', logId)
       .single();
     if (error || !log) return jsonResponse({ error: 'log not found' }, 404);
     if (log.user_id !== user.id) return jsonResponse({ error: 'forbidden' }, 403);
 
+    const answer: string = log.optional_answer ?? log.body ?? '';
     const provider = createProvider();
 
     // ---- STAGE 1 ---------------------------------------------------------
     const rawExtraction = await provider.complete({
-      system: ENTRY_EXTRACTION_SYSTEM,
+      system: LOG_EXTRACTION_SYSTEM,
       user: JSON.stringify({
-        task: 'entry_extraction',
-        entry: {
+        task: 'log_extraction',
+        record: {
           occurred_on: log.occurred_on,
-          type: log.type,
-          subjective_signal: log.subjective_signal,
-          body: log.body,
+          log_type: log.type,
+          moment_tags: log.moment_tags ?? [],
+          question: log.ai_question,
+          answer: answer || null,
         },
       }),
-      maxTokens: 900,
+      maxTokens: 800,
       temperature: 0.2,
     });
 
-    const analysis = parseEntryAnalysis(extractJson(rawExtraction), log.body);
+    const analysis = parseLogAnalysis(extractJson(rawExtraction), answer);
 
     await db.from('log_ai_analysis').upsert(
       {
         log_id: log.id,
         event_summary: analysis.eventSummary,
-        topics: analysis.topics,
-        actors: analysis.actors,
-        environment: analysis.environment,
+        topics: analysis.themes,
+        actors: analysis.people,
         action: analysis.action ?? null,
         outcome: analysis.outcome ?? null,
-        reaction: analysis.reaction ?? null,
-        hypothesis: analysis.hypothesis ?? null,
-        future_intention: analysis.futureIntention ?? null,
-        journey_role: analysis.journeyRole,
-        signals: analysis.signals,
+        friction: analysis.friction ?? null,
+        discovery: analysis.discovery ?? null,
+        adaptation: analysis.adaptation ?? null,
+        choice: analysis.choice ?? null,
+        environment_note: analysis.environment ?? null,
+        interest_signal: analysis.interestSignal ?? null,
+        journey_role: analysis.journeyRole ?? null,
         confidence: analysis.confidence,
         keywords: [],
-        semantic_tags: analysis.topics,
+        semantic_tags: analysis.themes,
         model_name: `${provider.name}:${provider.model}`,
         analysis_version: ANALYSIS_VERSION,
         updated_at: new Date().toISOString(),
@@ -102,8 +108,9 @@ Deno.serve(async (request: Request) => {
     // ---- STAGE 2 ---------------------------------------------------------
     const related = await retrieveRelatedLogs(db, user.id, {
       excludeLogId: log.id,
-      topics: analysis.topics,
-      signals: Object.values(analysis.signals).flat(),
+      topics: analysis.themes,
+      momentTags: log.moment_tags ?? [],
+      logType: log.type,
       occurredAt: log.occurred_at,
     });
 
@@ -114,39 +121,43 @@ Deno.serve(async (request: Request) => {
         analysis: toWire(analysis, log.id),
         progressions: [],
         joined_progression_ids: [],
-        emerged: false,
-        clarification: null,
+        emerged_progression_id: null,
       });
     }
 
-    const existing = await loadProgressions(db, user.id);
+    const [existing, lenses] = await Promise.all([
+      loadProgressions(db, user.id),
+      loadLenses(db, user.id, log.occurred_on),
+    ]);
 
     const rawCrossTime = await provider.complete({
       system: CROSS_TIME_SYSTEM,
       user: JSON.stringify({
         task: 'cross_time_progression',
+        // The lens raises priority; it never filters (§19).
+        lenses,
         today: {
           log_id: log.id,
           occurred_on: log.occurred_on,
-          type: log.type,
-          subjective_signal: log.subjective_signal,
-          body: log.body,
+          log_type: log.type,
+          moment_tags: log.moment_tags ?? [],
+          question: log.ai_question,
+          answer: answer || null,
           event_summary: analysis.eventSummary,
-          topics: analysis.topics,
-          journey_role: analysis.journeyRole,
+          themes: analysis.themes,
         },
         related_logs: related.map((r) => ({
           log_id: r.id,
           occurred_on: r.occurred_on,
-          type: r.type,
-          subjective_signal: r.subjective_signal,
-          body: r.body,
+          log_type: r.type,
+          moment_tags: r.moment_tags,
+          answer: r.optional_answer ?? r.body,
           event_summary: r.event_summary,
-          journey_role: r.journey_role,
         })),
         existing_progressions: existing.map((p) => ({
           id: p.id,
           type: p.type,
+          pattern: p.pattern,
           title: p.title,
           from_state: p.from_state,
           current_state: p.current_state,
@@ -157,7 +168,7 @@ Deno.serve(async (request: Request) => {
       temperature: 0.3,
     });
 
-    const reading = parseCrossTimeReading(
+    const proposals = parseCrossTimeReading(
       extractJson(rawCrossTime),
       [log.id, ...related.map((r) => r.id)],
       existing.map((p) => p.id)
@@ -165,10 +176,11 @@ Deno.serve(async (request: Request) => {
 
     const applied: ProgressionRow[] = [];
     const joined: string[] = [];
-    let emerged = false;
+    let emergedId: string | null = null;
+    let emergedCount = 0;
     let pool = existing;
 
-    for (const proposal of reading.proposals) {
+    for (const proposal of proposals) {
       const result = await applyProposal(db, {
         userId: user.id,
         logId: log.id,
@@ -181,50 +193,28 @@ Deno.serve(async (request: Request) => {
 
       applied.push(result.row);
       joined.push(result.row.id);
-      if (result.emerged) emerged = true;
+      // §32's moment: separate points becoming a line. Only the first one is
+      // announced — two at once would make it an event rather than a noticing.
+      if (result.emerged && !emergedId) {
+        emergedId = result.row.id;
+        emergedCount = Math.max(
+          MIN_EVIDENCE_FOR_PROGRESSION,
+          (await evidenceCounts(db, [result.row.id])).get(result.row.id) ?? 0
+        );
+      }
       pool = result.created
         ? [...pool, result.row]
         : pool.map((p) => (p.id === result.row.id ? result.row : p));
     }
 
-    if (reading.clarification) {
-      // A question the person never answered is not repeated for a new entry;
-      // §14 allows one outstanding at a time, and the unique index on log_id
-      // means a re-run of this function cannot stack a second copy.
-      const { count } = await db
-        .from('clarifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .is('answer', null);
-
-      if ((count ?? 0) === 0) {
-        await db.from('clarifications').upsert(
-          {
-            user_id: user.id,
-            log_id: log.id,
-            question: reading.clarification.question,
-            options: reading.clarification.options,
-          },
-          { onConflict: 'log_id' }
-        );
-      }
-    }
-
     const surviving = await consolidate(db, provider, user.id);
-
-    const { data: clarificationRow } = await db
-      .from('clarifications')
-      .select('id, log_id, question, options')
-      .eq('log_id', log.id)
-      .is('answer', null)
-      .maybeSingle();
 
     return jsonResponse({
       analysis: toWire(analysis, log.id),
       progressions: applied.map((p) => surviving.get(p.id) ?? p),
       joined_progression_ids: joined.map((id) => surviving.get(id)?.id ?? id),
-      emerged,
-      clarification: clarificationRow ?? null,
+      emerged_progression_id: emergedId ? (surviving.get(emergedId)?.id ?? emergedId) : null,
+      emerged_count: emergedCount,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
@@ -233,37 +223,58 @@ Deno.serve(async (request: Request) => {
   }
 });
 
+/**
+ * What the person said they wanted to grow this year (§4, §19).
+ *
+ * Absent is a working state: a person who never opened the year screens has
+ * no lens, and the reading runs without one — it simply has no priority to
+ * apply.
+ */
+async function loadLenses(
+  db: ReturnType<typeof serviceClient>,
+  userId: string,
+  occurredOn: string
+): Promise<string[]> {
+  const year = Number(occurredOn.slice(0, 4));
+  const { data } = await db
+    .from('year_directions')
+    .select('progression_lenses')
+    .eq('user_id', userId)
+    .eq('year', year)
+    .maybeSingle();
+  const row = data as { progression_lenses: string[] | null } | null;
+  return row?.progression_lenses ?? [];
+}
+
 function toWire(
-  analysis: ReturnType<typeof parseEntryAnalysis>,
+  analysis: ReturnType<typeof parseLogAnalysis>,
   logId: string
 ): Record<string, unknown> {
   return {
     log_id: logId,
     event_summary: analysis.eventSummary,
-    topics: analysis.topics,
-    actors: analysis.actors,
-    environment: analysis.environment,
+    themes: analysis.themes,
+    people: analysis.people,
     action: analysis.action ?? null,
     outcome: analysis.outcome ?? null,
-    reaction: analysis.reaction ?? null,
-    hypothesis: analysis.hypothesis ?? null,
-    future_intention: analysis.futureIntention ?? null,
-    journey_role: analysis.journeyRole,
-    signals: analysis.signals,
+    friction: analysis.friction ?? null,
+    discovery: analysis.discovery ?? null,
+    adaptation: analysis.adaptation ?? null,
+    choice: analysis.choice ?? null,
+    environment: analysis.environment ?? null,
+    interest_signal: analysis.interestSignal ?? null,
+    journey_role: analysis.journeyRole ?? null,
     confidence: analysis.confidence,
   };
 }
 
 /**
- * Progression consolidation (§30).
+ * Progression consolidation.
  *
  * Surface similarity only nominates a pair; the model has to agree they are
  * the same movement before anything is folded together, and it is told to
  * decline whenever nuance would be lost. A progression the person has edited
  * is theirs and is never a candidate.
- *
- * Returns a map from any absorbed id to the row that now stands for it, so the
- * response never points at a merged progression.
  */
 async function consolidate(
   db: ReturnType<typeof serviceClient>,

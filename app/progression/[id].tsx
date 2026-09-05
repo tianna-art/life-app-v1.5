@@ -53,7 +53,7 @@ export default function ProgressionScreen() {
 
             {detail && detail.steps.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>{LABELS.howItChanged}</Text>
+                <Text style={styles.sectionLabel}>{LABELS.path}</Text>
                 {detail.steps.map((step, index) => (
                   <Pressable
                     key={step.logId}
@@ -77,7 +77,7 @@ export default function ProgressionScreen() {
             {detail && detail.gains.length > 0 ? (
               <View style={styles.section}>
                 <HairlineRule />
-                <Text style={styles.sectionLabel}>{LABELS.whatRemains}</Text>
+                <Text style={styles.sectionLabel}>{LABELS.whatYouGained}</Text>
                 {detail.gains.map((gain) => (
                   <View key={gain.id} style={styles.gain}>
                     <Text style={styles.gainLabel}>{gain.label}</Text>

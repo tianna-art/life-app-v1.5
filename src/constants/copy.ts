@@ -4,16 +4,45 @@
  * a component someone edits in a hurry.
  */
 export const HOME = {
-  /** The only question the app ever asks, and it is about facts (§5). */
-  question: '今日、何があった？',
-  placeholder: '今日のことを、そのまま残す。',
+  /** The only heading. It is about today, not about meaning (§8). */
+  heading: '今日の記録',
+  level1: 'どこから残す？',
+  level2: 'どんな瞬間だった？',
+  /** Placeholder for the optional answer. Says plainly that it is optional. */
+  answerPlaceholder: '答えなくても保存できます',
   save: '保存',
   reset: '入力内容を消す',
-  signalLabel: '自分にとってどうだった？',
+} as const;
+
+export const ONBOARDING = {
+  directionHeading: '今年、どんな方向を育てたい？',
+  directionHint: 'いくつでも。あとから変えられます。',
+  desiredHeading: 'どんな自分になれたら嬉しい？',
+  desiredHint: '選んだものが、AIが見ていく変化になります。',
+  lensHeading: '今年は、こんな変化を見ていきます',
+  themeHeading: '今年のテーマ',
+  themeHint: '目標ではありません。年末にもう一度決めます。',
+  writeMyOwn: '自分で書く',
+  next: '次へ',
+  done: 'はじめる',
+} as const;
+
+export const MONTH = {
+  themeHeading: '今月のテーマ',
+  skip: '今月は決めない',
+  startedWith: 'YOU STARTED WITH',
+  actuallyHappened: 'WHAT ACTUALLY HAPPENED',
+  changed: 'WHAT CHANGED',
+  gained: 'WHAT YOU GAINED',
+  chooseTitle: 'この月の名前',
+} as const;
+
+export const YEAR = {
+  thought: 'YOU THOUGHT THIS YEAR WOULD BE ABOUT',
+  became: 'IT ACTUALLY BECAME',
 } as const;
 
 export const EMPTY_STATE = {
-  /** HOME shows nothing at all when empty — the field is the whole screen. */
   map: 'まだ、中心だけがあります。',
   list: 'この月には、まだ記録がありません。',
   progressionDetail: 'この変化を支える記録は、まだ集まっていません。',
@@ -21,39 +50,37 @@ export const EMPTY_STATE = {
 
 export const LABELS = {
   mirror: 'TODAY',
-  howItChanged: 'HOW IT CHANGED',
-  whatRemains: 'WHAT REMAINS',
-  carryingForward: "WHAT YOU'RE CARRYING FORWARD",
-  threeProgressions: '3 PROGRESSIONS',
+  path: 'PATH',
+  before: 'BEFORE',
+  current: 'CURRENT',
+  whatYouGained: "WHAT YOU'VE GAINED",
+  relatedProgressions: 'このログが立っている変化',
   me: 'ME',
   monthComplete: 'THIS MONTH IS COMPLETE.',
   accepted: '納得した',
   adjusted: '少し違う',
   saveEdit: 'この言い方にする',
   new: 'NEW',
-  skip: 'あとで',
-  relatedProgressions: 'このログが立っている変化',
   back: '戻る',
 } as const;
 
+/** Shown when an entry lands on a trail that already existed (§31). */
+export const JOINED_LINE = '「{title}」に、新しい点が加わりました。';
+
 /**
- * Shown when nothing could honestly be said about a record (§15). Never a
- * substitute progression, never an apology — the day is allowed to stay
- * unread.
+ * The one line the emergence moment gets (§32).
+ *
+ * Quiet on purpose: §32 rules out celebration, so this is a statement of what
+ * happened and nothing else.
  */
-export const UNRESOLVED_LINE = '今日は、まだ意味を決めなくていい。';
-
-/** Shown when an entry lands on a trail that already existed (§15, §32). */
-export const JOINED_PROGRESSION_LINE = '「{title}」に、新しい点が加わりました。';
-
-/** The one line the emergence moment gets (§32). Quiet on purpose. */
-export const PROGRESSION_EMERGED_LINE = '{count}つの出来事が、ひとつの変化としてつながりました。';
+export const EMERGED_LINE = '{count}つの記録が、ひとつの変化としてつながりました。';
 
 /**
  * Guard used in tests: none of these may appear in shipped copy.
  *
- * The first group is diagnosis (§13), the second is praise, the third is the
- * gamification §34 rules out.
+ * The first group is diagnosis (§30), the second is praise, the third is the
+ * gamification §29 rules out, and the last is the reflective questioning §12
+ * takes off the person's plate.
  */
 export const FORBIDDEN_PHRASES = [
   'あなたは',
@@ -63,7 +90,9 @@ export const FORBIDDEN_PHRASES = [
   '素晴らしい',
   '成長しました',
   '成長しています',
-  '記録が足りません',
+  '強くなりました',
   '連続',
   'ポイント',
+  '達成率',
+  '何を学び',
 ] as const;

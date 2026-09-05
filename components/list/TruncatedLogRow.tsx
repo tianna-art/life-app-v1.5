@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { formatShortDate } from '@/utils/period';
+import { momentTagLabel } from '@/constants/log';
 import { truncate } from '@/utils/text';
-import type { JournalEntry } from '@/types';
+import type { DailyLog } from '@/types';
 
 /** `09/04  新しい企画の方向性が見えて…` — one line, ellipsis, tap for the full text. */
 export function TruncatedLogRow({
@@ -10,11 +11,17 @@ export function TruncatedLogRow({
   onPress,
   maxChars = 22,
 }: {
-  entry: JournalEntry;
+  entry: DailyLog;
   onPress: (id: string) => void;
   maxChars?: number;
 }) {
-  const preview = truncate(entry.body, maxChars);
+  // A v4 record may have no free text at all (§14). Its tags are then the only
+  // thing there is to show, and they are the person's own words — so the row
+  // reads 「初めて・楽しかった」 rather than an empty line or a placeholder.
+  const preview = truncate(
+    entry.optionalAnswer || entry.body || entry.momentTags.map(momentTagLabel).join('・'),
+    maxChars
+  );
   return (
     <Pressable
       testID={`log-row-${entry.id}`}

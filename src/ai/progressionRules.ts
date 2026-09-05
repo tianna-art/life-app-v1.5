@@ -1,23 +1,49 @@
 /**
  * The rules the model does not get to argue with.
  *
- * The model proposes: what happened, what it connects to, how far along the
- * movement is. This file decides how far any of that is allowed to go. It is
- * plain data and pure functions on purpose — it runs unchanged in the app and
- * inside the Edge Function, and `npm run sync:progression-rules` keeps the two
- * copies byte-identical (a test fails when they drift).
+ * The model proposes: what happened, what it connects to, which of the ten
+ * shapes it is, how far along it has come. This file decides how far any of
+ * that is allowed to go. It is plain data and pure functions on purpose — it
+ * runs unchanged in the app and inside the Edge Function, and
+ * `npm run sync:progression-rules` keeps the two copies byte-identical (a test
+ * fails when they drift).
  *
- * The discipline it enforces, in one line: a progression is only as settled as
- * the records behind it, and no prompt can raise that.
+ * Two disciplines live here:
+ *
+ *   1. A progression is only as settled as the records behind it, and no
+ *      prompt can raise that (`maturityCeiling`).
+ *   2. A pattern is only that pattern if the records actually show its shape.
+ *      §18 names PIVOT explicitly — friction, then a change, then another
+ *      attempt — and every one of the ten has an equivalent floor
+ *      (`resolvePattern`).
  */
 
 // ---------------------------------------------------------------------------
 // Vocabulary (duplicated from src/types on purpose — this file has no imports)
 // ---------------------------------------------------------------------------
 
-export type EntryType = 'event' | 'thought';
+export type LogType = 'self_action' | 'relationship' | 'thought';
 
-export type SubjectiveSignal = 'positive' | 'mixed' | 'negative';
+export type MomentTag =
+  | 'enjoyed'
+  | 'tried'
+  | 'first_time'
+  | 'friction'
+  | 'changed'
+  | 'discovered'
+  | 'self_decided';
+
+export type ProgressionPattern =
+  | 'naming'
+  | 'first_act'
+  | 'repeat'
+  | 'solo'
+  | 'pivot'
+  | 'expose'
+  | 'own_call'
+  | 'transfer'
+  | 'reframe'
+  | 'boundary';
 
 export type ProgressionType =
   | 'capability'
@@ -32,7 +58,7 @@ export type ProgressionMaturity = 'signal' | 'emerging' | 'evidenced' | 'establi
 export type ProgressionEvidenceRole =
   | 'origin'
   | 'attempt'
-  | 'setback'
+  | 'friction'
   | 'adaptation'
   | 'evidence'
   | 'turning_point'
@@ -40,7 +66,7 @@ export type ProgressionEvidenceRole =
 
 export type JourneyRole =
   | 'attempt'
-  | 'setback'
+  | 'friction'
   | 'breakthrough'
   | 'adaptation'
   | 'learning'
@@ -48,6 +74,40 @@ export type JourneyRole =
   | 'exploration'
   | 'continuation'
   | 'neutral';
+
+export type GainCategory =
+  | 'clarity'
+  | 'capability'
+  | 'method'
+  | 'choice'
+  | 'evidence'
+  | 'connection'
+  | 'recovery';
+
+export const LOG_TYPES: readonly LogType[] = ['self_action', 'relationship', 'thought'] as const;
+
+export const MOMENT_TAGS: readonly MomentTag[] = [
+  'enjoyed',
+  'tried',
+  'first_time',
+  'friction',
+  'changed',
+  'discovered',
+  'self_decided',
+] as const;
+
+export const PROGRESSION_PATTERNS: readonly ProgressionPattern[] = [
+  'naming',
+  'first_act',
+  'repeat',
+  'solo',
+  'pivot',
+  'expose',
+  'own_call',
+  'transfer',
+  'reframe',
+  'boundary',
+] as const;
 
 export const PROGRESSION_TYPES: readonly ProgressionType[] = [
   'capability',
@@ -65,9 +125,19 @@ export const MATURITY_ORDER: readonly ProgressionMaturity[] = [
   'established',
 ] as const;
 
+export const EVIDENCE_ROLES: readonly ProgressionEvidenceRole[] = [
+  'origin',
+  'attempt',
+  'friction',
+  'adaptation',
+  'evidence',
+  'turning_point',
+  'current',
+] as const;
+
 export const JOURNEY_ROLES: readonly JourneyRole[] = [
   'attempt',
-  'setback',
+  'friction',
   'breakthrough',
   'adaptation',
   'learning',
@@ -77,23 +147,195 @@ export const JOURNEY_ROLES: readonly JourneyRole[] = [
   'neutral',
 ] as const;
 
-export const EVIDENCE_ROLES: readonly ProgressionEvidenceRole[] = [
-  'origin',
-  'attempt',
-  'setback',
-  'adaptation',
+export const GAIN_CATEGORIES: readonly GainCategory[] = [
+  'clarity',
+  'capability',
+  'method',
+  'choice',
   'evidence',
-  'turning_point',
-  'current',
+  'connection',
+  'recovery',
 ] as const;
 
-export const ENTRY_TYPES: readonly EntryType[] = ['event', 'thought'] as const;
+// ---------------------------------------------------------------------------
+// Pattern requirements (§17, §18)
+// ---------------------------------------------------------------------------
 
-export const SUBJECTIVE_SIGNALS: readonly SubjectiveSignal[] = [
-  'positive',
-  'mixed',
-  'negative',
+/**
+ * One record, as much of it as a pattern check needs.
+ *
+ * Level 1 and Level 2 are the person's own evidence (§16), so the checks below
+ * run on those rather than on anything the model inferred. That is what makes
+ * them a floor: no prompt can talk its way past a tag the person did not tap.
+ */
+export interface PatternEvidence {
+  logId: string;
+  logType: LogType;
+  momentTags: readonly MomentTag[];
+  occurredAt: string;
+}
+
+/** One thing that has to appear, in order, for a pattern to be that pattern. */
+export interface PatternStage {
+  /** Satisfied by any one of these tags. Empty means any tag will do. */
+  anyTag?: readonly MomentTag[];
+  /** Satisfied only from these doors. Empty means any door will do. */
+  anyType?: readonly LogType[];
+}
+
+export interface PatternRequirement {
+  pattern: ProgressionPattern;
+  /** In time order. Each stage must be met by a record later than the last. */
+  stages: readonly PatternStage[];
+  /** Plain-language shape, for the prompt. */
+  shape: string;
+}
+
+/**
+ * What each of the ten needs before it may be called that.
+ *
+ * These are floors, not definitions: meeting the shape does not make something
+ * a PIVOT, but failing it means it is not one. §18 is explicit for PIVOT —
+ * friction, a change, and a retry, all three — and the rest follow the same
+ * logic, which is that a change is only visible as a difference between two
+ * moments the person actually marked.
+ */
+export const PATTERN_REQUIREMENTS: readonly PatternRequirement[] = [
+  {
+    pattern: 'naming',
+    // Vague to nameable. Two namings, and the later one is the specific one.
+    stages: [{ anyTag: ['discovered'] }, { anyTag: ['discovered'] }],
+    shape: '曖昧 → 具体的に言える',
+  },
+  {
+    pattern: 'first_act',
+    // Thinking about it, then doing it.
+    stages: [{ anyType: ['thought'] }, { anyTag: ['tried', 'first_time'] }],
+    shape: '考える → 試す',
+  },
+  {
+    pattern: 'repeat',
+    // Once is an attempt; three times is a habit forming.
+    stages: [
+      { anyTag: ['tried', 'first_time'] },
+      { anyTag: ['tried', 'first_time'] },
+      { anyTag: ['tried', 'first_time'] },
+    ],
+    shape: '一度 → 繰り返す',
+  },
+  {
+    pattern: 'solo',
+    // Needed someone, then did it themselves.
+    stages: [
+      { anyType: ['relationship'] },
+      { anyType: ['self_action'], anyTag: ['tried', 'first_time'] },
+    ],
+    shape: '助けが必要 → 自分でもできる',
+  },
+  {
+    pattern: 'pivot',
+    // §18 names this one: all three points are required.
+    stages: [
+      { anyTag: ['friction'] },
+      { anyTag: ['changed'] },
+      { anyTag: ['tried', 'first_time'] },
+    ],
+    shape: 'うまくいかない → やり方を変える → 再試行',
+  },
+  {
+    pattern: 'expose',
+    // Kept in, then shown to someone.
+    stages: [{ anyType: ['self_action', 'thought'] }, { anyType: ['relationship'] }],
+    shape: '自分の内側 → 身近な人 → 外部',
+  },
+  {
+    pattern: 'own_call',
+    stages: [{ anyTag: ['self_decided'] }, { anyTag: ['self_decided'] }],
+    shape: '他人基準 → 自分で決める',
+  },
+  {
+    pattern: 'transfer',
+    // A method found once, used again later. Whether the second use is a
+    // different situation is the model's call; that it was used twice is not.
+    stages: [{ anyTag: ['changed'] }, { anyTag: ['tried', 'first_time', 'changed'] }],
+    shape: 'ある場面の方法 → 別の場面でも使う',
+  },
+  {
+    pattern: 'reframe',
+    // Stuck on it, then saw it differently.
+    stages: [{ anyTag: ['friction'] }, { anyTag: ['discovered'] }],
+    shape: '問題Aだと思っていた → 別の捉え方',
+  },
+  {
+    pattern: 'boundary',
+    // Put up with it, then drew a line.
+    stages: [{ anyTag: ['friction'] }, { anyTag: ['self_decided'] }],
+    shape: '受け入れる → 条件をつける / 断る',
+  },
 ] as const;
+
+const REQUIREMENT_BY_PATTERN = new Map(PATTERN_REQUIREMENTS.map((r) => [r.pattern, r]));
+
+function stageMet(stage: PatternStage, record: PatternEvidence): boolean {
+  if (stage.anyType && stage.anyType.length > 0 && !stage.anyType.includes(record.logType)) {
+    return false;
+  }
+  if (stage.anyTag && stage.anyTag.length > 0) {
+    return stage.anyTag.some((tag) => record.momentTags.includes(tag));
+  }
+  return true;
+}
+
+/**
+ * Whether the records show this pattern's shape, in order.
+ *
+ * Greedy and strictly forward: each stage consumes a record later than the one
+ * before it, so "friction, then a change, then a retry" cannot be satisfied by
+ * a retry that happened first. Two stages may not share a record — a single
+ * afternoon tagged both `friction` and `changed` is one moment, not a
+ * movement.
+ */
+export function patternSatisfied(
+  pattern: ProgressionPattern,
+  evidence: readonly PatternEvidence[]
+): boolean {
+  const requirement = REQUIREMENT_BY_PATTERN.get(pattern);
+  if (!requirement) return false;
+
+  const ordered = [...evidence].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  let index = 0;
+  for (const stage of requirement.stages) {
+    while (index < ordered.length && !stageMet(stage, ordered[index] as PatternEvidence)) {
+      index += 1;
+    }
+    if (index >= ordered.length) return false;
+    index += 1;
+  }
+  return true;
+}
+
+/**
+ * The pattern this evidence can carry.
+ *
+ * A pattern the records do not show is dropped rather than downgraded to a
+ * near neighbour: guessing a different one would be the same overclaim wearing
+ * another name. The progression survives without a pattern, which only costs
+ * it detection priority.
+ */
+export function resolvePattern(
+  proposed: ProgressionPattern | undefined,
+  evidence: readonly PatternEvidence[]
+): ProgressionPattern | undefined {
+  if (!proposed) return undefined;
+  return patternSatisfied(proposed, evidence) ? proposed : undefined;
+}
+
+/** Every pattern this evidence actually shows. Used to rank, never to label. */
+export function satisfiedPatterns(
+  evidence: readonly PatternEvidence[]
+): ProgressionPattern[] {
+  return PROGRESSION_PATTERNS.filter((p) => patternSatisfied(p, evidence));
+}
 
 // ---------------------------------------------------------------------------
 // Maturity
@@ -104,47 +346,35 @@ export function maturityRank(maturity: ProgressionMaturity): number {
   return index === -1 ? 0 : index;
 }
 
-export function maxMaturity(
-  a: ProgressionMaturity,
-  b: ProgressionMaturity
-): ProgressionMaturity {
+export function maxMaturity(a: ProgressionMaturity, b: ProgressionMaturity): ProgressionMaturity {
   return maturityRank(a) >= maturityRank(b) ? a : b;
 }
 
-export function minMaturity(
-  a: ProgressionMaturity,
-  b: ProgressionMaturity
-): ProgressionMaturity {
+export function minMaturity(a: ProgressionMaturity, b: ProgressionMaturity): ProgressionMaturity {
   return maturityRank(a) <= maturityRank(b) ? a : b;
 }
 
 /** What the stored evidence for one progression actually amounts to. */
 export interface EvidenceSummary {
-  /** Distinct records standing behind it. */
   distinctLogCount: number;
-  /** Distinct calendar months those records fall in. */
   distinctMonthCount: number;
-  /** Whole days from the earliest record to the latest. */
   spanDays: number;
   /**
-   * True when the path holds a record from before and a record from after —
-   * an `origin` and something later, or a `setback`/`attempt` followed by an
-   * `adaptation`/`turning_point`/`current`. Without this there is a theme,
-   * not a movement.
+   * True when the path holds a record from before and a record from after.
+   * Without this there is a theme, not a movement.
    */
   hasBeforeAndAfter: boolean;
-  /** Distinct evidence roles on the path. One role is one state, not a change. */
   distinctRoleCount: number;
 }
 
-/** The minimum a progression needs to exist at all (§9, §31). */
+/** The minimum a progression needs to exist at all (§18, §31). */
 export const MIN_EVIDENCE_FOR_PROGRESSION = 2;
 
-/** Beyond this, repetition across time is what separates settled from recent. */
+/** Beyond this, repetition across time separates settled from merely recent. */
 export const ESTABLISHED_MIN_SPAN_DAYS = 45;
 
 /**
- * The highest rung this evidence can hold up (§12).
+ * The highest rung this evidence can hold up.
  *
  * Read it downwards: without two records there is no movement to speak of;
  * with two records that say the same thing there is a signal; a difference
@@ -168,7 +398,6 @@ export function maturityCeiling(summary: EvidenceSummary): ProgressionMaturity {
   return 'signal';
 }
 
-/** The model may propose anything; it never rises above what the evidence allows. */
 export function clampMaturity(
   proposed: ProgressionMaturity,
   summary: EvidenceSummary
@@ -176,23 +405,11 @@ export function clampMaturity(
   return minMaturity(proposed, maturityCeiling(summary));
 }
 
-/**
- * Whether this evidence supports a progression at all.
- *
- * One record is a dot. §31 is explicit that day one gets a dot and not a
- * fabricated trajectory.
- */
+/** One record is a dot. §31 is explicit that day one gets a dot. */
 export function qualifiesAsProgression(summary: EvidenceSummary): boolean {
   return summary.distinctLogCount >= MIN_EVIDENCE_FOR_PROGRESSION;
 }
 
-/**
- * Builds the summary from a path of evidence rows.
- *
- * Exported because both the Edge Function and the offline path need the same
- * arithmetic, and because it is the one place that decides what "before and
- * after" means.
- */
 export function summariseEvidencePath(
   path: readonly { logId: string; role: ProgressionEvidenceRole; occurredAt: string }[]
 ): EvidenceSummary {
@@ -209,7 +426,7 @@ export function summariseEvidencePath(
       ? Math.round(((times[times.length - 1] as number) - (times[0] as number)) / 86_400_000)
       : 0;
 
-  const EARLY: readonly ProgressionEvidenceRole[] = ['origin', 'attempt', 'setback'];
+  const EARLY: readonly ProgressionEvidenceRole[] = ['origin', 'attempt', 'friction'];
   const LATE: readonly ProgressionEvidenceRole[] = [
     'adaptation',
     'turning_point',
@@ -231,19 +448,19 @@ export function summariseEvidencePath(
 }
 
 // ---------------------------------------------------------------------------
-// Wording bound to maturity (§12)
+// Wording bound to maturity (§30)
 // ---------------------------------------------------------------------------
 
 /**
  * How confidently the app is allowed to speak at each rung.
  *
- * `{title}` is the progression's own title. These are not decoration: they are
- * the guard against "あなたは変わりました" appearing under a single record.
+ * Not decoration: this is the guard against 「あなたは成長しました」 appearing
+ * under two records. Every line reports what the records say and stops there.
  */
 export const MATURITY_PHRASING: Record<ProgressionMaturity, string> = {
-  signal: '{title}という兆しがあります。',
+  signal: '{title}という記録が、いくつか現れています。',
   emerging: '最近、{title}にまつわる記録が増えています。',
-  evidenced: '以前とくらべて、{title}が変わってきています。',
+  evidenced: '以前の記録とくらべて、{title}が変わってきています。',
   established: 'この期間を通して、{title}の変化が繰り返し確認されています。',
 };
 
@@ -252,15 +469,15 @@ export function phraseForMaturity(maturity: ProgressionMaturity, title: string):
 }
 
 // ---------------------------------------------------------------------------
-// Titles and consolidation (§30)
+// Titles and consolidation
 // ---------------------------------------------------------------------------
 
 /**
  * Whitespace, width and trailing punctuation folded away; nothing else.
  *
- * Trimming has to happen before the punctuation is stripped as well as after,
- * or a title that ends "。 " keeps its full stop and stops matching the same
- * title without one — which would quietly create a duplicate progression.
+ * Trimming happens before the punctuation is stripped as well as after, or a
+ * title ending "。 " keeps its full stop and stops matching the same title
+ * without one — quietly creating a duplicate progression.
  */
 export function normalizeTitle(title: string): string {
   return title
@@ -304,14 +521,6 @@ export function titleSimilarity(a: string, b: string): number {
   return total === 0 ? 0 : (2 * shared) / total;
 }
 
-/**
- * Surface similarity only nominates a pair (§30).
- *
- * Embedding or bigram closeness is never enough to fold two progressions
- * together — the model has to agree they are the same movement, and a
- * progression the person has edited is theirs and is left alone. The one the
- * evidence stands behind absorbs the other.
- */
 export const CONSOLIDATION_THRESHOLD = 0.62;
 
 export interface ConsolidationCandidate {
@@ -320,6 +529,13 @@ export interface ConsolidationCandidate {
   similarity: number;
 }
 
+/**
+ * Surface similarity only nominates a pair.
+ *
+ * Closeness is never enough to fold two progressions together — the model has
+ * to agree they are the same movement — and one the person has edited is
+ * theirs and is left alone. The better-supported one absorbs the other.
+ */
 export function nominateConsolidations(
   progressions: readonly {
     id: string;
@@ -336,14 +552,11 @@ export function nominateConsolidations(
       const a = progressions[i] as (typeof progressions)[number];
       const b = progressions[j] as (typeof progressions)[number];
       if (a.type !== b.type) continue;
-      // The person's own wording is not a duplicate of anything.
       if (a.userEdited || b.userEdited) continue;
 
       const similarity = titleSimilarity(a.title, b.title);
       if (similarity < CONSOLIDATION_THRESHOLD) continue;
 
-      // The better-supported one keeps its identity; ties break on title
-      // length so the shorter, more general wording survives.
       const aWins =
         a.evidenceCount > b.evidenceCount ||
         (a.evidenceCount === b.evidenceCount &&
@@ -359,7 +572,6 @@ export function nominateConsolidations(
   return out.sort((a, b) => b.similarity - a.similarity);
 }
 
-/** Whole days between two ISO timestamps, order-independent. */
 export function daysBetween(a: string, b: string): number {
   const left = Date.parse(a);
   const right = Date.parse(b);
@@ -371,6 +583,18 @@ export function daysBetween(a: string, b: string): number {
 // Guards
 // ---------------------------------------------------------------------------
 
+export function isLogType(value: unknown): value is LogType {
+  return typeof value === 'string' && (LOG_TYPES as readonly string[]).includes(value);
+}
+
+export function isMomentTag(value: unknown): value is MomentTag {
+  return typeof value === 'string' && (MOMENT_TAGS as readonly string[]).includes(value);
+}
+
+export function isProgressionPattern(value: unknown): value is ProgressionPattern {
+  return typeof value === 'string' && (PROGRESSION_PATTERNS as readonly string[]).includes(value);
+}
+
 export function isProgressionType(value: unknown): value is ProgressionType {
   return typeof value === 'string' && (PROGRESSION_TYPES as readonly string[]).includes(value);
 }
@@ -379,44 +603,39 @@ export function isProgressionMaturity(value: unknown): value is ProgressionMatur
   return typeof value === 'string' && (MATURITY_ORDER as readonly string[]).includes(value);
 }
 
-export function isJourneyRole(value: unknown): value is JourneyRole {
-  return typeof value === 'string' && (JOURNEY_ROLES as readonly string[]).includes(value);
-}
-
 export function isEvidenceRole(value: unknown): value is ProgressionEvidenceRole {
   return typeof value === 'string' && (EVIDENCE_ROLES as readonly string[]).includes(value);
 }
 
-export function isEntryType(value: unknown): value is EntryType {
-  return typeof value === 'string' && (ENTRY_TYPES as readonly string[]).includes(value);
+export function isJourneyRole(value: unknown): value is JourneyRole {
+  return typeof value === 'string' && (JOURNEY_ROLES as readonly string[]).includes(value);
 }
 
-export function isSubjectiveSignal(value: unknown): value is SubjectiveSignal {
-  return typeof value === 'string' && (SUBJECTIVE_SIGNALS as readonly string[]).includes(value);
+export function isGainCategory(value: unknown): value is GainCategory {
+  return typeof value === 'string' && (GAIN_CATEGORIES as readonly string[]).includes(value);
 }
 
 // ---------------------------------------------------------------------------
-// STAGE 1 — parsing one entry's reading (§6)
+// STAGE 1 — parsing one record's reading (§16)
 // ---------------------------------------------------------------------------
 
-export type RawSignals = Record<ProgressionType, string[]>;
-
-export interface RawEntryAnalysis {
+export interface RawLogAnalysis {
   eventSummary: string;
-  topics: string[];
-  actors: string[];
-  environment: string[];
+  themes: string[];
+  people: string[];
   action?: string | undefined;
   outcome?: string | undefined;
-  reaction?: string | undefined;
-  hypothesis?: string | undefined;
-  futureIntention?: string | undefined;
-  journeyRole: JourneyRole;
-  signals: RawSignals;
+  friction?: string | undefined;
+  discovery?: string | undefined;
+  adaptation?: string | undefined;
+  choice?: string | undefined;
+  environment?: string | undefined;
+  interestSignal?: string | undefined;
+  journeyRole?: JourneyRole | undefined;
   confidence: number;
 }
 
-/** Below this the model is not sure enough to name a role (§7). */
+/** Below this the model is not sure enough to name a role at all. */
 export const ROLE_CONFIDENCE_FLOOR = 0.35;
 
 const MAX_LIST = 6;
@@ -448,87 +667,61 @@ function readConfidence(value: unknown): number {
   return Math.min(1, Math.max(0, value));
 }
 
-export function emptySignals(): RawSignals {
-  return {
-    capability: [],
-    strategy: [],
-    interest: [],
-    direction: [],
-    relationship: [],
-    perspective: [],
-  };
-}
-
-function readSignals(value: unknown): RawSignals {
-  const out = emptySignals();
-  if (typeof value !== 'object' || value === null) return out;
-  const source = value as Record<string, unknown>;
-  for (const type of PROGRESSION_TYPES) {
-    out[type] = readStringList(source[type], 4);
-  }
-  return out;
-}
-
 /**
  * Turns the model's JSON into something storable.
  *
- * Everything unrecognised is dropped rather than guessed at, and a reading the
- * model is not confident about loses its role rather than keeping a shaky one:
- * "went to an exhibition" must not become "a turning point".
+ * Level 1 and Level 2 are absent here on purpose: they are the person's own
+ * evidence and the caller keeps them (§16). Everything the model says is
+ * inference, and a low-confidence reading loses its role rather than keeping
+ * a shaky one.
  */
-export function parseEntryAnalysis(raw: unknown, fallbackSummary: string): RawEntryAnalysis {
+export function parseLogAnalysis(raw: unknown, fallbackSummary: string): RawLogAnalysis {
   const value = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   const confidence = readConfidence(value.confidence);
 
-  const proposedRole = isJourneyRole(value.journey_role) ? value.journey_role : 'neutral';
-  const journeyRole = confidence >= ROLE_CONFIDENCE_FLOOR ? proposedRole : 'neutral';
-
-  const summary = readOptional(value.event_summary) ?? fallbackSummary.slice(0, 120);
+  const proposedRole = isJourneyRole(value.journey_role) ? value.journey_role : undefined;
+  const journeyRole = confidence >= ROLE_CONFIDENCE_FLOOR ? proposedRole : undefined;
 
   return {
-    eventSummary: summary,
-    topics: readStringList(value.topics),
-    actors: readStringList(value.actors),
-    environment: readStringList(value.environment),
+    eventSummary: readOptional(value.event_summary) ?? fallbackSummary.slice(0, 80),
+    themes: readStringList(value.themes),
+    people: readStringList(value.people, 4),
     action: readOptional(value.action),
     outcome: readOptional(value.outcome),
-    reaction: readOptional(value.reaction),
-    hypothesis: readOptional(value.hypothesis),
-    futureIntention: readOptional(value.future_intention),
+    friction: readOptional(value.friction),
+    discovery: readOptional(value.discovery),
+    adaptation: readOptional(value.adaptation),
+    choice: readOptional(value.choice),
+    environment: readOptional(value.environment),
+    interestSignal: readOptional(value.interest_signal),
     journeyRole,
-    signals: readSignals(value.signals),
     confidence,
   };
 }
 
 // ---------------------------------------------------------------------------
-// STAGE 2 — parsing the cross-time reading (§8, §29)
+// STAGE 2 — parsing the cross-time reading (§17-§19)
 // ---------------------------------------------------------------------------
 
 export type ProgressionAction = 'create' | 'update' | 'unchanged';
 
 export interface RawProgressionProposal {
   action: ProgressionAction;
-  /** Present when action is `update`. */
   progressionId?: string | undefined;
   type: ProgressionType;
+  /** Checked against the evidence before it is stored. */
+  pattern?: ProgressionPattern | undefined;
   title: string;
   fromState?: string | undefined;
   currentState?: string | undefined;
   summary: string;
-  /** What the model thinks; clamped later against the evidence. */
   maturity: ProgressionMaturity;
   confidence: number;
-  /** Earlier records this movement rests on, with the part each one plays. */
+  /** True when the model says this grew outside the year's direction (§19). */
+  goalExternal: boolean;
   evidence: { logId: string; role: ProgressionEvidenceRole }[];
-  /** What remains, if anything has (§22). Usually absent. */
-  gain?: { label: string; description?: string | undefined } | undefined;
-}
-
-export interface RawCrossTimeReading {
-  proposals: RawProgressionProposal[];
-  /** At most one, and only when it would change the answer (§14). */
-  clarification?: { question: string; options: string[] } | undefined;
+  /** What remains, if anything does (§20, §21). Usually absent. */
+  gain?: { category: GainCategory; label: string; description?: string | undefined } | undefined;
 }
 
 const MAX_PROPOSALS = 3;
@@ -537,15 +730,15 @@ const MAX_TITLE = 24;
 /**
  * Parses STAGE 2's answer.
  *
- * `allowedLogIds` is the retrieval window plus the entry being read: the model
- * may only cite records it was actually shown, so it cannot invent a history
- * to justify a trajectory.
+ * `allowedLogIds` is the retrieval window plus the record being read: the
+ * model may only cite records it was shown, so it cannot invent a history to
+ * justify a trajectory.
  */
 export function parseCrossTimeReading(
   raw: unknown,
   allowedLogIds: readonly string[],
   existingProgressionIds: readonly string[]
-): RawCrossTimeReading {
+): RawProgressionProposal[] {
   const value = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   const allowed = new Set(allowedLogIds);
   const known = new Set(existingProgressionIds);
@@ -564,7 +757,6 @@ export function parseCrossTimeReading(
     const action: ProgressionAction =
       p.action === 'update' || p.action === 'unchanged' ? p.action : 'create';
     const progressionId = typeof p.progression_id === 'string' ? p.progression_id : undefined;
-    // An update that names a progression we did not show it is a new one.
     const resolvedAction =
       action !== 'create' && (!progressionId || !known.has(progressionId)) ? 'create' : action;
 
@@ -577,31 +769,35 @@ export function parseCrossTimeReading(
         const logId = typeof row.log_id === 'string' ? row.log_id : '';
         if (!allowed.has(logId) || seenLogs.has(logId)) continue;
         seenLogs.add(logId);
-        evidence.push({
-          logId,
-          role: isEvidenceRole(row.role) ? row.role : 'evidence',
-        });
+        evidence.push({ logId, role: isEvidenceRole(row.role) ? row.role : 'evidence' });
       }
     }
 
-    const gainLabel = readOptional((p.gain as Record<string, unknown> | undefined)?.label);
+    const rawGain = (p.gain ?? undefined) as Record<string, unknown> | undefined;
+    const gainLabel = readOptional(rawGain?.label);
+    // A gain with no category is not storable, and guessing one would put a
+    // word in the person's mouth about what kind of thing they now have.
+    const gainCategory = isGainCategory(rawGain?.category) ? rawGain.category : undefined;
 
     proposals.push({
       action: resolvedAction,
       ...(resolvedAction === 'update' && progressionId ? { progressionId } : {}),
       type: p.type,
+      pattern: isProgressionPattern(p.pattern) ? p.pattern : undefined,
       title,
       fromState: readOptional(p.from_state),
       currentState: readOptional(p.current_state),
       summary: readOptional(p.summary) ?? '',
       maturity: isProgressionMaturity(p.maturity) ? p.maturity : 'signal',
       confidence: readConfidence(p.confidence),
+      goalExternal: p.goal_external === true,
       evidence,
-      ...(gainLabel
+      ...(gainLabel && gainCategory
         ? {
             gain: {
+              category: gainCategory,
               label: gainLabel,
-              description: readOptional((p.gain as Record<string, unknown>).description),
+              description: readOptional(rawGain?.description),
             },
           }
         : {}),
@@ -610,15 +806,5 @@ export function parseCrossTimeReading(
     if (proposals.length >= MAX_PROPOSALS) break;
   }
 
-  // §14: at most one question, and only with real options to choose between.
-  let clarification: RawCrossTimeReading['clarification'];
-  const rawClarification = value.clarification;
-  if (typeof rawClarification === 'object' && rawClarification !== null) {
-    const c = rawClarification as Record<string, unknown>;
-    const question = readOptional(c.question);
-    const options = readStringList(c.options, 3);
-    if (question && options.length >= 2) clarification = { question, options };
-  }
-
-  return { proposals, ...(clarification ? { clarification } : {}) };
+  return proposals;
 }

@@ -10,7 +10,7 @@ import { HairlineRule } from '@components/ui/HairlineRule';
 import { YearSelector } from '@components/list/YearSelector';
 import { MonthSection } from '@components/list/MonthSection';
 import { LogMenu, LogMenuButton } from '@components/log/LogMenu';
-import { useYearEntries } from '@/hooks/useEntries';
+import { useYearLogs } from '@/hooks/useLogs';
 import { useMonthReviews } from '@/hooks/useMonthReview';
 import { useUiStore } from '@/state/uiStore';
 import { monthKeyOfDate, selectableYears } from '@/utils/period';
@@ -33,7 +33,7 @@ export default function ListScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const yearKeyValue = String(year);
-  const { data: entries } = useYearEntries(yearKeyValue);
+  const { data: entries } = useYearLogs(yearKeyValue);
   const { data: reviews } = useMonthReviews(yearKeyValue);
 
   const years = useMemo(() => selectableYears(year, 5), [year]);
