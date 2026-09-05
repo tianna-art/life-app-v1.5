@@ -1,293 +1,298 @@
-import { DEFAULT_CATEGORIES } from '@/constants/categories';
 import type {
-  Category,
-  CategoryInsight,
-  JournalLog,
-  KeywordCandidate,
-  LogWithAnalysis,
-  MonthlyIntention,
-  NewLogInput,
-  PeriodTitle,
-  PeriodType,
-  ReviewStatus,
+  EntryAnalysis,
+  EntryWithAnalysis,
+  Gain,
+  GainDetail,
+  GainEvidence,
+  GainFormationStep,
+  GainVerdict,
+  JournalEntry,
+  JourneyLink,
+  MonthReview,
+  NewEntryInput,
 } from '@/types';
-import { slugify, uuid } from '@/utils/id';
-import { monthKeyOfDate, todayIso, yearKeyOfDate } from '@/utils/period';
-import type { Repository } from './repository';
-import { mutateStore, readStore, type LocalStoreShape } from './localStore';
-import { fallbackIcon, type CategoryIcon } from '@/constants/icons';
+import { uuid } from '@/utils/id';
+import { monthKeyOfDate, yearKeyOfDate } from '@/utils/period';
+import type { LocalStoreShape } from './localStore';
+import { mutateStore, readStore } from './localStore';
+import type { MonthGain, Repository } from './repository';
 
 export const LOCAL_USER_ID = 'local-user';
 
-function toLogWithAnalysis(store: LocalStoreShape, log: JournalLog): LogWithAnalysis {
-  const analysis = store.analyses[log.id];
-  return analysis ? { ...log, analysis } : { ...log };
+function withAnalysis(store: LocalStoreShape, entry: JournalEntry): EntryWithAnalysis {
+  const analysis = store.analyses[entry.id];
+  return analysis ? { ...entry, analysis } : { ...entry };
 }
 
-function sortLogs(logs: JournalLog[]): JournalLog[] {
-  return [...logs].sort(
+function sortEntries(entries: JournalEntry[]): JournalEntry[] {
+  return [...entries].sort(
     (a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt)
   );
 }
 
+function resolveMerged(gain: Gain, byId: Map<string, Gain>): Gain {
+  let current = gain;
+  const seen = new Set<string>([current.id]);
+  while (current.mergedIntoId) {
+    const next = byId.get(current.mergedIntoId);
+    if (!next || seen.has(next.id)) break;
+    seen.add(next.id);
+    current = next;
+  }
+  return current;
+}
+
 /**
  * On-device repository. Used when Supabase is not configured, and as the
- * durable mirror behind the offline queue.
+ * durable mirror behind the offline queue. It stores exactly what the Edge
+ * Function would have stored, so the screens cannot tell the two apart.
  */
 export class LocalRepository implements Repository {
   readonly name = 'local' as const;
 
   async ensureBootstrapped(): Promise<void> {
+    // Nothing to seed: the person configures nothing before writing.
+  }
+
+  async listEntriesByMonth(monthKey: string): Promise<EntryWithAnalysis[]> {
+    const store = await readStore();
+    return sortEntries(store.entries.filter((e) => monthKeyOfDate(e.occurredOn) === monthKey)).map(
+      (e) => withAnalysis(store, e)
+    );
+  }
+
+  async listEntriesByYear(yearKey: string): Promise<EntryWithAnalysis[]> {
+    const store = await readStore();
+    return sortEntries(store.entries.filter((e) => yearKeyOfDate(e.occurredOn) === yearKey)).map(
+      (e) => withAnalysis(store, e)
+    );
+  }
+
+  async getEntry(id: string): Promise<EntryWithAnalysis | null> {
+    const store = await readStore();
+    const entry = store.entries.find((e) => e.id === id);
+    if (!entry) return null;
+    const byId = new Map(store.gains.map((g) => [g.id, g]));
+    const gains = store.evidence
+      .filter((e) => e.logId === id)
+      .map((e) => byId.get(e.gainId))
+      .filter((g): g is Gain => Boolean(g))
+      .map((g) => resolveMerged(g, byId));
+    const unique = new Map(gains.map((g) => [g.id, g]));
+    return { ...withAnalysis(store, entry), gains: [...unique.values()] };
+  }
+
+  async createEntry(input: NewEntryInput): Promise<JournalEntry> {
+    const occurredAt = input.occurredAt ?? new Date().toISOString();
+    const entry: JournalEntry = {
+      id: uuid(),
+      userId: LOCAL_USER_ID,
+      occurredAt,
+      occurredOn: occurredAt.slice(0, 10),
+      inputCategory: input.inputCategory,
+      body: input.body.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    await mutateStore((store) => ({ ...store, entries: [entry, ...store.entries] }));
+    return entry;
+  }
+
+  async deleteEntry(id: string): Promise<void> {
     await mutateStore((store) => {
-      if (store.categories.length > 0) return store;
-      const now = new Date().toISOString();
+      const { [id]: _removed, ...analyses } = store.analyses;
       return {
         ...store,
-        categories: DEFAULT_CATEGORIES.map((seed, index) => ({
-          id: uuid(),
-          name: seed.name,
-          slug: seed.slug,
-          sortOrder: index,
-          isActive: true,
-          isDefault: true,
-          icon: seed.icon,
-          promptExamples: seed.promptExamples,
-          createdAt: now,
-        })) as Category[],
+        entries: store.entries.filter((e) => e.id !== id),
+        analyses,
+        evidence: store.evidence.filter((e) => e.logId !== id),
+        links: store.links.filter((l) => l.fromLogId !== id && l.toLogId !== id),
       };
     });
   }
 
-  async listCategories(includeInactive = false): Promise<Category[]> {
+  async listGains(): Promise<Gain[]> {
     const store = await readStore();
-    return store.categories
-      .filter((c) => includeInactive || c.isActive)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return store.gains
+      .filter((g) => !g.mergedIntoId)
+      .sort((a, b) => b.lastDetectedAt.localeCompare(a.lastDetectedAt));
   }
 
-  async createCategory(input: {
-    name: string;
-    promptExamples?: string[];
-    icon?: CategoryIcon;
-  }): Promise<Category> {
-    const slug = slugify(input.name);
-    const created: Category = {
-      id: uuid(),
-      name: input.name.trim(),
-      slug,
-      sortOrder: 0,
-      isActive: true,
-      isDefault: false,
-      icon: input.icon ?? fallbackIcon(slug),
-      promptExamples: input.promptExamples ?? [],
-    };
-    await mutateStore((store) => {
-      created.sortOrder = store.categories.length;
-      return { ...store, categories: [...store.categories, created] };
-    });
-    return created;
+  async listMonthGains(monthKey: string): Promise<MonthGain[]> {
+    const store = await readStore();
+    const monthLogIds = new Set(
+      store.entries.filter((e) => monthKeyOfDate(e.occurredOn) === monthKey).map((e) => e.id)
+    );
+    if (monthLogIds.size === 0) return [];
+
+    const byId = new Map(store.gains.map((g) => [g.id, g]));
+    const grouped = new Map<string, Set<string>>();
+    for (const evidence of store.evidence) {
+      if (!monthLogIds.has(evidence.logId)) continue;
+      const source = byId.get(evidence.gainId);
+      if (!source) continue;
+      const target = resolveMerged(source, byId);
+      const set = grouped.get(target.id) ?? new Set<string>();
+      set.add(evidence.logId);
+      grouped.set(target.id, set);
+    }
+
+    return [...grouped.entries()]
+      .map(([gainId, ids]) => {
+        const gain = byId.get(gainId);
+        if (!gain) return null;
+        return {
+          gain,
+          evidenceLogIds: [...ids],
+          isNew: gain.firstDetectedAt.slice(0, 7) === monthKey,
+        } satisfies MonthGain;
+      })
+      .filter((g): g is MonthGain => g !== null);
   }
 
-  async renameCategory(id: string, name: string): Promise<Category> {
-    let updated: Category | undefined;
+  async getGainDetail(gainId: string): Promise<GainDetail | null> {
+    const store = await readStore();
+    const gain = store.gains.find((g) => g.id === gainId);
+    if (!gain) return null;
+    const entryById = new Map(store.entries.map((e) => [e.id, e]));
+
+    const formation: GainFormationStep[] = store.evidence
+      .filter((e) => e.gainId === gainId)
+      .map((evidence) => {
+        const entry = entryById.get(evidence.logId);
+        if (!entry) return null;
+        const analysis = store.analyses[evidence.logId];
+        return {
+          logId: evidence.logId,
+          occurredOn: entry.occurredOn,
+          journeyRole: analysis?.journeyRole ?? 'neutral',
+          eventSummary: analysis?.eventSummary || entry.body,
+          relation: evidence.relation,
+        } satisfies GainFormationStep;
+      })
+      .filter((s): s is GainFormationStep => s !== null)
+      .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+
+    return { gain, formation };
+  }
+
+  async setGainVerdict(input: {
+    gainId: string;
+    verdict: GainVerdict;
+    label?: string;
+  }): Promise<Gain> {
+    let updated: Gain | undefined;
+    const label = input.label?.trim();
     await mutateStore((store) => ({
       ...store,
-      categories: store.categories.map((c) => {
-        if (c.id !== id) return c;
-        updated = { ...c, name: name.trim() };
+      gains: store.gains.map((g) => {
+        if (g.id !== input.gainId) return g;
+        updated = { ...g, verdict: input.verdict, ...(label ? { label } : {}) };
         return updated;
       }),
     }));
-    if (!updated) throw new Error(`Category not found: ${id}`);
+    if (!updated) throw new Error(`Gain not found: ${input.gainId}`);
     return updated;
   }
 
-  async setCategoryIcon(id: string, icon: CategoryIcon): Promise<Category> {
-    let updated: Category | undefined;
+  async getMonthReview(periodKey: string): Promise<MonthReview | null> {
+    const store = await readStore();
+    return store.reviews.find((r) => r.periodKey === periodKey) ?? null;
+  }
+
+  async listMonthReviews(yearKey: string): Promise<MonthReview[]> {
+    const store = await readStore();
+    return store.reviews.filter((r) => r.periodKey.startsWith(`${yearKey}-`));
+  }
+
+  async saveMonthReview(review: MonthReview): Promise<MonthReview> {
     await mutateStore((store) => ({
       ...store,
-      categories: store.categories.map((c) => {
-        if (c.id !== id) return c;
-        updated = { ...c, icon };
-        return updated;
-      }),
+      reviews: [...store.reviews.filter((r) => r.periodKey !== review.periodKey), review],
     }));
-    if (!updated) throw new Error(`Category not found: ${id}`);
-    return updated;
+    return review;
   }
 
-  /** Soft delete only — the row and every log pointing at it survive. */
-  async setCategoryActive(id: string, isActive: boolean): Promise<Category> {
-    let updated: Category | undefined;
+  // -- Writes the Edge Function owns in the shipped path ---------------------
+
+  async saveAnalysis(analysis: EntryAnalysis): Promise<void> {
     await mutateStore((store) => ({
       ...store,
-      categories: store.categories.map((c) => {
-        if (c.id !== id) return c;
-        updated = { ...c, isActive };
-        return updated;
-      }),
+      analyses: { ...store.analyses, [analysis.logId]: analysis },
     }));
-    if (!updated) throw new Error(`Category not found: ${id}`);
-    return updated;
   }
 
-  async reorderCategories(orderedIds: string[]): Promise<Category[]> {
-    const store = await mutateStore((current) => ({
-      ...current,
-      categories: current.categories.map((c) => {
-        const index = orderedIds.indexOf(c.id);
-        return index === -1 ? c : { ...c, sortOrder: index };
-      }),
-    }));
-    return store.categories.sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-
-  async listLogsByMonth(key: string): Promise<LogWithAnalysis[]> {
-    const store = await readStore();
-    return sortLogs(store.logs.filter((l) => monthKeyOfDate(l.occurredOn) === key)).map((l) =>
-      toLogWithAnalysis(store, l)
-    );
-  }
-
-  async listLogsByYear(key: string): Promise<LogWithAnalysis[]> {
-    const store = await readStore();
-    return sortLogs(store.logs.filter((l) => yearKeyOfDate(l.occurredOn) === key)).map((l) =>
-      toLogWithAnalysis(store, l)
-    );
-  }
-
-  async getLog(id: string): Promise<LogWithAnalysis | null> {
-    const store = await readStore();
-    const log = store.logs.find((l) => l.id === id);
-    return log ? toLogWithAnalysis(store, log) : null;
-  }
-
-  async createLog(input: NewLogInput): Promise<JournalLog> {
-    const log: JournalLog = {
-      id: uuid(),
-      userId: LOCAL_USER_ID,
-      occurredOn: input.occurredOn ?? todayIso(),
-      type: input.type,
-      categoryId: input.categoryId,
-      body: input.body.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    await mutateStore((store) => ({ ...store, logs: [log, ...store.logs] }));
-    return log;
-  }
-
-  async deleteLog(id: string): Promise<void> {
+  /** Upsert by (type, label), which is the same key the database enforces. */
+  async upsertGain(
+    gain: Omit<Gain, 'id' | 'userId'> & { id?: string }
+  ): Promise<Gain> {
+    let result: Gain | undefined;
     await mutateStore((store) => {
-      const { [id]: _removed, ...analyses } = store.analyses;
-      return { ...store, logs: store.logs.filter((l) => l.id !== id), analyses };
-    });
-  }
-
-  async getTitle(periodType: PeriodType, periodKey: string): Promise<PeriodTitle | null> {
-    const store = await readStore();
-    return (
-      store.titles.find((t) => t.periodType === periodType && t.periodKey === periodKey) ?? null
-    );
-  }
-
-  async listTitles(periodType: PeriodType, yearKeyValue: string): Promise<PeriodTitle[]> {
-    const store = await readStore();
-    return store.titles.filter(
-      (t) => t.periodType === periodType && t.periodKey.startsWith(yearKeyValue)
-    );
-  }
-
-  async upsertTitle(title: PeriodTitle): Promise<PeriodTitle> {
-    await mutateStore((store) => {
-      const rest = store.titles.filter(
-        (t) => !(t.periodType === title.periodType && t.periodKey === title.periodKey)
+      const existing = store.gains.find(
+        (g) => g.type === gain.type && g.label === gain.label && !g.mergedIntoId
       );
-      return { ...store, titles: [...rest, title] };
-    });
-    return title;
-  }
-
-  async getIntention(periodKey: string): Promise<MonthlyIntention | null> {
-    const store = await readStore();
-    return store.intentions.find((i) => i.periodKey === periodKey) ?? null;
-  }
-
-  async listIntentions(yearKeyValue: string): Promise<MonthlyIntention[]> {
-    const store = await readStore();
-    return store.intentions.filter((i) => i.periodKey.startsWith(`${yearKeyValue}-`));
-  }
-
-  async upsertIntention(intention: MonthlyIntention): Promise<MonthlyIntention> {
-    await mutateStore((store) => ({
-      ...store,
-      intentions: [
-        ...store.intentions.filter((i) => i.periodKey !== intention.periodKey),
-        intention,
-      ],
-    }));
-    return intention;
-  }
-
-  async getInsight(
-    periodType: PeriodType,
-    periodKey: string,
-    categoryId: string
-  ): Promise<CategoryInsight | null> {
-    const store = await readStore();
-    return (
-      store.insights.find(
-        (i) =>
-          i.periodType === periodType && i.periodKey === periodKey && i.categoryId === categoryId
-      ) ?? null
-    );
-  }
-
-  async saveInsight(insight: CategoryInsight): Promise<CategoryInsight> {
-    await mutateStore((store) => ({
-      ...store,
-      insights: [
-        ...store.insights.filter(
-          (i) =>
-            !(
-              i.periodType === insight.periodType &&
-              i.periodKey === insight.periodKey &&
-              i.categoryId === insight.categoryId
-            )
-        ),
-        insight,
-      ],
-    }));
-    return insight;
-  }
-
-  async saveAnalysis(logId: string, analysis: LogWithAnalysis['analysis']): Promise<void> {
-    if (!analysis) return;
-    await mutateStore((store) => ({
-      ...store,
-      analyses: { ...store.analyses, [logId]: analysis },
-    }));
-  }
-
-  async saveKeywordReview(input: {
-    insightId: string;
-    status: Exclude<ReviewStatus, 'pending'>;
-    finalKeywords: KeywordCandidate[];
-  }): Promise<CategoryInsight> {
-    let updated: CategoryInsight | undefined;
-    await mutateStore((store) => ({
-      ...store,
-      insights: store.insights.map((i) => {
-        if (i.id !== input.insightId) return i;
-        // The AI's original proposal is kept alongside the user's version.
-        updated = {
-          ...i,
-          status: input.status,
-          keywords: input.status === 'skipped' ? i.keywords : input.finalKeywords,
+      if (existing) {
+        result = {
+          ...existing,
+          maturity: gain.maturity,
+          confidence: Math.max(existing.confidence, gain.confidence),
+          lastDetectedAt: gain.lastDetectedAt,
         };
-        return updated;
-      }),
+        return {
+          ...store,
+          gains: store.gains.map((g) => (g.id === existing.id ? (result as Gain) : g)),
+        };
+      }
+      result = {
+        id: gain.id ?? uuid(),
+        userId: LOCAL_USER_ID,
+        type: gain.type,
+        label: gain.label,
+        maturity: gain.maturity,
+        confidence: gain.confidence,
+        firstDetectedAt: gain.firstDetectedAt,
+        lastDetectedAt: gain.lastDetectedAt,
+      };
+      return { ...store, gains: [...store.gains, result] };
+    });
+    if (!result) throw new Error('Gain upsert failed.');
+    return result;
+  }
+
+  async addEvidence(evidence: GainEvidence): Promise<void> {
+    await mutateStore((store) => ({
+      ...store,
+      evidence: [
+        ...store.evidence.filter(
+          (e) => !(e.gainId === evidence.gainId && e.logId === evidence.logId)
+        ),
+        evidence,
+      ],
     }));
-    if (!updated) throw new Error(`Insight not found: ${input.insightId}`);
-    return updated;
+  }
+
+  async addLinks(links: JourneyLink[]): Promise<void> {
+    if (links.length === 0) return;
+    await mutateStore((store) => {
+      const key = (l: JourneyLink) => `${l.fromLogId}:${l.toLogId}`;
+      const incoming = new Set(links.map(key));
+      return { ...store, links: [...store.links.filter((l) => !incoming.has(key(l))), ...links] };
+    });
+  }
+
+  async listLinksFrom(logId: string): Promise<JourneyLink[]> {
+    const store = await readStore();
+    return store.links.filter((l) => l.fromLogId === logId);
+  }
+
+  /** Merge one gain into another, keeping the source row for its evidence. */
+  async mergeGains(sourceId: string, targetId: string): Promise<void> {
+    if (sourceId === targetId) return;
+    await mutateStore((store) => ({
+      ...store,
+      gains: store.gains.map((g) => (g.id === sourceId ? { ...g, mergedIntoId: targetId } : g)),
+      evidence: store.evidence.map((e) =>
+        e.gainId === sourceId ? { ...e, gainId: targetId } : e
+      ),
+    }));
   }
 }

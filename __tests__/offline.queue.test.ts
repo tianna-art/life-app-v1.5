@@ -1,55 +1,69 @@
-/**
- * Offline: a save that cannot reach the server is kept locally and replayed.
- */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearQueue, enqueueLog, flushQueue, queuedToLogs, readQueue } from '@/offline/queue';
-import type { JournalLog, NewLogInput } from '@/types';
+import {
+  QUEUE_KEY,
+  clearQueue,
+  enqueueEntry,
+  flushQueue,
+  queuedToEntries,
+  readQueue,
+} from '../src/offline/queue';
+import type { JournalEntry, NewEntryInput } from '../src/types';
 
-describe('outbox', () => {
+const asEntry = (input: NewEntryInput): JournalEntry => ({
+  id: 'server-id',
+  userId: 'u1',
+  occurredAt: input.occurredAt ?? '2026-09-05T12:00:00.000Z',
+  occurredOn: (input.occurredAt ?? '2026-09-05T12:00:00.000Z').slice(0, 10),
+  inputCategory: input.inputCategory,
+  body: input.body,
+  createdAt: '2026-09-05T12:00:00.000Z',
+});
+
+describe('the text is never lost', () => {
   beforeEach(async () => {
-    await AsyncStorage.clear();
-    await clearQueue();
+    await AsyncStorage.removeItem(QUEUE_KEY);
   });
 
-  it('holds a log until it can be sent', async () => {
-    await enqueueLog({ type: 'event', categoryId: 'c1', body: '電波のない場所で書いた' });
+  it('keeps a record that could not be sent', async () => {
+    await enqueueEntry({ inputCategory: 'friction', body: '反応がなかった。' });
     const queue = await readQueue();
     expect(queue).toHaveLength(1);
-    expect(queue[0]?.body).toBe('電波のない場所で書いた');
-    expect(queue[0]?.occurredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(queue[0]).toMatchObject({ inputCategory: 'friction', body: '反応がなかった。' });
   });
 
-  it('surfaces queued items as optimistic logs', async () => {
-    await enqueueLog({ type: 'thought', categoryId: 'c1', body: 'まだ届いていない' });
-    const optimistic = queuedToLogs(await readQueue(), 'pending');
-    expect(optimistic[0]).toMatchObject({ body: 'まだ届いていない', type: 'thought' });
+  it('shows queued records on screen as if they were saved', async () => {
+    await enqueueEntry({
+      inputCategory: 'progress',
+      body: '骨組みを書いた。',
+      occurredAt: '2026-09-05T21:00:00.000Z',
+    });
+    const [entry] = queuedToEntries(await readQueue(), 'pending');
+    expect(entry?.occurredOn).toBe('2026-09-05');
+    expect(entry?.body).toBe('骨組みを書いた。');
   });
 
-  it('drains the queue once the send succeeds', async () => {
-    await enqueueLog({ type: 'event', categoryId: 'c1', body: '一件目' });
-    await enqueueLog({ type: 'event', categoryId: 'c1', body: '二件目' });
+  it('sends what it can and keeps what it cannot', async () => {
+    await enqueueEntry({ inputCategory: 'progress', body: 'ひとつめ' });
+    await enqueueEntry({ inputCategory: 'moved', body: 'ふたつめ' });
 
-    const sent: NewLogInput[] = [];
     const result = await flushQueue(async (input) => {
-      sent.push(input);
-      return { id: 'server', userId: 'u', createdAt: '', ...input, occurredOn: '2026-09-04' } as JournalLog;
+      if (input.body === 'ふたつめ') throw new Error('network');
+      return asEntry(input);
     });
 
-    expect(result).toEqual({ sent: 2, remaining: 0 });
-    expect(sent.map((s) => s.body)).toEqual(['一件目', '二件目']);
-    expect(await readQueue()).toHaveLength(0);
+    expect(result).toEqual({ sent: 1, remaining: 1 });
+    const queue = await readQueue();
+    expect(queue[0]).toMatchObject({ body: 'ふたつめ', attempts: 1 });
   });
 
-  it('keeps anything that fails again, and counts the attempt', async () => {
-    await enqueueLog({ type: 'event', categoryId: 'c1', body: 'まだ送れない' });
+  it('survives a corrupted store rather than throwing at the person', async () => {
+    await AsyncStorage.setItem(QUEUE_KEY, 'not json');
+    expect(await readQueue()).toEqual([]);
+  });
 
-    const result = await flushQueue(async () => {
-      throw new Error('network');
-    });
-
-    expect(result).toEqual({ sent: 0, remaining: 1 });
-    const queue = await readQueue();
-    expect(queue[0]?.attempts).toBe(1);
-    expect(queue[0]?.body).toBe('まだ送れない');
+  it('empties on request', async () => {
+    await enqueueEntry({ inputCategory: 'moved', body: 'あ' });
+    await clearQueue();
+    expect(await readQueue()).toEqual([]);
   });
 });

@@ -1,31 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  Category,
-  CategoryInsight,
-  JournalLog,
-  LogAIAnalysis,
-  MonthlyIntention,
-  PeriodTitle,
+  EntryAnalysis,
+  Gain,
+  GainEvidence,
+  JournalEntry,
+  JourneyLink,
+  MonthReview,
 } from '@/types';
 
-export const LOCAL_STORE_KEY = 'crincran:store:v1';
+/**
+ * v2 key: the shape changed completely with the gain model, and a half-read
+ * v1 store would be worse than an empty one. The old key is left in place so
+ * nothing is destroyed on a device that still has it.
+ */
+export const LOCAL_STORE_KEY = 'crincran:store:v2';
 
 export interface LocalStoreShape {
-  categories: Category[];
-  logs: JournalLog[];
-  analyses: Record<string, LogAIAnalysis>;
-  titles: PeriodTitle[];
-  intentions: MonthlyIntention[];
-  insights: CategoryInsight[];
+  entries: JournalEntry[];
+  analyses: Record<string, EntryAnalysis>;
+  gains: Gain[];
+  evidence: GainEvidence[];
+  links: JourneyLink[];
+  reviews: MonthReview[];
 }
 
 export const EMPTY_STORE: LocalStoreShape = {
-  categories: [],
-  logs: [],
+  entries: [],
   analyses: {},
-  titles: [],
-  intentions: [],
-  insights: [],
+  gains: [],
+  evidence: [],
+  links: [],
+  reviews: [],
 };
 
 export async function readStore(): Promise<LocalStoreShape> {

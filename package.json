@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "sync:gain-rules": "node scripts/sync-gain-rules.mjs"
   },
   "jest": {
     "preset": "jest-expo",

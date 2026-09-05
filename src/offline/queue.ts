@@ -1,36 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { JournalLog, NewLogInput } from '@/types';
+import type { JournalEntry, NewEntryInput } from '@/types';
 import { uuid } from '@/utils/id';
-import { todayIso } from '@/utils/period';
 
-export const QUEUE_KEY = 'crincran:outbox:v1';
+/** v2: the queued shape lost its type/category fields with the gain model. */
+export const QUEUE_KEY = 'crincran:outbox:v2';
 
-export interface QueuedLog extends NewLogInput {
-  /** Client-side id; becomes the optimistic log id until the server accepts it. */
+export interface QueuedEntry extends NewEntryInput {
+  /** Client-side id; stands in for the row id until the server accepts it. */
   clientId: string;
-  occurredOn: string;
+  occurredAt: string;
   queuedAt: string;
   attempts: number;
 }
 
-export async function readQueue(): Promise<QueuedLog[]> {
+export async function readQueue(): Promise<QueuedEntry[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    return raw ? (JSON.parse(raw) as QueuedLog[]) : [];
+    return raw ? (JSON.parse(raw) as QueuedEntry[]) : [];
   } catch {
     return [];
   }
 }
 
-async function writeQueue(items: QueuedLog[]): Promise<void> {
+async function writeQueue(items: QueuedEntry[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items));
 }
 
-export async function enqueueLog(input: NewLogInput): Promise<QueuedLog> {
-  const item: QueuedLog = {
+export async function enqueueEntry(input: NewEntryInput): Promise<QueuedEntry> {
+  const item: QueuedEntry = {
     ...input,
     clientId: uuid(),
-    occurredOn: input.occurredOn ?? todayIso(),
+    occurredAt: input.occurredAt ?? new Date().toISOString(),
     queuedAt: new Date().toISOString(),
     attempts: 0,
   };
@@ -54,14 +54,14 @@ export async function clearQueue(): Promise<void> {
   await AsyncStorage.removeItem(QUEUE_KEY);
 }
 
-/** Queued items rendered as optimistic logs so the LOG/LIST screens stay honest. */
-export function queuedToLogs(items: QueuedLog[], userId: string): JournalLog[] {
+/** Queued items rendered as optimistic entries so the screens stay honest. */
+export function queuedToEntries(items: QueuedEntry[], userId: string): JournalEntry[] {
   return items.map((item) => ({
     id: item.clientId,
     userId,
-    occurredOn: item.occurredOn,
-    type: item.type,
-    categoryId: item.categoryId,
+    occurredAt: item.occurredAt,
+    occurredOn: item.occurredAt.slice(0, 10),
+    inputCategory: item.inputCategory,
     body: item.body,
     createdAt: item.queuedAt,
   }));
@@ -74,13 +74,17 @@ export interface FlushResult {
 
 /** Drain the outbox. Anything that fails again stays queued for the next try. */
 export async function flushQueue(
-  send: (input: NewLogInput) => Promise<JournalLog>
+  send: (input: NewEntryInput) => Promise<JournalEntry>
 ): Promise<FlushResult> {
   const items = await readQueue();
   let sent = 0;
   for (const item of items) {
     try {
-      await send({ type: item.type, categoryId: item.categoryId, body: item.body, occurredOn: item.occurredOn });
+      await send({
+        inputCategory: item.inputCategory,
+        body: item.body,
+        occurredAt: item.occurredAt,
+      });
       await removeFromQueue(item.clientId);
       sent += 1;
     } catch {

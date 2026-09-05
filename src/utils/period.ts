@@ -121,3 +121,33 @@ export function selectableYears(current: number, count = 5): number[] {
   for (let y = newest; y >= oldest; y -= 1) years.push(y);
   return years;
 }
+
+/** Inclusive `YYYY-MM-DD` bounds of a month key. */
+export function monthRange(key: string): { from: string; to: string } {
+  const { year, month } = parseMonthKey(key);
+  const last = new Date(year, month, 0).getDate();
+  return { from: `${key}-01`, to: `${key}-${pad2(last)}` };
+}
+
+/** Every month key from `from` to `to` inclusive, oldest first. */
+export function monthKeysBetween(from: string, to: string): string[] {
+  const keys: string[] = [];
+  let cursor = from;
+  for (let guard = 0; guard < 600 && cursor <= to; guard += 1) {
+    keys.push(cursor);
+    cursor = shiftMonthKey(cursor, 1);
+  }
+  return keys;
+}
+
+/** `SEPTEMBER` — the month strip label (§18). */
+export function formatMonthShort(key: string): string {
+  const { month } = parseMonthKey(key);
+  return MONTH_NAMES_EN[month - 1] ?? '';
+}
+
+/** `Sep` — used where the strip has to fit several months side by side. */
+export function formatMonthTiny(key: string): string {
+  const name = formatMonthShort(key);
+  return name.charAt(0) + name.slice(1, 3).toLowerCase();
+}

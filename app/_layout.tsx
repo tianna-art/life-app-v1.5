@@ -8,7 +8,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '@/lib/queryClient';
 import { colors } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { useOutboxSync } from '@/hooks/useLogs';
+import { useOutboxSync } from '@/hooks/useEntries';
 import { AuthGate } from '@components/ui/AuthGate';
 import { PhoneFrame } from '@components/ui/PhoneFrame';
 
@@ -53,7 +53,7 @@ function AppShell() {
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="log/[id]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="settings/categories" />
+      <Stack.Screen name="month/[key]" options={{ presentation: 'card' }} />
     </Stack>
   );
 }
