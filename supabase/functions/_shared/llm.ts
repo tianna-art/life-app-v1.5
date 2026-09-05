@@ -47,7 +47,7 @@ class AnthropicProvider implements LlmProvider {
    * simply not sent rather than being sent conditionally on a model name that
    * is configuration and can change.
    */
-  async complete({ system, user, maxTokens = 700 }: LlmRequest): Promise<string> {
+  async complete({ system, user, maxTokens = 2000 }: LlmRequest): Promise<string> {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -58,6 +58,13 @@ class AnthropicProvider implements LlmProvider {
       body: JSON.stringify({
         model: this.model,
         max_tokens: maxTokens,
+        // Sonnet 5 thinks by default, and thinking is spent out of the same
+        // max_tokens as the answer. These are small extraction tasks whose
+        // shape is fixed by the system prompt, so the budget belongs to the
+        // JSON: with thinking on and a small budget the model can spend the
+        // whole allowance reasoning and return an empty text block, which
+        // arrives here as "the model did not return a JSON object".
+        thinking: { type: 'disabled' },
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -65,11 +72,24 @@ class AnthropicProvider implements LlmProvider {
     if (!response.ok) {
       throw new Error(`anthropic ${response.status}: ${await response.text()}`);
     }
-    const data = (await response.json()) as { content?: Array<{ type: string; text?: string }> };
-    return (data.content ?? [])
+    const data = (await response.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      stop_reason?: string;
+    };
+    const text = (data.content ?? [])
       .filter((block) => block.type === 'text')
       .map((block) => block.text ?? '')
       .join('');
+
+    // A truncated answer and an empty one look identical downstream — both are
+    // "not JSON" — so the difference is named here, where it is still known.
+    if (data.stop_reason === 'max_tokens') {
+      throw new Error(`anthropic: answer cut off at ${maxTokens} tokens.`);
+    }
+    if (text.trim().length === 0) {
+      throw new Error(`anthropic: empty answer (stop_reason: ${data.stop_reason ?? 'unknown'}).`);
+    }
+    return text;
   }
 }
 

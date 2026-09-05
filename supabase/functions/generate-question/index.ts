@@ -72,7 +72,7 @@ Deno.serve(async (request: Request) => {
         month_theme: typeof body.month_theme === 'string' ? body.month_theme : null,
         fallback,
       }),
-      maxTokens: 120,
+      maxTokens: 400,
       temperature: 0.4,
     });
 

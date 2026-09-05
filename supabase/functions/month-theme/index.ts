@@ -120,7 +120,7 @@ Deno.serve(async (request: Request) => {
         enjoyed_count: previousLogs.filter((l) => (l.moment_tags ?? []).includes('enjoyed'))
           .length,
       }),
-      maxTokens: 600,
+      maxTokens: 1000,
       temperature: 0.5,
     });
 

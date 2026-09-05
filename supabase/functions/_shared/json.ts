@@ -6,9 +6,18 @@ export function extractJson(text: string): unknown {
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
   if (start === -1 || end === -1 || end <= start) {
-    throw new Error('Model did not return a JSON object.');
+    // What came back is the only thing that says why. Without it this reads
+    // the same whether the answer was empty, prose, or cut off mid-object.
+    const seen = trimmed.length === 0 ? '(empty)' : trimmed.slice(0, 200);
+    throw new Error(`Model did not return a JSON object. Got: ${seen}`);
   }
-  return JSON.parse(candidate.slice(start, end + 1));
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    throw new Error(
+      `Model returned JSON that would not parse. Got: ${candidate.slice(start, start + 200)}`
+    );
+  }
 }
 
 export function jsonResponse(body: unknown, status = 200): Response {

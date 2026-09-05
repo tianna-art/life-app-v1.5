@@ -34,6 +34,18 @@ describe('the Anthropic request', () => {
     }
   });
 
+  it('keeps the whole budget for the answer', () => {
+    // Sonnet 5 thinks by default and spends thinking out of max_tokens. On a
+    // small budget the model can use the lot reasoning and return an empty
+    // text block, which arrives downstream as "not a JSON object".
+    expect(anthropic).toContain("thinking: { type: 'disabled' }");
+  });
+
+  it('names a cut-off answer rather than letting it look like nonsense', () => {
+    expect(anthropic).toContain('stop_reason');
+    expect(anthropic).toContain('cut off');
+  });
+
   it('does not swallow a refusal from the provider', () => {
     // The status and the body are the only things that say which of several
     // causes it was, so both have to reach the caller.

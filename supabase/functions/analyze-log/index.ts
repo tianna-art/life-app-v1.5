@@ -74,7 +74,7 @@ Deno.serve(async (request: Request) => {
           answer: answer || null,
         },
       }),
-      maxTokens: 800,
+      maxTokens: 2000,
       temperature: 0.2,
     });
 
@@ -164,7 +164,7 @@ Deno.serve(async (request: Request) => {
           maturity: p.maturity,
         })),
       }),
-      maxTokens: 1600,
+      maxTokens: 3000,
       temperature: 0.3,
     });
 
@@ -318,7 +318,7 @@ async function consolidate(
           a: target.title,
           b: source.title,
         }),
-        maxTokens: 200,
+        maxTokens: 400,
         temperature: 0.1,
       });
       const parsed = extractJson(raw) as { merge?: unknown; label?: unknown };

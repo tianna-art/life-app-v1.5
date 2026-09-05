@@ -161,7 +161,7 @@ Deno.serve(async (request: Request) => {
           answer: l.optional_answer ?? l.body,
         })),
       }),
-      maxTokens: 1200,
+      maxTokens: 2500,
       temperature: 0.4,
     });
 
