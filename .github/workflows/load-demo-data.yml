@@ -19,10 +19,10 @@ on:
         required: true
         default: ''
       action:
-        description: 'load / remove / purge_others = DELETE everything else / reset_readings = forget the analysis, keep the records'
+        description: 'status = look and change nothing / load / remove / purge_others = DELETE everything else / reset_readings = forget the analysis, keep the records'
         type: choice
-        options: [load, remove, purge_others, reset_readings]
-        default: load
+        options: [status, load, remove, purge_others, reset_readings]
+        default: status
       confirm:
         description: 'Type YES to run it against the live database (purge_others needs DELETE MY RECORDS)'
         type: string
@@ -51,7 +51,14 @@ jobs:
           # purge_others deletes records the person wrote and cannot be undone,
           # so it does not share a confirmation word with the reversible ones.
           # Typing YES out of habit must not be enough to reach it.
-          if [ "${{ inputs.action }}" = "purge_others" ]; then
+          #
+          # status writes nothing, so it asks for nothing. Making people type a
+          # confirmation to look at the state is how looking stops happening,
+          # and then the only way to find out what is in an account is to run
+          # something that changes it.
+          if [ "${{ inputs.action }}" = "status" ]; then
+            :
+          elif [ "${{ inputs.action }}" = "purge_others" ]; then
             if [ "${{ inputs.confirm }}" != "DELETE MY RECORDS" ]; then
               note "purge_others deletes the account's own records and cannot be undone. Type: DELETE MY RECORDS"
             fi
@@ -82,6 +89,7 @@ jobs:
           fi
 
           case "${{ inputs.action }}" in
+            status)        file= ;;
             load)          file=supabase/demo/demo_data.sql ;;
             remove)        file=supabase/demo/demo_data_remove.sql ;;
             purge_others)  file=supabase/demo/purge_others.sql ;;
@@ -93,11 +101,12 @@ jobs:
           echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
           echo "DEMO_FILE=$file" >> "$GITHUB_ENV"
           echo "DEMO_EMAIL=$email" >> "$GITHUB_ENV"
-          echo "${{ inputs.action }}: $file for $email"
+          echo "${{ inputs.action }}: ${file:-（読むだけ）} for $email"
           echo "commit: $GITHUB_SHA"
-          head -8 "$file" | sed 's/^/  | /'
+          if [ -n "$file" ]; then head -8 "$file" | sed 's/^/  | /'; fi
 
       - name: Run it
+        if: inputs.action != 'status'
         run: |
           # The address is substituted here rather than in the committed file,
           # so nobody's email lands in the repository.
@@ -152,6 +161,19 @@ jobs:
                     where user_id = (select id from auth.users
                                       where lower(email) = lower('$DEMO_EMAIL'))
                     order by year"
+            echo ''
+            echo '```'
+            echo ""
+            echo "#### the declarations"
+            echo '```json'
+            # §14 looks for the month's first. Without one, every change falls
+            # through to a desired-self card and the primary path is never
+            # exercised — which looks like a working reading, not a gap.
+            check "select year, month, initial_theme, final_theme, source
+                     from public.month_themes
+                    where user_id = (select id from auth.users
+                                      where lower(email) = lower('$DEMO_EMAIL'))
+                    order by year, month"
             echo ''
             echo '```'
             echo ""
