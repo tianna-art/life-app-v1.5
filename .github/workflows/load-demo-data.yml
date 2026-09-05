@@ -154,6 +154,25 @@ jobs:
             echo ''
             echo '```'
             echo ""
-            echo "Records are stored, but nothing has been read yet: analysis runs"
-            echo "when a record is saved in the app, so MAP stays empty for these."
+            echo "#### what has been read"
+            echo '```json'
+            # Records alone draw nothing. The map needs readings, the readings
+            # make progressions, and the sentence under the month's name comes
+            # from a brief that only exists once a month has been generated —
+            # so "nothing is showing" has four possible causes and these
+            # separate them.
+            check "select
+                     (select count(*) from public.logs l
+                       where l.user_id = u.id) as records,
+                     (select count(*) from public.log_ai_analysis a
+                        join public.logs l on l.id = a.log_id
+                       where l.user_id = u.id) as read,
+                     (select count(*) from public.progressions p
+                       where p.user_id = u.id) as progressions,
+                     (select count(*) from public.month_maps m
+                       where m.user_id = u.id) as briefs
+                   from auth.users u
+                   where lower(u.email) = lower('$DEMO_EMAIL')"
+            echo ''
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
