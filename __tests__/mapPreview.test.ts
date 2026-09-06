@@ -88,4 +88,32 @@ describe('the browser preview', () => {
   it('keeps the same short labels for the rim', () => {
     expect(preview.TARGET_SHORT).toEqual({ ...TARGET_SHORT });
   });
+
+  it('sizes the canvas off the window, the way the screen does', () => {
+    // The height comes from the window and not from the phone plate. On a tall
+    // browser the plate stops at 940 and the window does not, so reading the
+    // plate draws a shorter sky than the app draws and every radius under it
+    // is wrong.
+    const page = readFileSync(join(ROOT, 'docs/map-preview.html'), 'utf8');
+    const screen = readFileSync(join(ROOT, 'app/(tabs)/map.tsx'), 'utf8');
+
+    expect(screen).toContain('Math.max(300, Math.min(420, height * 0.44))');
+    expect(page).toContain('Math.max(300, Math.min(420, window.innerHeight * 0.44))');
+    expect(page).toContain('Math.max(260, plateWidth - 28 * 2)');
+  });
+
+  it('draws the bottom navigation the app puts under every screen', () => {
+    // It sits outside the Screen, so it is easy to forget in a page that only
+    // reproduces one screen — and then the sky is judged with more room under
+    // it than it will ever have.
+    const page = readFileSync(join(ROOT, 'docs/map-preview.html'), 'utf8');
+    const nav = readFileSync(join(ROOT, 'components/navigation/BottomMuseumNav.tsx'), 'utf8');
+
+    expect(page).toContain("['map', 'log', 'list']");
+    // The marks are drawn from these numbers in both places.
+    for (const geometry of ['9.5', '-3.4', '4.2', '4.6', '1.7', 'M -9 -7 H 9 M -9 -1 H 9 M -9 5 H 3']) {
+      expect(nav).toContain(geometry);
+      expect(page).toContain(geometry);
+    }
+  });
 });
