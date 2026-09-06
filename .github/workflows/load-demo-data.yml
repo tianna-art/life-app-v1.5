@@ -24,9 +24,9 @@ on:
         options: [status, load, remove, purge_others, reset_readings]
         default: status
       confirm:
-        description: 'Type YES to run it against the live database (purge_others needs DELETE MY RECORDS)'
+        description: 'Type YES to run it against the live database (purge_others needs DELETE MY RECORDS; status needs nothing)'
         type: string
-        required: true
+        required: false
         default: ''
 
 concurrency:
