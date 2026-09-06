@@ -1,11 +1,19 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { CHANGE, LABELS } from '@/constants/copy';
-import { GAIN_CATEGORY_JA } from '@/constants/progression';
-import { EVIDENCE_SHOWN } from '@/ai/changeRules';
+import { CHANGE_EVIDENCE_ROLE_JA, GAIN_CATEGORY_JA } from '@/constants/progression';
+import { MOMENT_TAGS } from '@/constants/log';
+import { EVIDENCE_SHOWN, phraseForConfidence } from '@/ai/changeRules';
 import { formatShortDate } from '@/utils/period';
 import { HairlineRule } from '@components/ui/HairlineRule';
-import type { Change, ProgressionVerdict } from '@/types';
+import type { Change, MomentTag, ProgressionVerdict } from '@/types';
+
+const TAG_LABEL = new Map(MOMENT_TAGS.map((tag) => [tag.id, tag.label]));
+
+/** The person's own words for the moment. Their evidence, not the model's. */
+function tagsOf(tags: readonly MomentTag[]): string {
+  return tags.map((tag) => TAG_LABEL.get(tag) ?? '').filter(Boolean).join('・');
+}
 
 interface ChangeCardProps {
   change: Change;
@@ -63,7 +71,17 @@ export function ChangeCard({
             accessibilityLabel={`${formatShortDate(entry.occurredOn)} ${entry.text}`}
             style={({ pressed }) => [styles.evidence, pressed && styles.pressed]}
           >
-            <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
+            <View style={styles.evidenceHead}>
+              <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
+              {/* Why this record: what it is doing inside the change. Without
+                  it the quotes look picked, and the shape the reading found —
+                  ひっかかった, then 変わった, then いま — is invisible. */}
+              <Text style={styles.role}>{CHANGE_EVIDENCE_ROLE_JA[entry.role]}</Text>
+              {/* The person's own tags, printed as they tapped them. */}
+              {entry.momentTags.length > 0 ? (
+                <Text style={styles.tags}>{tagsOf(entry.momentTags)}</Text>
+              ) : null}
+            </View>
             <Text style={styles.quote}>{entry.text}</Text>
           </Pressable>
         ))}
@@ -94,6 +112,9 @@ export function ChangeCard({
       <View style={styles.block}>
         <Text style={styles.section}>{CHANGE.observation}</Text>
         <Text style={styles.body}>{change.observation}</Text>
+        {/* §17. How far the records let the wording go, said out loud rather
+            than left as a difference in tone the person has to detect. */}
+        <Text style={styles.confidence}>{phraseForConfidence(change.confidence)}</Text>
       </View>
 
       <View style={styles.block}>
@@ -175,10 +196,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.ivoryFaint,
   },
-  evidence: { gap: 1, paddingVertical: 3 },
+  evidence: { gap: 2, paddingVertical: 4 },
+  evidenceHead: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
   pressed: { opacity: 0.6 },
   date: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.4, color: colors.brassDim },
+  role: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.2, color: colors.brass },
+  tags: { fontFamily: fonts.sans, fontSize: 10, color: colors.ivoryFaint },
   quote: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 23, color: colors.ivory },
+  confidence: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 20,
+    color: colors.ivoryFaint,
+    marginTop: 2,
+  },
   body: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 25, color: colors.ivoryDim },
   target: { fontFamily: fonts.serif, fontSize: 15, lineHeight: 25, color: colors.ivory },
   more: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: MIN_TOUCH },

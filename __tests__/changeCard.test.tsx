@@ -178,6 +178,70 @@ describe('the summary card', () => {
     expect(seen[0]).toEqual(['l1', 'l2', 'l3', 'l4']);
   });
 
+  it('says why each record is there, and in whose words (§27)', () => {
+    const { getByText } = render(
+      <ChangeCard
+        change={change({
+          evidence: [
+            {
+              logId: 'l1',
+              occurredOn: '2026-09-02',
+              role: 'friction',
+              text: '何が嫌なのかはまだうまく言えない',
+              logType: 'thought',
+              momentTags: ['friction'],
+            },
+            {
+              logId: 'l2',
+              occurredOn: '2026-09-17',
+              role: 'current',
+              text: '優先するものを自分で決めた',
+              logType: 'self_action',
+              momentTags: ['self_decided', 'tried'],
+            },
+          ],
+        })}
+        focused={false}
+        onOpenLog={noop}
+        onOpenAllEvidence={noop}
+        onVerdict={noop}
+      />
+    );
+    // What each record is doing inside the change. Without it the quotes look
+    // picked and the shape the reading found is invisible.
+    expect(getByText('ひっかかった')).toBeTruthy();
+    expect(getByText('いま')).toBeTruthy();
+    // The person's own tags, as they tapped them.
+    expect(getByText('モヤモヤ')).toBeTruthy();
+    expect(getByText('自分で決めた・やってみた')).toBeTruthy();
+  });
+
+  it('says how far the records let it go (§17)', () => {
+    const strong = render(
+      <ChangeCard
+        change={change({ confidence: 'strong' })}
+        focused={false}
+        onOpenLog={noop}
+        onOpenAllEvidence={noop}
+        onVerdict={noop}
+      />
+    );
+    expect(strong.getByText(/はっきり見えています/)).toBeTruthy();
+
+    const signal = render(
+      <ChangeCard
+        change={change({ confidence: 'signal' })}
+        focused={false}
+        onOpenLog={noop}
+        onOpenAllEvidence={noop}
+        onVerdict={noop}
+      />
+    );
+    // A single-signal change must not read like a settled one.
+    expect(signal.getByText(/この方向につながる記録がありました/)).toBeTruthy();
+    expect(signal.queryByText(/はっきり見えています/)).toBeNull();
+  });
+
   it('takes the person answer to the reading', () => {
     const answers: string[] = [];
     const { getByTestId } = render(
