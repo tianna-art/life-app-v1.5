@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { CHANGE, LABELS } from '@/constants/copy';
-import { CHANGE_EVIDENCE_ROLE_JA, GAIN_CATEGORY_JA } from '@/constants/progression';
+import { CHANGE_EVIDENCE_ROLE_JA } from '@/constants/progression';
 import { MOMENT_TAGS } from '@/constants/log';
 import { EVIDENCE_SHOWN, phraseForConfidence } from '@/ai/changeRules';
 import { formatShortDate } from '@/utils/period';
@@ -127,20 +127,6 @@ export function ChangeCard({
         <Text style={styles.body}>{change.targetConnection}</Text>
       </View>
 
-      {/* Only when something has actually settled (§32, §33). Most changes
-          never reach this and the section is simply absent. */}
-      {change.gains.length > 0 ? (
-        <View style={styles.block}>
-          <Text style={styles.section}>{LABELS.whatYouGained}</Text>
-          {change.gains.map((gain) => (
-            <View key={gain.id} style={styles.gain}>
-              <Text style={styles.gainCategory}>{GAIN_CATEGORY_JA[gain.category]}</Text>
-              <Text style={styles.gainLabel}>{gain.label}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
       <HairlineRule />
 
       <View style={styles.verdictRow}>
@@ -215,9 +201,6 @@ const styles = StyleSheet.create({
   more: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: MIN_TOUCH },
   moreLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.brass },
   moreCount: { fontFamily: fonts.sans, fontSize: 11, color: colors.ivoryFaint },
-  gain: { gap: 1 },
-  gainCategory: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.6, color: colors.brassDim },
-  gainLabel: { fontFamily: fonts.serif, fontSize: 16, lineHeight: 26, color: colors.ivory },
   verdictRow: { flexDirection: 'row', gap: spacing.lg },
   verdictButton: { minHeight: MIN_TOUCH, justifyContent: 'center' },
   verdict: { fontFamily: fonts.sans, fontSize: 13, color: colors.ivoryFaint },

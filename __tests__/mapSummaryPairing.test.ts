@@ -76,6 +76,15 @@ describe('one object, not two', () => {
     expect(graph.nodes.map((n) => n.id)).toEqual(cards.map((c) => c.id));
   });
 
+  it('draws the sky from the same grouping the cards print', () => {
+    // The sky's arcs and the blocks of cards have to be the same sets, or a
+    // sector points at a heading that is not under it.
+    const map = readFileSync(join(ROOT, 'app/(tabs)/map.tsx'), 'utf8');
+    const layout = readFileSync(join(ROOT, 'src/map/changeMap.ts'), 'utf8');
+    expect(map).toContain("groupChanges(list)");
+    expect(layout).toContain('groupChanges(changes.slice(0, MAX_NODES))');
+  });
+
   it('leaves no second reading that could decide the month differently', () => {
     // month-review names the month and compares it with what was set out with.
     // It must not re-derive what changed: the published rows are copied.

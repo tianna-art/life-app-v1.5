@@ -5,7 +5,9 @@ import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { colors, fonts, spacing } from '@/theme';
-import { CHANGE } from '@/constants/copy';
+import { CHANGE, LABELS, TARGET_HEADING } from '@/constants/copy';
+import { GAIN_CATEGORY_JA } from '@/constants/progression';
+import { groupChanges } from '@/map/changeGroups';
 import { Screen } from '@components/ui/Screen';
 import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
@@ -54,6 +56,8 @@ export default function MapScreen() {
   // Where each card sits, so a tap on its point can go there. Measured rather
   // than estimated: the cards are different heights and always will be.
   const cardTops = useRef<Record<string, number>>({});
+  // Cards sit inside a group, so a card's own offset is relative to its block.
+  const groupTops = useRef<Record<string, number>>({});
 
   const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
     const { width: w, height: h } = event.nativeEvent.layout;
@@ -88,6 +92,7 @@ export default function MapScreen() {
       setMonthKey(next);
       setFocusedId(null);
       cardTops.current = {};
+      groupTops.current = {};
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     },
     [monthKey, thisMonth, setMonthKey]
@@ -123,7 +128,10 @@ export default function MapScreen() {
   const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
   const canvasHeight = Math.max(300, Math.min(420, height * 0.44));
 
-  const list = changes ?? [];
+  const list = useMemo(() => changes ?? [], [changes]);
+  // The same grouping the sky is laid out from, so a sector and the block of
+  // cards under that heading are the same set (§23).
+  const groups = useMemo(() => groupChanges(list), [list]);
 
   return (
     <Screen>
@@ -170,22 +178,66 @@ export default function MapScreen() {
             {CHANGE.none}
           </Text>
         ) : (
-          list.map((change) => (
+          groups.map((group) => (
             <View
-              key={change.id}
+              key={group.key}
+              style={styles.group}
               onLayout={(event) => {
-                cardTops.current[change.id] = event.nativeEvent.layout.y;
+                groupTops.current[group.key] = event.nativeEvent.layout.y;
               }}
             >
-              <ChangeCard
-                change={change}
-                focused={focusedId === change.id}
-                onOpenLog={(logId) => router.push(`/log/${logId}`)}
-                onOpenAllEvidence={(logIds) => router.push(`/records/${logIds.join(',')}`)}
-                onVerdict={(value) =>
-                  verdict.mutate({ changeId: change.id, verdict: value })
-                }
-              />
+              {/* What this block answers to: the kind, then the person's own
+                  words for the thing itself. The sky carries the kind alone,
+                  because a rim label has room for a word and not a sentence. */}
+              <View style={styles.groupHead}>
+                <Text style={styles.groupKind}>{TARGET_HEADING[group.targetType]}</Text>
+                {group.targetLabel ? (
+                  <Text style={styles.groupTarget}>「{group.targetLabel}」</Text>
+                ) : null}
+              </View>
+
+              {group.changes.map((change) => (
+                <View
+                  key={change.id}
+                  onLayout={(event) => {
+                    // Measured against the page: the card sits inside a group,
+                    // so its own offset is relative to that block and would
+                    // scroll to the wrong place.
+                    cardTops.current[change.id] =
+                      groupTops.current[group.key] === undefined
+                        ? event.nativeEvent.layout.y
+                        : groupTops.current[group.key]! + event.nativeEvent.layout.y;
+                  }}
+                >
+                  <ChangeCard
+                    change={change}
+                    focused={focusedId === change.id}
+                    onOpenLog={(logId) => router.push(`/log/${logId}`)}
+                    onOpenAllEvidence={(logIds) => router.push(`/records/${logIds.join(',')}`)}
+                    onVerdict={(value) =>
+                      verdict.mutate({ changeId: change.id, verdict: value })
+                    }
+                  />
+                </View>
+              ))}
+
+              {/* §32: what the changes under this heading left the person
+                  holding. Gathered per group rather than per change, because
+                  the question it answers is about the thing they wanted, not
+                  about one month's reading of it. */}
+              {group.gains.length > 0 ? (
+                <View style={styles.groupGains}>
+                  <Text style={styles.groupGainsLabel}>{LABELS.whatYouGained}</Text>
+                  {group.gains.map((gain) => (
+                    <View key={gain.id} style={styles.groupGain}>
+                      <Text style={styles.groupGainCategory}>
+                        {GAIN_CATEGORY_JA[gain.category]}
+                      </Text>
+                      <Text style={styles.groupGainLabel}>{gain.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           ))
         )}
@@ -220,6 +272,40 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.ivoryDim,
     textAlign: 'center',
+  },
+  group: { gap: spacing.md },
+  groupHead: { gap: 2, paddingTop: spacing.sm },
+  groupKind: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    letterSpacing: 2.2,
+    color: colors.brassDim,
+  },
+  groupTarget: {
+    fontFamily: fonts.serif,
+    fontSize: 17,
+    lineHeight: 27,
+    color: colors.ivory,
+  },
+  groupGains: { gap: spacing.xs, paddingLeft: spacing.sm },
+  groupGainsLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 9,
+    letterSpacing: 3,
+    color: colors.ivoryFaint,
+  },
+  groupGain: { gap: 1 },
+  groupGainCategory: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    letterSpacing: 1.6,
+    color: colors.brassDim,
+  },
+  groupGainLabel: {
+    fontFamily: fonts.serif,
+    fontSize: 15,
+    lineHeight: 25,
+    color: colors.ivoryDim,
   },
   none: {
     fontFamily: fonts.sans,
