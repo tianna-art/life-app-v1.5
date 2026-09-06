@@ -844,6 +844,23 @@ export class SupabaseRepository implements Repository {
     });
   }
 
+  async countMonthChanges(yearKey: string): Promise<Map<string, number>> {
+    const { data, error } = await this.client
+      .from('changes')
+      .select('year, month')
+      .eq('period_type', 'month')
+      .eq('year', Number(yearKey));
+    if (error) throw error;
+
+    const counts = new Map<string, number>();
+    for (const row of (data ?? []) as Array<{ year: number; month: number | null }>) {
+      if (row.month === null) continue;
+      const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }
+
   /**
    * 納得した / 少し違う.
    *

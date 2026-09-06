@@ -85,6 +85,14 @@ export interface Repository {
    * no card under it.
    */
   listMonthChanges(monthKey: string): Promise<Change[]>;
+  /**
+   * How many changes each month of a year has published.
+   *
+   * The archive needs this to say what a month offers. A month whose records
+   * are all read but which published nothing has a map with nothing on it, and
+   * sending someone to look at it is worse than offering to read it again.
+   */
+  countMonthChanges(yearKey: string): Promise<Map<string, number>>;
   setChangeVerdict(input: { changeId: string; verdict: ProgressionVerdict }): Promise<Change>;
 
   // -- Month & year (§25, §26) ----------------------------------------------

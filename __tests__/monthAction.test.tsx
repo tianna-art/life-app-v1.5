@@ -8,6 +8,7 @@ const base = {
   done: 0,
   onGenerate: jest.fn(),
   onOpen: jest.fn(),
+  onReread: jest.fn(),
 };
 
 /**
@@ -37,6 +38,33 @@ describe('MonthAction', () => {
     expect(onOpen).toHaveBeenCalled();
   });
 
+  it('still offers to read a month again once every record is read', () => {
+    // Reading the records and reading the month are different jobs. The
+    // second can fail on its own and its rules change, and there used to be
+    // no way to ask for it again short of forgetting the records and paying
+    // for all of them a second time.
+    const onReread = jest.fn();
+    const screen = render(
+      <MonthAction {...base} state="ready" pending={0} onReread={onReread} />
+    );
+    fireEvent.press(screen.getByTestId('month-reread'));
+    expect(onReread).toHaveBeenCalled();
+  });
+
+  it('leads with the re-read when the month published nothing', () => {
+    // Every record read and no changes: the map is an empty sky. Sending
+    // someone to look at it is worse than offering the one thing that might
+    // change what is there.
+    const onReread = jest.fn();
+    const screen = render(
+      <MonthAction {...base} state="empty" pending={0} onReread={onReread} />
+    );
+    expect(screen.getByText(LABELS.readAgain)).toBeTruthy();
+    expect(screen.queryByTestId('month-open-map')).toBeNull();
+    fireEvent.press(screen.getByTestId('month-reread'));
+    expect(onReread).toHaveBeenCalled();
+  });
+
   it('shows what a run will read before it is agreed to', () => {
     // Every record is a call the person pays for, so the number is on the
     // button rather than discovered afterwards.
@@ -49,5 +77,6 @@ describe('MonthAction', () => {
     expect(screen.getByText('7 / 20')).toBeTruthy();
     expect(screen.queryByTestId('month-generate-map')).toBeNull();
     expect(screen.queryByTestId('month-open-map')).toBeNull();
+    expect(screen.queryByTestId('month-reread')).toBeNull();
   });
 });

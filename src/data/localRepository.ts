@@ -346,6 +346,10 @@ export class LocalRepository implements Repository {
     return [];
   }
 
+  async countMonthChanges(): Promise<Map<string, number>> {
+    return new Map();
+  }
+
   async setChangeVerdict(): Promise<never> {
     throw new Error('この端末では、変化に返事を書けません。');
   }
