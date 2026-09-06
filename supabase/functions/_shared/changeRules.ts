@@ -59,8 +59,19 @@ export const CHANGE_EVIDENCE_ROLES: readonly ChangeEvidenceRole[] = [
 // The limits
 // ---------------------------------------------------------------------------
 
-/** §31. Three is a ceiling, never a quota. */
-export const MAX_CHANGES = 3;
+/**
+ * How many changes a month may publish.
+ *
+ * §20 puts two to five points off ME; §31 caps the summary at three. Those
+ * were in tension and the cap won, which turned out to be the wrong way round:
+ * with a month full of records the reading was throwing away readings it had
+ * already made, and a map with one point on it tells the person nothing.
+ *
+ * Five is the ceiling now, and it is still a ceiling. Nothing below is relaxed
+ * to reach it — a change is published because the records show it, and a month
+ * that honestly holds two publishes two.
+ */
+export const MAX_CHANGES = 5;
 
 /** §20, §36. One record is an observation; it is not a change. */
 export const MIN_EVIDENCE = 2;
@@ -257,22 +268,30 @@ export function capConfidence(
 /**
  * §42 — two names for one movement.
  *
- * Titles are compared loosely and evidence strictly. Two candidates standing
- * on the same records are one change however differently they are worded, and
- * the one that survives is the one that came first — the reading put its own
- * best first, and re-ranking it here would be second-guessing the judgement
- * the model is actually for.
+ * Standing on the same records is what makes two candidates one change,
+ * however differently they are worded. The one that survives is the one that
+ * came first: the reading put its own best first, and re-ranking here would be
+ * second-guessing the judgement a model is actually for.
+ *
+ * This used to be looser in two ways that ate real changes. Containment alone
+ * counted, so a change on two records disappeared into any change that
+ * happened to cite both among its five — and records overlap constantly,
+ * because one afternoon can be evidence for more than one thing. And a title
+ * that merely contained another's counted, which put 「人に見せる範囲を広げる」
+ * inside 「人に見せる」 on nothing but the substring.
+ *
+ * So: the same records, or one record apart, or the same title. Anything else
+ * is two readings of an overlapping month, which is what a month looks like.
  */
 function isDuplicate(candidate: ParsedChange, kept: readonly ParsedChange[]): boolean {
   const ids = new Set(candidate.evidence.map((e) => e.logId));
   return kept.some((existing) => {
     const existingIds = new Set(existing.evidence.map((e) => e.logId));
     const shared = [...ids].filter((id) => existingIds.has(id)).length;
-    // Contained in, or containing, another change's evidence.
-    if (shared === ids.size || shared === existingIds.size) return true;
-    const a = existing.title.replace(/[\s。、]/g, '');
-    const b = candidate.title.replace(/[\s。、]/g, '');
-    return a === b || a.includes(b) || b.includes(a);
+    const contained = shared === ids.size || shared === existingIds.size;
+    if (contained && Math.abs(ids.size - existingIds.size) <= 1) return true;
+    const strip = (title: string) => title.replace(/[\s。、]/g, '');
+    return strip(existing.title) === strip(candidate.title);
   });
 }
 
@@ -437,7 +456,7 @@ export function parseChangeReading(value: unknown, context: ChangeContext): Chan
     changes.push(candidate);
   }
 
-  // Q10 / §31: three is where it stops, and nothing is added to reach it.
+  // Q10 / §20: five is where it stops, and nothing is added to reach it.
   return { changes: changes.slice(0, MAX_CHANGES), rejected };
 }
 

@@ -114,9 +114,11 @@ describe('the app does not praise, diagnose or count', () => {
     expect(section).toContain('捏造');
     expect(section).toContain('過去の記録に書かれている場合だけ');
 
-    // §31. Three is a ceiling, and the prompt has to say so in the same
-    // breath as the number, or the number reads as a quota.
-    expect(section).toContain('3件つくることを目的にしない');
+    // §20's ceiling is five, and the prompt asks for four or five — but it
+    // has to say what a number is worth in the same breath, or the number
+    // reads as a quota and the month gets padded to reach it.
+    expect(section).toContain('数を揃えるために弱いものを混ぜない');
+    expect(section).toContain('0件なら0件');
 
     // §19's BAD list, so the model has seen what a topic title looks like.
     for (const topic of ['キャリア', '人間関係', 'モヤモヤ']) {

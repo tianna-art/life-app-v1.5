@@ -254,25 +254,70 @@ describe('one movement, one change (§42)', () => {
     ]);
     expect(changes).toHaveLength(2);
   });
+
+  it('no longer folds a change into another on a shared substring', () => {
+    // 「人に見せる範囲を広げる」 is not 「人に見せる」 restated; it says where
+    // the showing now reaches. The substring rule could not tell them apart.
+    const { changes } = read([
+      change({ title: '人に見せる', evidence: [{ log_id: 'a', role: 'attempt' }, { log_id: 'b', role: 'current' }] }),
+      change({
+        title: '人に見せる範囲を広げる',
+        evidence: [{ log_id: 'c', role: 'attempt' }, { log_id: 'old', role: 'before' }],
+      }),
+    ]);
+    expect(changes).toHaveLength(2);
+  });
 });
 
-describe('how many (§31)', () => {
-  it('stops at three', () => {
-    const many = ['あ', 'い', 'う', 'え'].map((mark, index) =>
+describe('how many (§20)', () => {
+  const ctx = context({
+    knownLogIds: new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'old']),
+    monthLogIds: new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g']),
+  });
+  const spread = (...ids: string[]) =>
+    ids.map((id, i) => ({ log_id: id, role: i === 0 ? 'attempt' : 'current' }));
+
+  it('publishes five when five stand on their own records', () => {
+    // A month is usually several things going in different directions, not
+    // one tidy story. Capping at three threw away readings already made.
+    const many = [
+      change({ title: 'あの方へ動く', evidence: spread('a', 'b') }),
+      change({ title: 'いの方へ動く', evidence: spread('c', 'd') }),
+      change({ title: 'うの方へ動く', evidence: spread('e', 'f') }),
+      change({ title: 'えの方へ動く', evidence: spread('g', 'old') }),
+      change({ title: 'おの方へ動く', evidence: spread('a', 'c', 'e') }),
+    ];
+    expect(read(many, ctx).changes).toHaveLength(5);
+  });
+
+  it('stops at five', () => {
+    const many = ['あ', 'い', 'う', 'え', 'お', 'か'].map((mark, index) =>
       change({
         title: `${mark}の方へ動く`,
-        evidence: [
-          { log_id: index % 2 === 0 ? 'a' : 'b', role: 'attempt' },
-          { log_id: index < 2 ? 'c' : 'old', role: 'current' },
-        ],
+        evidence: spread(['a', 'c', 'e', 'g', 'b', 'd'][index]!, ['b', 'd', 'f', 'old', 'f', 'g'][index]!),
       })
     );
-    expect(read(many).changes.length).toBeLessThanOrEqual(MAX_CHANGES);
+    expect(read(many, ctx).changes.length).toBeLessThanOrEqual(MAX_CHANGES);
   });
 
   it('returns nothing rather than padding', () => {
+    // The ceiling went up; the floor did not. One invented change makes the
+    // other four unreadable, because the person cannot tell which was which.
     expect(read([]).changes).toEqual([]);
     expect(read([change({ title: '仕事' })]).changes).toEqual([]);
+  });
+
+  it('lets one record be evidence for two different changes', () => {
+    // An afternoon can be evidence for more than one thing. Treating any
+    // overlap as duplication is how a month collapses to a single point.
+    const { changes } = read(
+      [
+        change({ title: '自分の基準で選ぶ', evidence: spread('a', 'b') }),
+        change({ title: '人に希望を伝える', evidence: spread('a', 'c', 'd') }),
+      ],
+      ctx
+    );
+    expect(changes).toHaveLength(2);
   });
 });
 

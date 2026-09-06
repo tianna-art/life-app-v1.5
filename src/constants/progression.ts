@@ -1,4 +1,5 @@
 import type {
+  ChangeEvidenceRole,
   GainCategory,
   JourneyRole,
   ProgressionEvidenceRole,
@@ -36,6 +37,24 @@ export const EVIDENCE_ROLE_JA: Record<ProgressionEvidenceRole, string> = {
   adaptation: 'やり方を変えた',
   evidence: '記録',
   turning_point: '向きが変わった',
+  current: 'いま',
+};
+
+/**
+ * What one record is doing inside a change, in plain words.
+ *
+ * Printed beside the record on the card. It is the part of the reading that
+ * says why *this* record — without it the three quotes look picked, and the
+ * person has no way to see the shape the reading found. None of them is praise
+ * or blame: friction reads as 「ひっかかった」 because §10 counts it as
+ * evidence and §30 forbids turning it into growth.
+ */
+export const CHANGE_EVIDENCE_ROLE_JA: Record<ChangeEvidenceRole, string> = {
+  before: '以前',
+  attempt: '試した',
+  friction: 'ひっかかった',
+  change: '変わった',
+  evidence: '記録',
   current: 'いま',
 };
 
