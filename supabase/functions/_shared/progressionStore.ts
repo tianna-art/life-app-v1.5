@@ -363,24 +363,22 @@ async function upsertGain(
     return;
   }
 
-  // gains.type predates the progression model and is still NOT NULL; the
-  // progression's own type is the honest value for it now.
   const { data: progression } = await db
     .from('progressions')
-    .select('user_id, type')
+    .select('user_id')
     .eq('id', input.progressionId)
     .single();
   if (!progression) return;
-  const owner = progression as { user_id: string; type: ProgressionType };
+  const owner = progression as { user_id: string };
 
   const { error: gainError } = await db.from('gains').insert({
     user_id: owner.user_id,
     progression_id: input.progressionId,
     category: input.category,
-    // gains.type is a v2 column that is still NOT NULL and nothing reads any
-    // more. It is filled from the progression's own type to satisfy the
-    // constraint, and carries no meaning in v4.
-    type: mapToLegacyGainType(owner.type),
+    // gains.type is not set. It is the v2 vocabulary category replaced, it is
+    // nullable as of 20260912, and filling it from the progression's type —
+    // which is what this used to do — put a value nobody reads into a column
+    // the next reader would take for meaning.
     label,
     description: input.description ?? null,
     confidence: input.confidence,
@@ -393,23 +391,6 @@ async function upsertGain(
   if (gainError) throw new Error(`gains: ${gainError.message}`);
 }
 
-/** Fills the surviving v2 gain_type column. Not read anywhere. */
-function mapToLegacyGainType(type: ProgressionType): string {
-  switch (type) {
-    case 'capability':
-      return 'capability';
-    case 'strategy':
-      return 'strategy';
-    case 'direction':
-    case 'interest':
-      return 'direction';
-    case 'relationship':
-      return 'connection';
-    case 'perspective':
-    default:
-      return 'insight';
-  }
-}
 
 /** Folds one progression into another; both rows survive (§30). */
 export async function mergeProgressions(
