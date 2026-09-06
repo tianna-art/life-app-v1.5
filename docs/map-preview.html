@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>crincran MAP — preview</title>
+<!--
+  crincran の MAP 画面を、ブラウザだけで動かせる形にしたもの。
+
+  レイアウトの計算は app 側からの「移植」ではなく「複製」です:
+    src/map/changeMap.ts     → buildChangeMap / makeRng / weightOf
+    src/map/changeGroups.ts  → groupChanges
+    src/theme/index.ts       → colors / spacing / radii
+  数値と式を1つでも変えると、実機と違う絵が出ます。手を入れるときは、
+  ここで確かめてから同じ変更を上のファイルに入れてください。逆はしない。
+
+  データは下の CHANGES。crincran.life の 2026-09（20件）から作った、
+  ありそうな読み取り結果です。中身を書き換えて絵の変化を試すためのもの。
+-->
+<style>
+  :root {
+    --ink: #07080D;
+    --night: #0C1018;
+    --surface: #12161F;
+    --frame: #242B38;
+    --frame-soft: rgba(214, 205, 184, 0.10);
+    --ivory: #EDE7DA;
+    --ivory-dim: rgba(237, 231, 218, 0.62);
+    --ivory-faint: rgba(237, 231, 218, 0.38);
+    --brass: #C2A15C;
+    --brass-dim: rgba(194, 161, 92, 0.55);
+    --star: #F3EEE2;
+    --edge: rgba(194, 161, 92, 0.22);
+
+    --serif: Georgia, "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: system-ui, -apple-system, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif;
+
+    /* spacing */
+    --xs: 4px; --sm: 8px; --md: 16px; --lg: 24px; --xl: 36px; --xxl: 56px;
+    --gallery: 28px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #000;
+    color: var(--ivory);
+    font-family: var(--sans);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+
+  /* PhoneFrame: iPhone 16 Pro Max is 440pt wide; nothing wider is a phone. */
+  #plate {
+    width: 440px;
+    height: 940px;
+    max-height: 100vh;
+    background: var(--ink);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--frame);
+    border-right: 1px solid var(--frame);
+  }
+  @media (max-width: 440px) {
+    #plate { width: 100%; height: 100vh; border: 0; }
+  }
+
+  /* Screen: paddingHorizontal = gallery */
+  .screen { flex: 1; padding: 0 var(--gallery); display: flex; flex-direction: column; min-height: 0; }
+
+  /* TopBar */
+  .topbar { min-height: 44px; padding-top: var(--md); padding-bottom: var(--sm);
+            display: flex; flex-direction: column; align-items: center; gap: var(--xs); }
+  .strip { align-self: stretch; display: flex; gap: var(--lg); overflow-x: auto;
+           padding-right: var(--gallery); scrollbar-width: none; }
+  .strip::-webkit-scrollbar { display: none; }
+  .strip-item { min-height: 44px; min-width: 42px; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+  .strip-month { font-family: var(--serif); font-size: 16px; color: var(--ivory-faint); }
+  .strip-item.on .strip-month { color: var(--ivory); }
+  .strip-year { font-family: var(--sans); font-size: 9px; letter-spacing: 1.4px; color: var(--frame); }
+  .strip-rule { height: 1px; width: 22px; background: transparent; }
+  .strip-item.on .strip-rule { background: var(--brass); }
+
+  .plate-row { display: flex; align-items: baseline; justify-content: center; gap: var(--md); }
+  .plate-label { font-family: var(--sans); font-size: 11px; letter-spacing: 3.2px; color: var(--brass-dim); }
+  .review-title { font-family: var(--serif); font-size: 13px; letter-spacing: 1.4px; color: var(--ivory-faint); }
+
+  /* ScrollView contentContainer: gap md, paddingBottom xxl */
+  .scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+            gap: var(--md); padding-bottom: var(--xxl); scroll-behavior: smooth; }
+
+  .canvas { display: flex; align-items: center; justify-content: center; flex: none; }
+  .sky { position: relative; }
+  .sky svg { display: block; }
+
+  .abs { position: absolute; }
+  .me-label { width: 80px; display: flex; justify-content: center; pointer-events: none; }
+  .me-text { font-family: var(--sans); font-size: 9px; letter-spacing: 3.2px; color: var(--brass-dim); }
+
+  .hit { width: 120px; min-height: 44px; display: flex; align-items: center;
+         justify-content: flex-start; flex-direction: column; padding-top: 24px;
+         cursor: pointer; background: none; border: 0; }
+  .node-title { font-family: var(--serif); font-size: 13px; line-height: 18px;
+                text-align: center; color: var(--ivory);
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .node-title.on { color: var(--brass); }
+
+  .sector-label { width: 88px; display: flex; justify-content: center; pointer-events: none; }
+  .sector-text { font-family: var(--sans); font-size: 9.5px; letter-spacing: 1.6px;
+                 color: var(--brass-dim); white-space: nowrap; }
+
+  .rule { align-self: stretch; height: 1px; background: var(--frame-soft); flex: none; }
+
+  .heading { font-family: var(--serif); font-size: 15px; letter-spacing: 2px;
+             line-height: 24px; color: var(--ivory-dim); text-align: center; }
+
+  .group { display: flex; flex-direction: column; gap: var(--md); }
+  .group-head { display: flex; flex-direction: column; gap: 2px; padding-top: var(--sm); }
+  .group-kind { font-family: var(--sans); font-size: 10px; letter-spacing: 2.2px; color: var(--brass-dim); }
+  .group-target { font-family: var(--serif); font-size: 17px; line-height: 27px; color: var(--ivory); }
+
+  .card { background: var(--surface); border-radius: 20px; border: 1px solid var(--frame);
+          padding: var(--lg); display: flex; flex-direction: column; gap: var(--md); }
+  .card.focused { border-color: var(--brass-dim); }
+  .card-title { font-family: var(--serif); font-size: 21px; line-height: 31px; color: var(--ivory); }
+  .block { display: flex; flex-direction: column; gap: var(--xs); }
+  .section { font-family: var(--sans); font-size: 11px; letter-spacing: 1.6px;
+             line-height: 18px; color: var(--ivory-faint); }
+
+  .evidence { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; cursor: pointer; }
+  .evidence-head { display: flex; align-items: baseline; gap: var(--sm); flex-wrap: wrap; }
+  .date { font-family: var(--sans); font-size: 10px; letter-spacing: 1.4px; color: var(--brass-dim); }
+  .role { font-family: var(--sans); font-size: 10px; letter-spacing: 1.2px; color: var(--brass); }
+  .tags { font-family: var(--sans); font-size: 10px; color: var(--ivory-faint); }
+  .quote { font-family: var(--sans); font-size: 14px; line-height: 23px; color: var(--ivory); }
+
+  .confidence { font-family: var(--sans); font-size: 12px; line-height: 20px;
+                color: var(--ivory-faint); margin-top: 2px; }
+  .body { font-family: var(--sans); font-size: 14px; line-height: 25px; color: var(--ivory-dim); }
+  .target { font-family: var(--serif); font-size: 15px; line-height: 25px; color: var(--ivory); }
+
+  .more { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; }
+  .more-label { font-family: var(--sans); font-size: 12px; color: var(--brass); }
+  .more-count { font-family: var(--sans); font-size: 11px; color: var(--ivory-faint); }
+
+  .verdict-row { display: flex; gap: var(--lg); }
+  .verdict { font-family: var(--sans); font-size: 13px; color: var(--ivory-faint);
+             min-height: 44px; display: flex; align-items: center; cursor: pointer;
+             background: none; border: 0; padding: 0; }
+  .verdict.on { color: var(--brass); }
+
+  .group-gains { display: flex; flex-direction: column; gap: var(--xs); padding-left: var(--sm); }
+  .group-gains-label { font-family: var(--sans); font-size: 9px; letter-spacing: 3px; color: var(--ivory-faint); }
+  .group-gain { display: flex; flex-direction: column; gap: 1px; }
+  .group-gain-category { font-family: var(--sans); font-size: 10px; letter-spacing: 1.6px; color: var(--brass-dim); }
+  .group-gain-label { font-family: var(--serif); font-size: 15px; line-height: 25px; color: var(--ivory-dim); }
+
+  .none { font-family: var(--sans); font-size: 13px; line-height: 24px; text-align: center;
+          color: var(--ivory-faint); padding: var(--xl) 0; }
+</style>
+</head>
+<body>
+<div id="plate">
+  <div class="screen">
+    <div class="topbar">
+      <div class="strip" id="strip"></div>
+      <div class="plate-row">
+        <span class="plate-label" id="month-plate"></span>
+        <span class="review-title" id="review-title"></span>
+      </div>
+    </div>
+    <div class="scroll" id="scroll"></div>
+  </div>
+</div>
+
+<script>
+// ===========================================================================
+// 1. データ — ここを書き換えて絵を試す
+// ===========================================================================
+//
+// changes は month-changes 関数が publish した1ヶ月ぶんの行。
+// evidence[].text は本人が書いたそのままの文（カードはこれを引用する）。
+//
+// linkedTargetType は §14 の4種:
+//   month_declaration | year_direction | desired_self | emerging_direction
+// confidence は §17 の3段:  signal | supported | strong
+// role は §26 の6種: before | attempt | friction | change | evidence | current
+
+const MONTH_KEY = '2026-09';
+const MONTH_TITLE = '';   // 月末に決まる名前。まだ無ければ空
+
+const CHANGES = [
+  {
+    id: 'c1',
+    position: 0,
+    title: '自分の基準で選ぶ',
+    linkedTargetType: 'month_declaration',
+    linkedTargetId: '2026-09',
+    linkedTargetLabel: '次の一歩を選ぶ',
+    beforeState: null,
+    observation: '選択肢を考えるだけでなく、自分なりの基準を使って実際に一つを選ぶ記録が複数あります。',
+    targetConnection: '「次の一歩を選ぶ」という今月の言葉に対して、選ぶ前の基準の方が先に言葉になってきています。',
+    confidence: 'supported',
+    verdict: null,
+    evidence: [
+      { logId: 'l1', occurredOn: '2026-09-01', role: 'attempt', momentTags: ['tried'],
+        text: '仕事のあとに次の半年で試す選択を一つ決める。少しだけでも手を動かすと、考えているだけの時より気持ちが落ち着いた。' },
+      { logId: 'l2', occurredOn: '2026-09-07', role: 'change', momentTags: ['discovered'],
+        text: '今日ふと、不安がなくなるのを待つより、Evidenceがある方向を小さく選びたいのかもしれないと思った。' },
+      { logId: 'l3', occurredOn: '2026-09-17', role: 'current', momentTags: ['self_decided'],
+        text: '今日は頼まれたことを全部引き受けず、優先するものを自分で決めた。少し不安だけど納得感はある。' },
+      { logId: 'l4', occurredOn: '2026-09-28', role: 'current', momentTags: ['self_decided', 'tried'],
+        text: '今週はこれまでの記録を見ながら次を考える時間を優先すると決めて、予定を少し空けた。' },
+    ],
+    gains: [
+      { id: 'g1', category: 'choice', label: '全部は引き受けない' },
+      { id: 'g2', category: 'clarity', label: '待つより小さく選ぶ方が動ける' },
+    ],
+  },
+  {
+    id: 'c2',
+    position: 1,
+    title: '小さく区切って試す',
+    linkedTargetType: 'month_declaration',
+    linkedTargetId: '2026-09',
+    linkedTargetLabel: '次の一歩を選ぶ',
+    beforeState: null,
+    observation: '同じことを、完成させてから見せる形から、途中で一度止める形に変えた記録があります。',
+    targetConnection: '一歩の大きさそのものを変えた記録で、「次の一歩を選ぶ」の一歩の側が動いています。',
+    confidence: 'supported',
+    verdict: null,
+    evidence: [
+      { logId: 'l5', occurredOn: '2026-09-13', role: 'change', momentTags: ['changed'],
+        text: '次の半年で試す選択を一つ決めるの進め方を少し変えた。前より小さく区切って試すことにした。' },
+      { logId: 'l6', occurredOn: '2026-09-20', role: 'friction', momentTags: ['friction'],
+        text: '次の半年で試す選択を一つ決めるを進めようとしたけど、思ったよりまとまらなかった。今日は無理に答えを出さずに残す。' },
+      { logId: 'l7', occurredOn: '2026-09-25', role: 'current', momentTags: ['tried', 'changed'],
+        text: '前回と違うやり方で試した。完成させてからではなく、途中の状態で一度止めて見直した。' },
+    ],
+    gains: [{ id: 'g3', category: 'method', label: '途中で一度止めて見直す' }],
+  },
+  {
+    id: 'c3',
+    position: 2,
+    title: '自分の希望を伝える',
+    linkedTargetType: 'desired_self',
+    linkedTargetId: 'express_say_my_thoughts',
+    linkedTargetLabel: '自分の考えを言える',
+    beforeState: null,
+    observation: '普段なら黙るところで自分の考えを足した記録と、初対面に近い相手に話した記録が並んでいます。',
+    targetConnection: '「自分の考えを言える」というありたい姿に対して、言う相手の範囲が広がっています。',
+    confidence: 'supported',
+    verdict: null,
+    evidence: [
+      { logId: 'l8', occurredOn: '2026-09-04', role: 'attempt', momentTags: ['enjoyed'],
+        text: '関係者に今後の希望を伝える。話しているうちに時間を忘れていた。' },
+      { logId: 'l9', occurredOn: '2026-09-14', role: 'change', momentTags: ['tried'],
+        text: '関係者に今後の希望を伝える時に、普段なら黙るところで自分の考えも一つ言ってみた。' },
+      { logId: 'l10', occurredOn: '2026-09-19', role: 'current', momentTags: ['first_time'],
+        text: 'これまであまり話したことのない人に、自分が最近考えていることを少し話した。' },
+    ],
+    gains: [],
+  },
+  {
+    id: 'c4',
+    position: 3,
+    title: '合わない条件が分かる',
+    linkedTargetType: 'year_direction',
+    linkedTargetId: 'own_way_of_working',
+    linkedTargetLabel: '自分に合う働き方を見つけたい',
+    beforeState: null,
+    observation: 'モヤモヤの理由を「忙しい」から「自分で決められない時」に言い換えた記録があります。',
+    targetConnection: '合う働き方を探すのに、まず合わない条件の方が先に言葉になってきています。',
+    confidence: 'signal',
+    verdict: null,
+    evidence: [
+      { logId: 'l11', occurredOn: '2026-09-02', role: 'friction', momentTags: ['friction'],
+        text: '現職での役割調整をしていて少しモヤモヤ。何が嫌なのかはまだうまく言えない。' },
+      { logId: 'l12', occurredOn: '2026-09-16', role: 'current', momentTags: ['friction', 'discovered'],
+        text: '現職での役割調整のあと、単に忙しいというより『自分で決められない』時に消耗している気がした。' },
+    ],
+    gains: [{ id: 'g4', category: 'clarity', label: '裁量がない時に消耗する' }],
+  },
+  {
+    id: 'c5',
+    position: 4,
+    title: '人と一緒に考える時間を選ぶ',
+    linkedTargetType: 'emerging_direction',
+    linkedTargetId: null,
+    linkedTargetLabel: '人と一緒に考える',
+    beforeState: null,
+    observation: '一人で考える記録とは別に、人と話すと引っかかりがはっきりするという記録が繰り返し出ています。',
+    targetConnection: '当初の言葉には無い方向ですが、「楽しかった」と「発見した」が同じ場面で重なって現れています。',
+    confidence: 'supported',
+    verdict: null,
+    evidence: [
+      { logId: 'l13', occurredOn: '2026-09-11', role: 'evidence', momentTags: ['enjoyed', 'discovered'],
+        text: 'これまでの記録を見ながら次を考える時間は、疲れていても不思議とやめたくならない。' },
+      { logId: 'l14', occurredOn: '2026-09-23', role: 'evidence', momentTags: ['enjoyed', 'tried'],
+        text: '関係者に今後の希望を伝える時、相手の反応を見ながら話を広げるのが楽しかった。' },
+      { logId: 'l15', occurredOn: '2026-09-27', role: 'current', momentTags: ['discovered'],
+        text: '誰かに話すと、自分だけで考えていた時より何に引っかかっているかがはっきりする。' },
+    ],
+    gains: [{ id: 'g5', category: 'connection', label: '話すと引っかかりが見える相手' }],
+  },
+];
+
+// ===========================================================================
+// 2. 定数 — src/constants/copy.ts, progression.ts の写し
+// ===========================================================================
+
+const TARGET_SHORT = {
+  month_declaration: '今月のテーマ',
+  year_direction: '今年の方向',
+  desired_self: 'ありたい姿',
+  emerging_direction: '宣言の外',
+};
+const TARGET_HEADING = {
+  month_declaration: '今月のテーマに対して',
+  year_direction: '今年の方向に対して',
+  desired_self: 'ありたい姿に対して',
+  emerging_direction: '宣言の外で育っているもの',
+};
+const CHANGE_EVIDENCE_ROLE_JA = {
+  before: '以前', attempt: '試した', friction: 'ひっかかった',
+  change: '変わった', evidence: '記録', current: 'いま',
+};
+const GAIN_CATEGORY_JA = {
+  clarity: '分かったこと',
+  capability: 'できるようになったこと',
+  method: '自分なりの方法',
+  choice: '自分で選んだこと',
+  evidence: '実際に行った経験',
+  connection: '人とのつながり',
+  recovery: '止まったあと、また動いたこと',
+};
+const MOMENT_TAG_JA = {
+  enjoyed: '楽しかった', tried: 'やってみた', first_time: '初めて', friction: 'モヤモヤ',
+  changed: '変えてみた', discovered: '発見した', self_decided: '自分で決めた',
+};
+const CHANGE_COPY = {
+  heading: '今月見えた変化',
+  fromRecords: '記録から',
+  before: '以前の記録では',
+  observation: '見えてきたこと',
+  targetConnection: 'ありたい姿とのつながり',
+  allEvidence: 'この変化のもとになった記録',
+  none: '今月はまだ、過去との差がはっきり見える変化はありません。',
+};
+const LABELS = { me: 'ME', whatYouGained: "WHAT YOU'VE GAINED", accepted: '納得した', adjusted: '少し違う' };
+
+// §17 — phraseForConfidence (src/ai/changeRules.ts)
+function phraseForConfidence(confidence) {
+  if (confidence === 'strong') return '以前の記録との違いが、はっきり見えています。';
+  if (confidence === 'supported') return 'この変化を示す記録が、複数あります。';
+  return 'この方向につながる記録がありました。';
+}
+
+// ===========================================================================
+// 3. src/map/changeGroups.ts の複製
+// ===========================================================================
+
+const TARGET_ORDER = ['month_declaration', 'year_direction', 'desired_self', 'emerging_direction'];
+
+function groupChanges(changes) {
+  const groups = new Map();
+  for (const change of changes) {
+    const key = `${change.linkedTargetType}:${change.linkedTargetId ?? change.linkedTargetLabel}`;
+    const group = groups.get(key) ?? {
+      key,
+      targetType: change.linkedTargetType,
+      targetLabel: change.linkedTargetLabel,
+      changes: [],
+      gains: [],
+    };
+    group.changes.push(change);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    group.changes.sort((a, b) => a.position - b.position);
+    const seen = new Set();
+    for (const change of group.changes) {
+      for (const gain of change.gains) {
+        if (seen.has(gain.label)) continue;
+        seen.add(gain.label);
+        group.gains.push(gain);
+      }
+    }
+  }
+  return [...groups.values()].sort((a, b) => {
+    const byKind = TARGET_ORDER.indexOf(a.targetType) - TARGET_ORDER.indexOf(b.targetType);
+    if (byKind !== 0) return byKind;
+    return (a.changes[0]?.position ?? 0) - (b.changes[0]?.position ?? 0);
+  });
+}
+
+const orderedChanges = (groups) => groups.flatMap((g) => g.changes);
+
+// ===========================================================================
+// 4. src/map/changeMap.ts の複製 — ここの数式が絵を決める
+// ===========================================================================
+
+function makeRng(seed) {
+  let h = 2166136261 ^ seed.length;
+  for (let i = 0; i < seed.length; i += 1) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+const TITLE_DEPTH = 42;
+const SECTOR_HALF_WIDTH = 44;
+const ME_RADIUS = 5;
+const NODE_MIN_RADIUS = 4;
+const NODE_MAX_RADIUS = 7.5;
+const MAX_NODES = 5;
+const GLOW = { signal: 0.42, supported: 0.68, strong: 0.92 };
+
+function weightOf(change) {
+  const evidence = Math.min(1, change.evidence.length / 5);
+  const settled = GLOW[change.confidence];
+  const confirmed = change.verdict ? 0.12 : 0;
+  return Math.min(1, evidence * 0.35 + settled * 0.53 + confirmed);
+}
+
+function buildChangeMap({ monthKey, changes, targetLabels = {}, selectedId = null, width, height }) {
+  const rng = makeRng(monthKey);
+  const cx = width / 2;
+  const cy = height / 2;
+  const me = { x: cx, y: cy, r: ME_RADIUS };
+
+  const groups = groupChanges(changes.slice(0, MAX_NODES));
+  const points = orderedChanges(groups);
+  if (points.length === 0 || width <= 0 || height <= 0) {
+    return { me, nodes: [], edges: [], sectors: [], groups };
+  }
+
+  const reach = (Math.min(width, height) / 2 - NODE_MAX_RADIUS * 3) * 0.6;
+  const inner = reach * 0.46;
+  const span = reach - inner;
+
+  const slice = (Math.PI * 2) / points.length;
+  const rotation = rng() * Math.PI * 2;
+
+  const nodes = [];
+  const edges = [];
+  const sectors = [];
+
+  const angleOf = (index) => rotation + slice * index;
+  let cursor = 0;
+  for (const group of groups) {
+    const from = angleOf(cursor);
+    const to = angleOf(cursor + group.changes.length - 1);
+    const middle = (from + to) / 2;
+    const labelRadius = reach + TITLE_DEPTH + 14;
+    sectors.push({
+      key: group.key,
+      targetType: group.targetType,
+      label: targetLabels[group.targetType] ?? '',
+      x: clamp(cx + Math.cos(middle) * labelRadius, SECTOR_HALF_WIDTH + 2, width - SECTOR_HALF_WIDTH - 2),
+      y: clamp(cy + Math.sin(middle) * labelRadius, 10, height - 10),
+      angle: middle,
+      changeIds: group.changes.map((c) => c.id),
+    });
+    cursor += group.changes.length;
+  }
+
+  points.forEach((change, index) => {
+    const weight = weightOf(change);
+    const angle = angleOf(index) + (rng() - 0.5) * slice * 0.4;
+    const distance = inner + span * (1 - weight) * (0.5 + rng() * 0.5);
+
+    const x = cx + Math.cos(angle) * distance;
+    const y = cy + Math.sin(angle) * distance;
+    const selected = selectedId === change.id;
+
+    nodes.push({
+      id: change.id,
+      title: change.title,
+      x, y,
+      r: NODE_MIN_RADIUS + (NODE_MAX_RADIUS - NODE_MIN_RADIUS) * weight,
+      glow: selected ? Math.min(1, GLOW[change.confidence] + 0.25) : GLOW[change.confidence],
+      angle,
+      selected,
+    });
+    edges.push({ id: `edge:${change.id}`, fromX: cx, fromY: cy, toX: x, toY: y });
+  });
+
+  return { me, nodes, edges, sectors, groups };
+}
+
+// ===========================================================================
+// 5. 描画
+// ===========================================================================
+
+const MONTHS_EN = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY',
+                   'AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+const el = (tag, className, text) => {
+  const n = document.createElement(tag);
+  if (className) n.className = className;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+
+let focusedId = null;
+
+function formatShortDate(iso) {
+  return `${iso.slice(5, 7)}/${iso.slice(8, 10)}`;
+}
+
+function render() {
+  const year = Number(MONTH_KEY.slice(0, 4));
+  const month = Number(MONTH_KEY.slice(5, 7));
+
+  document.getElementById('month-plate').textContent = `${MONTHS_EN[month - 1]} ${year}`;
+  document.getElementById('review-title').textContent = MONTH_TITLE;
+
+  const strip = document.getElementById('strip');
+  strip.innerHTML = '';
+  for (let m = 1; m <= 12; m += 1) {
+    const item = el('div', `strip-item${m === month ? ' on' : ''}`);
+    item.append(el('span', 'strip-month', MONTHS_SHORT[m - 1]));
+    item.append(el('span', 'strip-year', String(year)));
+    item.append(el('div', 'strip-rule'));
+    strip.append(item);
+  }
+  strip.scrollLeft = Math.max(0, (month - 3) * 66);
+
+  const scroll = document.getElementById('scroll');
+  scroll.innerHTML = '';
+
+  // canvas: map.tsx の式そのまま
+  const plateHeight = document.getElementById('plate').clientHeight;
+  const width = Math.max(260, 440 - 28 * 2);
+  const height = Math.max(300, Math.min(420, plateHeight * 0.44));
+
+  const graph = buildChangeMap({
+    monthKey: MONTH_KEY,
+    changes: CHANGES,
+    targetLabels: TARGET_SHORT,
+    selectedId: focusedId,
+    width, height,
+  });
+
+  // --- 星空 ---
+  const canvas = el('div', 'canvas');
+  canvas.style.height = `${height}px`;
+  const sky = el('div', 'sky');
+  sky.style.width = `${width}px`;
+  sky.style.height = `${height}px`;
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+
+  for (const edge of graph.edges) {
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', edge.fromX); line.setAttribute('y1', edge.fromY);
+    line.setAttribute('x2', edge.toX);   line.setAttribute('y2', edge.toY);
+    line.setAttribute('stroke', 'rgba(194, 161, 92, 0.22)');
+    line.setAttribute('stroke-width', '0.7');
+    svg.append(line);
+  }
+  for (const node of graph.nodes) {
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', node.x); c.setAttribute('cy', node.y); c.setAttribute('r', node.r);
+    c.setAttribute('fill', '#F3EEE2'); c.setAttribute('opacity', node.glow);
+    svg.append(c);
+  }
+  const meDot = document.createElementNS(NS, 'circle');
+  meDot.setAttribute('cx', graph.me.x); meDot.setAttribute('cy', graph.me.y);
+  meDot.setAttribute('r', graph.me.r); meDot.setAttribute('fill', '#C2A15C');
+  svg.append(meDot);
+  sky.append(svg);
+
+  const meLabel = el('div', 'abs me-label');
+  meLabel.style.left = `${graph.me.x - 40}px`;
+  meLabel.style.top = `${graph.me.y + graph.me.r + 6}px`;
+  meLabel.append(el('span', 'me-text', LABELS.me));
+  sky.append(meLabel);
+
+  for (const sector of graph.sectors) {
+    if (!sector.label) continue;
+    const box = el('div', 'abs sector-label');
+    box.style.left = `${sector.x - 44}px`;
+    box.style.top = `${sector.y - 7}px`;
+    box.append(el('span', 'sector-text', sector.label));
+    sky.append(box);
+  }
+
+  for (const node of graph.nodes) {
+    const hit = el('button', 'abs hit');
+    hit.style.left = `${node.x - 60}px`;
+    hit.style.top = `${node.y - 20}px`;
+    const title = el('span', `node-title${node.selected ? ' on' : ''}`, node.title);
+    title.style.opacity = String(Math.max(0.6, node.glow));
+    hit.append(title);
+    hit.onclick = () => select(node.id);
+    sky.append(hit);
+  }
+
+  canvas.append(sky);
+  scroll.append(canvas);
+  scroll.append(el('div', 'rule'));
+  scroll.append(el('div', 'heading', CHANGE_COPY.heading));
+
+  if (graph.groups.length === 0) {
+    scroll.append(el('div', 'none', CHANGE_COPY.none));
+    return;
+  }
+
+  for (const group of graph.groups) {
+    const block = el('div', 'group');
+    block.dataset.groupKey = group.key;
+
+    const head = el('div', 'group-head');
+    head.append(el('div', 'group-kind', TARGET_HEADING[group.targetType]));
+    if (group.targetLabel) head.append(el('div', 'group-target', `「${group.targetLabel}」`));
+    block.append(head);
+
+    for (const change of group.changes) block.append(renderCard(change));
+
+    if (group.gains.length > 0) {
+      const gains = el('div', 'group-gains');
+      gains.append(el('div', 'group-gains-label', LABELS.whatYouGained));
+      for (const gain of group.gains) {
+        const row = el('div', 'group-gain');
+        row.append(el('div', 'group-gain-category', GAIN_CATEGORY_JA[gain.category] ?? gain.category));
+        row.append(el('div', 'group-gain-label', gain.label));
+        gains.append(row);
+      }
+      block.append(gains);
+    }
+
+    scroll.append(block);
+  }
+}
+
+const EVIDENCE_SHOWN = 3;
+
+function renderCard(change) {
+  const card = el('div', `card${focusedId === change.id ? ' focused' : ''}`);
+  card.id = `card-${change.id}`;
+  card.append(el('div', 'card-title', change.title));
+
+  // §27: 記録から → 見えてきたこと → ありたい姿とのつながり。この順は動かさない。
+  const shown = change.evidence.slice(0, EVIDENCE_SHOWN);
+  const rest = change.evidence.length - shown.length;
+
+  const records = el('div', 'block');
+  records.append(el('div', 'section', CHANGE_COPY.fromRecords));
+  for (const entry of shown) {
+    const row = el('div', 'evidence');
+    const head = el('div', 'evidence-head');
+    head.append(el('span', 'date', formatShortDate(entry.occurredOn)));
+    head.append(el('span', 'role', CHANGE_EVIDENCE_ROLE_JA[entry.role]));
+    if (entry.momentTags.length > 0) {
+      head.append(el('span', 'tags', entry.momentTags.map((t) => MOMENT_TAG_JA[t] ?? t).join('・')));
+    }
+    row.append(head);
+    row.append(el('div', 'quote', entry.text));
+    records.append(row);
+  }
+  if (rest > 0) {
+    const more = el('div', 'more');
+    more.append(el('span', 'more-label', CHANGE_COPY.allEvidence));
+    more.append(el('span', 'more-count', `${change.evidence.length}件`));
+    records.append(more);
+  }
+  card.append(records);
+
+  // §16: 過去の記録が無ければ、この節ごと出さない。
+  if (change.beforeState) {
+    const before = el('div', 'block');
+    before.append(el('div', 'section', CHANGE_COPY.before));
+    before.append(el('div', 'body', change.beforeState));
+    card.append(before);
+  }
+
+  const observation = el('div', 'block');
+  observation.append(el('div', 'section', CHANGE_COPY.observation));
+  observation.append(el('div', 'body', change.observation));
+  observation.append(el('div', 'confidence', phraseForConfidence(change.confidence)));
+  card.append(observation);
+
+  const connection = el('div', 'block');
+  connection.append(el('div', 'section', CHANGE_COPY.targetConnection));
+  if (change.linkedTargetLabel) {
+    connection.append(el('div', 'target', `「${change.linkedTargetLabel}」`));
+  }
+  connection.append(el('div', 'body', change.targetConnection));
+  card.append(connection);
+
+  card.append(el('div', 'rule'));
+
+  const verdicts = el('div', 'verdict-row');
+  for (const [value, label] of [['accepted', LABELS.accepted], ['adjusted', LABELS.adjusted]]) {
+    const button = el('button', `verdict${change.verdict === value ? ' on' : ''}`, label);
+    button.onclick = () => { change.verdict = change.verdict === value ? null : value; render(); };
+    verdicts.append(button);
+  }
+  card.append(verdicts);
+
+  return card;
+}
+
+// §24: 点をタップ → 対応するカードへ移動して光らせる
+function select(changeId) {
+  focusedId = changeId;
+  render();
+  const card = document.getElementById(`card-${changeId}`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ブラウザで開いたときだけ描く。__tests__/mapPreview.test.ts はこのスクリプトを
+// そのまま評価して、上の buildChangeMap が app 側と同じ数を返すか比べています。
+if (typeof document !== 'undefined') {
+  render();
+  window.addEventListener('resize', render);
+}
+</script>
+</body>
+</html>
