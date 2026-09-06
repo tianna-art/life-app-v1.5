@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildChangeMap } from '@/map/changeMap';
 import { groupChanges } from '@/map/changeGroups';
 import { TARGET_SHORT } from '@/constants/copy';
+import { LOG_TYPES, MOMENT_TAGS } from '@/constants/log';
 import type { Change } from '@/types';
 
 const ROOT = join(__dirname, '..');
@@ -12,7 +13,7 @@ const ROOT = join(__dirname, '..');
  * The browser preview draws the same sky as the app, or it is worse than
  * useless.
  *
- * `docs/map-preview.html` exists so the layout can be looked at and pushed
+ * `docs/preview.html` exists so the layout can be looked at and pushed
  * around without a device. That only works while it is the same arithmetic: a
  * preview that drifts sends someone back to change the app to match a picture
  * the app never drew. So the page's copy of the maths is evaluated here and
@@ -24,12 +25,15 @@ function loadPreview(): {
   groupChanges: (changes: unknown[]) => Array<Record<string, unknown>>;
   CHANGES: Change[];
   TARGET_SHORT: Record<string, string>;
+  LOGS: Array<{ id: string; occurredOn: string; logType: string; momentTags: string[]; text: string }>;
+  LOG_TYPES: Array<{ id: string; label: string }>;
+  MOMENT_TAGS: Array<{ id: string; label: string }>;
 } {
-  const html = readFileSync(join(ROOT, 'docs/map-preview.html'), 'utf8');
+  const html = readFileSync(join(ROOT, 'docs/preview.html'), 'utf8');
   const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
   if (!script) throw new Error('the preview has no script');
   const factory = new Function(
-    `${script}\nreturn { buildChangeMap, groupChanges, CHANGES, TARGET_SHORT };`
+    `${script}\nreturn { buildChangeMap, groupChanges, CHANGES, TARGET_SHORT, LOGS, LOG_TYPES, MOMENT_TAGS };`
   );
   return factory() as ReturnType<typeof loadPreview>;
 }
@@ -94,7 +98,7 @@ describe('the browser preview', () => {
     // browser the plate stops at 940 and the window does not, so reading the
     // plate draws a shorter sky than the app draws and every radius under it
     // is wrong.
-    const page = readFileSync(join(ROOT, 'docs/map-preview.html'), 'utf8');
+    const page = readFileSync(join(ROOT, 'docs/preview.html'), 'utf8');
     const screen = readFileSync(join(ROOT, 'app/(tabs)/map.tsx'), 'utf8');
 
     expect(screen).toContain('Math.max(300, Math.min(420, height * 0.44))');
@@ -102,11 +106,43 @@ describe('the browser preview', () => {
     expect(page).toContain('Math.max(260, plateWidth - 28 * 2)');
   });
 
+  it('offers all three screens, not only the one it was built for', () => {
+    // A page that draws MAP and leaves LOG and LIST as dead buttons is worse
+    // than one that says so: the tabs look like the app and answer like a
+    // mockup, and the difference only shows up when someone presses one.
+    const page = readFileSync(join(ROOT, 'docs/preview.html'), 'utf8');
+    for (const screen of ['function renderMap()', 'function renderLog()', 'function renderList()']) {
+      expect(page).toContain(screen);
+    }
+    expect(page).toContain('button.onclick = () => showTab(name);');
+  });
+
+  it('uses the same categories and tags the composer does', () => {
+    // LOG writes what LIST filters and what a change quotes. One list of ids
+    // wrong here and the preview exercises a vocabulary the app has not got.
+    expect(preview.LOG_TYPES.map((t) => t.id)).toEqual(LOG_TYPES.map((t) => t.id));
+    expect(preview.LOG_TYPES.map((t) => t.label)).toEqual(LOG_TYPES.map((t) => t.label));
+    expect(preview.MOMENT_TAGS.map((t) => t.id)).toEqual(MOMENT_TAGS.map((t) => t.id));
+    expect(preview.MOMENT_TAGS.map((t) => t.label)).toEqual(MOMENT_TAGS.map((t) => t.label));
+  });
+
+  it('carries records the app would accept', () => {
+    const types = new Set(LOG_TYPES.map((t) => t.id));
+    const tags = new Set(MOMENT_TAGS.map((t) => t.id));
+    expect(preview.LOGS.length).toBeGreaterThan(0);
+    for (const entry of preview.LOGS) {
+      expect(types.has(entry.logType as never)).toBe(true);
+      expect(entry.momentTags.length).toBeGreaterThan(0);
+      for (const tag of entry.momentTags) expect(tags.has(tag as never)).toBe(true);
+      expect(entry.occurredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
   it('draws the bottom navigation the app puts under every screen', () => {
     // It sits outside the Screen, so it is easy to forget in a page that only
     // reproduces one screen — and then the sky is judged with more room under
     // it than it will ever have.
-    const page = readFileSync(join(ROOT, 'docs/map-preview.html'), 'utf8');
+    const page = readFileSync(join(ROOT, 'docs/preview.html'), 'utf8');
     const nav = readFileSync(join(ROOT, 'components/navigation/BottomMuseumNav.tsx'), 'utf8');
 
     expect(page).toContain("['map', 'log', 'list']");

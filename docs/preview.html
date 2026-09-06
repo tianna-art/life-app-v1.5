@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>crincran MAP — preview</title>
+<title>crincran — preview</title>
 <!--
-  crincran の MAP 画面を、ブラウザだけで動かせる形にしたもの。
+  crincran を、ブラウザだけで動かせる形にしたもの。MAP / LOG / LIST の3画面。
 
   レイアウトの計算は app 側からの「移植」ではなく「複製」です:
     src/map/changeMap.ts     → buildChangeMap / makeRng / weightOf
@@ -14,8 +14,13 @@
   数値と式を1つでも変えると、実機と違う絵が出ます。手を入れるときは、
   ここで確かめてから同じ変更を上のファイルに入れてください。逆はしない。
 
-  データは下の CHANGES。crincran.life の 2026-09（20件）から作った、
-  ありそうな読み取り結果です。中身を書き換えて絵の変化を試すためのもの。
+  データは下の LOGS と CHANGES。crincran.life の 2026-09（20件）と、
+  そこから出てきそうな読み取り結果です。書き換えて画面の変化を試すためのもの。
+
+  動くもの: タブの行き来 / MAPの点タップ→カードへ移動 / 納得した・少し違う /
+  LOGの入力（日付・カテゴリ・タグ・保存、保存するとLISTに増える） /
+  LISTの年送り・絞り込み。
+  動かないもの: AIの質問と分析（通信がないので固定文と手元計算）。
 -->
 <style>
   :root {
@@ -162,6 +167,110 @@
   .none { font-family: var(--sans); font-size: 13px; line-height: 24px; text-align: center;
           color: var(--ivory-faint); padding: var(--xl) 0; }
 
+  /* ---- LOG ---------------------------------------------------------- */
+  .log-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+                gap: var(--md); padding-bottom: var(--xxl); }
+  .direction { display: flex; flex-direction: column; gap: 3px; align-items: center; cursor: pointer; }
+  .direction-eyebrow { font-family: var(--sans); font-size: 9px; letter-spacing: 2.6px; color: var(--ivory-faint); }
+  .direction-theme { font-family: var(--serif); font-size: 17px; line-height: 26px;
+                     color: var(--ivory); text-align: center; }
+  .direction-lenses { display: flex; flex-wrap: wrap; justify-content: center; }
+  .direction-lens { font-family: var(--sans); font-size: 11px; color: var(--brass-dim); }
+
+  .log-header { padding-top: var(--xs); display: flex; flex-direction: column;
+                gap: var(--xs); align-items: center; }
+  .month-nav { display: flex; align-items: center; align-self: stretch; }
+  .month-arrow { min-width: 44px; min-height: 44px; display: flex; align-items: center;
+                 justify-content: center; font-family: var(--serif); font-size: 20px;
+                 line-height: 24px; color: var(--brass-dim); background: none; border: 0; cursor: pointer; }
+  .month-arrow.idle { color: var(--frame); cursor: default; }
+  .month-plate-box { flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .month-theme { font-family: var(--serif); font-size: 13px; letter-spacing: 1.4px;
+                 color: var(--ivory-faint); text-align: center; }
+  .breath { height: var(--lg); flex: none; }
+
+  .composer { display: flex; flex-direction: column; gap: var(--lg); align-items: stretch; }
+  .level { display: flex; flex-direction: column; gap: var(--sm); align-items: center; }
+  .level-label { font-family: var(--sans); font-size: 10px; letter-spacing: 2.4px;
+                 color: var(--ivory-faint); text-align: center; }
+
+  .date-row { display: flex; gap: var(--md); align-items: center; padding: 0 var(--sm);
+              overflow-x: auto; scrollbar-width: none; align-self: stretch; }
+  .date-row::-webkit-scrollbar { display: none; }
+  .day { min-width: 30px; min-height: 44px; display: flex; flex-direction: column;
+         align-items: center; justify-content: center; background: none; border: 0; cursor: pointer; }
+  .day-number { font-family: var(--serif); font-size: 17px; color: var(--ivory-faint); }
+  .day.on .day-number { color: var(--brass); }
+  .day-weekday { font-family: var(--sans); font-size: 9px; color: var(--frame); }
+  .day.on .day-weekday { color: var(--brass-dim); }
+
+  .chip-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sm); }
+  .chip { min-height: 44px; padding: 0 var(--md); display: flex; align-items: center;
+          border-radius: 999px; border: 1px solid var(--frame); background: none; cursor: pointer;
+          font-family: var(--sans); font-size: 13px; color: var(--ivory-faint); }
+  .chip.l1 { letter-spacing: 1px; }
+  .chip.on { border-color: var(--brass); color: var(--brass); }
+  .chip.tag.on { background: rgba(194, 161, 92, 0.18); }
+
+  .question { font-family: var(--serif); font-size: 17px; line-height: 26px;
+              color: var(--ivory); text-align: center; }
+  .answer { align-self: stretch; text-align: center; min-height: 44px; padding: var(--xs) 0;
+            border: 0; border-bottom: 1px solid var(--frame); background: none;
+            color: var(--ivory); font-family: var(--sans); font-size: 16px; line-height: 24px; }
+  .answer::placeholder { color: var(--ivory-faint); }
+
+  .actions { display: flex; justify-content: center; align-items: center; gap: var(--xl); }
+  .action { min-width: 44px; min-height: 44px; display: flex; align-items: center;
+            justify-content: center; background: none; border: 0; cursor: pointer; }
+  .reset-glyph { font-size: 22px; line-height: 26px; color: var(--ivory-faint); }
+  .save-glyph { font-size: 24px; line-height: 28px; color: var(--brass); }
+  .save-glyph.idle { color: var(--frame); }
+  .back-to-now { align-self: center; font-family: var(--sans); font-size: 14px;
+                 letter-spacing: 1.2px; color: var(--brass); padding: var(--sm) 0;
+                 background: none; border: 0; cursor: pointer; }
+
+  /* ---- LIST --------------------------------------------------------- */
+  .year-row { display: flex; align-items: center; gap: var(--md); }
+  .year-arrow { min-width: 44px; min-height: 44px; display: flex; align-items: center;
+                justify-content: center; font-family: var(--serif); font-size: 24px;
+                color: var(--brass-dim); background: none; border: 0; cursor: pointer; }
+  .year-arrow.off { color: var(--frame); cursor: default; }
+  .year { font-family: var(--serif); font-size: 30px; letter-spacing: 2px; color: var(--ivory); }
+
+  .filter-rows { display: flex; flex-direction: column; gap: var(--xs); flex: none; }
+  .filter-row { display: flex; gap: var(--lg); align-items: center; padding-right: var(--gallery);
+                overflow-x: auto; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip { min-height: 44px; display: flex; align-items: center; background: none;
+                 border: 0; cursor: pointer; white-space: nowrap;
+                 font-family: var(--sans); font-size: 13px; color: var(--ivory-faint); }
+  .filter-chip.on { color: var(--brass); }
+
+  .month-section { padding: var(--lg) 0; display: flex; flex-direction: column; gap: var(--sm); }
+  .month-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sm); }
+  .month-head { flex: 1; display: flex; align-items: baseline; gap: var(--sm); flex-wrap: wrap; }
+  .month-short { font-family: var(--sans); font-size: 11px; letter-spacing: 3px; color: var(--brass-dim); }
+  .month-dash { font-family: var(--sans); font-size: 11px; color: var(--frame); }
+  .month-title { font-family: var(--serif); font-size: 15px; letter-spacing: 1.2px; color: var(--ivory-dim); }
+  .month-action { display: flex; align-items: center; gap: 6px; min-height: 44px;
+                  padding-left: var(--sm); background: none; border: 0; cursor: pointer; }
+  .action-arrow { font-family: var(--sans); font-size: 12px; color: var(--brass-dim); }
+  .action-label { font-family: var(--sans); font-size: 12px; letter-spacing: 0.8px; color: var(--brass); }
+  .action-count { font-family: var(--sans); font-size: 11px; color: var(--ivory-faint); }
+  .action-quiet { font-family: var(--sans); font-size: 12px; letter-spacing: 0.8px; color: var(--ivory-faint); }
+  .ready-row { display: flex; align-items: center; gap: var(--md); }
+
+  .log-rows { margin-top: var(--xs); display: flex; flex-direction: column; }
+  .log-row { display: flex; gap: var(--sm); padding: var(--sm) 0; cursor: pointer;
+             background: none; border: 0; text-align: left; }
+  .log-row-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .log-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sm); }
+  .log-date { font-family: var(--sans); font-size: 12px; letter-spacing: 1.2px; color: var(--brass-dim); }
+  .log-tag { font-family: var(--sans); font-size: 11px; color: var(--ivory-faint); }
+  .log-written { font-family: var(--sans); font-size: 13px; line-height: 21px; color: var(--ivory-dim); }
+  .empty { font-family: var(--sans); font-size: 13px; line-height: 24px; text-align: center;
+           color: var(--ivory-faint); padding: var(--xl) 0; }
+
   /* BottomMuseumNav. LOG carries slightly more weight at the centre. */
   .nav { background: var(--ink); flex: none; padding-bottom: var(--sm); }
   .nav-hairline { height: 1px; background: var(--frame-soft); }
@@ -176,16 +285,7 @@
 </head>
 <body>
 <div id="plate">
-  <div class="screen">
-    <div class="topbar">
-      <div class="strip" id="strip"></div>
-      <div class="plate-row">
-        <span class="plate-label" id="month-plate"></span>
-        <span class="review-title" id="review-title"></span>
-      </div>
-    </div>
-    <div class="scroll" id="scroll"></div>
-  </div>
+  <div class="screen" id="screen"></div>
 
   <!-- MAP | LOG | LIST. app/(tabs)/_layout.tsx はこれを Screen の外に置くので、
        gallery の左右余白はかからない（バーは端まで伸びる）。 -->
@@ -207,6 +307,39 @@
 
 const MONTH_KEY = '2026-09';
 const MONTH_TITLE = '';   // 月末に決まる名前。まだ無ければ空
+
+// §5 の宣言と §4 のレンズ。LOG の一番上に出る。
+const DIRECTION = {
+  initialTheme: '自分の基準で、次の働き方を選ぶ',
+  progressionLenses: ['自分で選ぶ', '外に出す', '自分に合うものを知る'],
+};
+const MONTH_THEME = '次の一歩を選ぶ';
+
+// crincran.life の 2026-09。LIST が並べ、LOG の保存がここに増える。
+const LOGS = [
+  ['2026-09-01', 'self_action', ['tried'], '仕事のあとに次の半年で試す選択を一つ決める。少しだけでも手を動かすと、考えているだけの時より気持ちが落ち着いた。'],
+  ['2026-09-02', 'thought', ['friction'], '現職での役割調整をしていて少しモヤモヤ。何が嫌なのかはまだうまく言えない。'],
+  ['2026-09-04', 'relationship', ['enjoyed'], '関係者に今後の希望を伝える。話しているうちに時間を忘れていた。'],
+  ['2026-09-05', 'self_action', ['first_time', 'tried'], '新しいプロジェクトへの参加を決める。やる前は少し緊張したけれど、行ってみたら思ったより普通にできた。'],
+  ['2026-09-07', 'thought', ['discovered'], '今日ふと、不安がなくなるのを待つより、Evidenceがある方向を小さく選びたいのかもしれないと思った。'],
+  ['2026-09-08', 'self_action', ['enjoyed'], 'これまでの記録を見ながら次を考える時間がかなり楽しかった。予定より長くやってしまった。'],
+  ['2026-09-10', 'relationship', ['friction'], '会議で自分の案を最後まで説明する前に話が決まってしまって、少し置いていかれた感じがした。'],
+  ['2026-09-11', 'thought', ['enjoyed', 'discovered'], 'これまでの記録を見ながら次を考える時間は、疲れていても不思議とやめたくならない。こういう時間は覚えておきたい。'],
+  ['2026-09-13', 'self_action', ['changed'], '次の半年で試す選択を一つ決めるの進め方を少し変えた。前より小さく区切って試すことにした。'],
+  ['2026-09-14', 'relationship', ['tried'], '関係者に今後の希望を伝える時に、普段なら黙るところで自分の考えも一つ言ってみた。'],
+  ['2026-09-16', 'thought', ['friction', 'discovered'], '現職での役割調整のあと、単に忙しいというより『自分で決められない』時に消耗している気がした。'],
+  ['2026-09-17', 'self_action', ['self_decided'], '今日は頼まれたことを全部引き受けず、優先するものを自分で決めた。少し不安だけど納得感はある。'],
+  ['2026-09-19', 'relationship', ['first_time'], 'これまであまり話したことのない人に、自分が最近考えていることを少し話した。'],
+  ['2026-09-20', 'self_action', ['friction'], '次の半年で試す選択を一つ決めるを進めようとしたけど、思ったよりまとまらなかった。今日は無理に答えを出さずに残す。'],
+  ['2026-09-22', 'thought', ['discovered'], '『何が正解か』より、『どの状態なら自分が動きやすいか』を見た方がよさそうだと思った。'],
+  ['2026-09-23', 'relationship', ['enjoyed', 'tried'], '関係者に今後の希望を伝える時、相手の反応を見ながら話を広げるのが楽しかった。'],
+  ['2026-09-25', 'self_action', ['tried', 'changed'], '次の半年で試す選択を一つ決めるを前回と違うやり方で試した。完成させてからではなく、途中の状態で一度止めて見直した。'],
+  ['2026-09-26', 'thought', ['friction'], '周りの人の転職や昇進を見ると焦る。でも、自分が本当に欲しいものが同じなのかは分からない。'],
+  ['2026-09-27', 'relationship', ['discovered'], '誰かに話すと、自分だけで考えていた時より何に引っかかっているかがはっきりする。'],
+  ['2026-09-28', 'self_action', ['self_decided', 'tried'], '今週はこれまでの記録を見ながら次を考える時間を優先すると決めて、予定を少し空けた。自分で選んだ時間だと思うと集中しやすかった。'],
+].map(([occurredOn, logType, momentTags, text], i) => ({
+  id: `log-${i}`, occurredOn, logType, momentTags, text,
+}));
 
 const CHANGES = [
   {
@@ -534,7 +667,32 @@ function formatShortDate(iso) {
   return `${iso.slice(5, 7)}/${iso.slice(8, 10)}`;
 }
 
-function render() {
+function monthEyebrow(monthKey) {
+  return `${MONTHS_EN[Number(monthKey.slice(5, 7)) - 1]} ${monthKey.slice(0, 4)}`;
+}
+
+let tab = 'map';
+
+function showTab(next) {
+  tab = next;
+  renderNav();
+  if (tab === 'map') renderMap();
+  else if (tab === 'log') renderLog();
+  else renderList();
+}
+
+function renderMap() {
+  const screen = document.getElementById('screen');
+  screen.innerHTML = `
+    <div class="topbar">
+      <div class="strip" id="strip"></div>
+      <div class="plate-row">
+        <span class="plate-label" id="month-plate"></span>
+        <span class="review-title" id="review-title"></span>
+      </div>
+    </div>
+    <div class="scroll" id="scroll"></div>`;
+
   const year = Number(MONTH_KEY.slice(0, 4));
   const month = Number(MONTH_KEY.slice(5, 7));
 
@@ -716,19 +874,19 @@ function tabMark(name, active) {
   return svg;
 }
 
-// MAP | LOG | LIST の順。LOG が home タブですが、このページは MAP を見る用なので
-// MAP を選択状態で描いています。押しても他の画面はありません。
+// MAP | LOG | LIST の順。LOG が home タブですが、このページは MAP から開きます。
 function renderNav() {
   const nav = document.getElementById('nav');
   nav.innerHTML = '';
   nav.append(el('div', 'nav-hairline'));
   const row = el('div', 'nav-row');
   for (const name of ['map', 'log', 'list']) {
-    const active = name === 'map';
-    const tab = el('button', `tab${active ? ' on' : ''}`);
-    tab.append(tabMark(name, active));
-    tab.append(el('span', `tab-label${name === 'log' ? ' centre' : ''}`, name.toUpperCase()));
-    row.append(tab);
+    const active = name === tab;
+    const button = el('button', `tab${active ? ' on' : ''}`);
+    button.append(tabMark(name, active));
+    button.append(el('span', `tab-label${name === 'log' ? ' centre' : ''}`, name.toUpperCase()));
+    button.onclick = () => showTab(name);
+    row.append(button);
   }
   nav.append(row);
 }
@@ -804,17 +962,321 @@ function renderCard(change) {
 // §24: 点をタップ → 対応するカードへ移動して光らせる
 function select(changeId) {
   focusedId = changeId;
-  render();
+  renderMap();
   const card = document.getElementById(`card-${changeId}`);
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ===========================================================================
+// 6. LOG — app/(tabs)/log.tsx + components/log/*
+// ===========================================================================
+
+const LOG_TYPES = [
+  { id: 'self_action', label: '自分の行動' },
+  { id: 'relationship', label: '人との関わり' },
+  { id: 'thought', label: 'つぶやき' },
+];
+const MOMENT_TAGS = [
+  { id: 'enjoyed', label: '楽しかった' },
+  { id: 'tried', label: 'やってみた' },
+  { id: 'first_time', label: '初めて' },
+  { id: 'friction', label: 'モヤモヤ' },
+  { id: 'changed', label: '変えてみた' },
+  { id: 'discovered', label: '発見した' },
+  { id: 'self_decided', label: '自分で決めた' },
+];
+const HOME_COPY = {
+  date: 'いつのこと？',
+  level1: '出来事のカテゴリ',
+  level2: '感情のカテゴリ',
+  answerPlaceholder: '答えなくても保存できます',
+};
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+// 本物は generate-question 関数が書きます。通信がないので、タグから固定で選ぶ。
+// 長さと形（10〜40字・事実を聞く）だけ本物に合わせています。
+const CANNED_QUESTIONS = {
+  friction: '何が一番引っかかった？',
+  changed: '前と何を変えてみた？',
+  first_time: '今回が初めてだったことは？',
+  discovered: '何が前より分かった？',
+  self_decided: '自分で決めたのはどこ？',
+  enjoyed: '何をしている時が楽しかった？',
+  tried: '何を試してみた？',
+};
+
+const composer = { day: null, logType: null, momentTags: [], answer: '' };
+
+function questionFor(logType, tags) {
+  if (!logType || tags.length === 0) return null;
+  for (const tag of ['friction', 'changed', 'first_time', 'discovered', 'self_decided', 'enjoyed', 'tried']) {
+    if (tags.includes(tag)) return CANNED_QUESTIONS[tag];
+  }
+  return null;
+}
+
+function daysIn(monthKey) {
+  const year = Number(monthKey.slice(0, 4));
+  const month = Number(monthKey.slice(5, 7));
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: last }, (_, i) => `${monthKey}-${String(i + 1).padStart(2, '0')}`);
+}
+
+function renderLog() {
+  const screen = document.getElementById('screen');
+  screen.innerHTML = '';
+  if (composer.day === null) composer.day = `${MONTH_KEY}-01`;
+
+  const scroll = el('div', 'log-scroll');
+
+  // DirectionPlate — §5 の年テーマと §4 のレンズ。目標ではなく見出しとして。
+  const plate = el('div', 'direction');
+  plate.append(el('div', 'direction-eyebrow', 'この一年の方向'));
+  plate.append(el('div', 'direction-theme', DIRECTION.initialTheme));
+  const lenses = el('div', 'direction-lenses');
+  DIRECTION.progressionLenses.forEach((lens, i) => {
+    lenses.append(el('span', 'direction-lens', `${i > 0 ? '· ' : ''}${lens}`));
+  });
+  plate.append(lenses);
+  scroll.append(plate);
+
+  // MonthNav
+  const header = el('div', 'log-header');
+  const nav = el('div', 'month-nav');
+  nav.append(el('button', 'month-arrow', '‹'));
+  const plateBox = el('div', 'month-plate-box');
+  plateBox.append(el('span', 'plate-label', monthEyebrow(MONTH_KEY)));
+  nav.append(plateBox);
+  // 未来の月には進めない。今月を見ているので右は消灯。
+  nav.append(el('button', 'month-arrow idle', '›'));
+  header.append(nav);
+  header.append(el('div', 'month-theme', MONTH_THEME));
+  scroll.append(header);
+  scroll.append(el('div', 'breath'));
+
+  // DailyComposer
+  const box = el('div', 'composer');
+
+  const dateLevel = el('div', 'level');
+  dateLevel.append(el('div', 'level-label', HOME_COPY.date));
+  const dateRow = el('div', 'date-row');
+  for (const day of daysIn(MONTH_KEY)) {
+    const on = day === composer.day;
+    const button = el('button', `day${on ? ' on' : ''}`);
+    button.append(el('span', 'day-number', String(Number(day.slice(8, 10)))));
+    button.append(el('span', 'day-weekday', WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()]));
+    button.onclick = () => { composer.day = day; renderLog(); };
+    dateRow.append(button);
+  }
+  dateLevel.append(dateRow);
+  box.append(dateLevel);
+
+  const level1 = el('div', 'level');
+  level1.append(el('div', 'level-label', HOME_COPY.level1));
+  const row1 = el('div', 'chip-row');
+  for (const type of LOG_TYPES) {
+    const on = composer.logType === type.id;
+    const chip = el('button', `chip l1${on ? ' on' : ''}`, type.label);
+    chip.onclick = () => { composer.logType = type.id; renderLog(); };
+    row1.append(chip);
+  }
+  level1.append(row1);
+  box.append(level1);
+
+  const level2 = el('div', 'level');
+  level2.append(el('div', 'level-label', HOME_COPY.level2));
+  const row2 = el('div', 'chip-row');
+  for (const tag of MOMENT_TAGS) {
+    const on = composer.momentTags.includes(tag.id);
+    const chip = el('button', `chip tag${on ? ' on' : ''}`, tag.label);
+    chip.onclick = () => {
+      composer.momentTags = on
+        ? composer.momentTags.filter((t) => t !== tag.id)
+        : [...composer.momentTags, tag.id];
+      renderLog();
+    };
+    row2.append(chip);
+  }
+  level2.append(row2);
+  box.append(level2);
+
+  // Level 3 — 聞くことができてから出る。答えなくても保存できる（§14）。
+  const question = questionFor(composer.logType, composer.momentTags);
+  if (question) {
+    const level3 = el('div', 'level');
+    level3.append(el('div', 'question', question));
+    const input = document.createElement('input');
+    input.className = 'answer';
+    input.placeholder = HOME_COPY.answerPlaceholder;
+    input.value = composer.answer;
+    input.oninput = (e) => { composer.answer = e.target.value; };
+    level3.append(input);
+    box.append(level3);
+  }
+
+  const started = composer.logType !== null || composer.momentTags.length > 0 || composer.answer.length > 0;
+  const canSave = composer.logType !== null && composer.momentTags.length > 0;
+
+  const actions = el('div', 'actions');
+  if (started) {
+    const reset = el('button', 'action');
+    reset.append(el('span', 'reset-glyph', '×'));
+    reset.onclick = () => {
+      composer.logType = null; composer.momentTags = []; composer.answer = '';
+      renderLog();
+    };
+    actions.append(reset);
+  } else {
+    actions.append(el('div', 'action'));
+  }
+  const save = el('button', 'action');
+  save.append(el('span', `save-glyph${canSave ? '' : ' idle'}`, '✓'));
+  save.disabled = !canSave;
+  save.onclick = () => {
+    if (!canSave) return;
+    LOGS.push({
+      id: `log-${LOGS.length}`,
+      occurredOn: composer.day,
+      logType: composer.logType,
+      momentTags: [...composer.momentTags],
+      text: composer.answer.trim(),
+    });
+    composer.logType = null; composer.momentTags = []; composer.answer = '';
+    renderLog();
+  };
+  actions.append(save);
+  box.append(actions);
+
+  scroll.append(box);
+  screen.append(scroll);
+}
+
+// ===========================================================================
+// 7. LIST — app/(tabs)/list.tsx + components/list/*
+// ===========================================================================
+
+const LIST_COPY = {
+  allCategories: 'すべて',
+  allMoments: 'すべての瞬間',
+  openMap: 'MAPを見にいく',
+  rereadMonth: '読み直す',
+  empty: 'この月には、まだ記録がありません。',
+};
+
+const listFilter = { logType: null, momentTag: null };
+let listYear = 2026;
+
+function renderList() {
+  const screen = document.getElementById('screen');
+  screen.innerHTML = '';
+
+  const top = el('div', 'topbar');
+  const yearRow = el('div', 'year-row');
+  const back = el('button', 'year-arrow', '‹');
+  back.onclick = () => { listYear -= 1; renderList(); };
+  yearRow.append(back);
+  yearRow.append(el('span', 'year', String(listYear)));
+  // 未来の年は選べない。
+  yearRow.append(el('button', `year-arrow${listYear >= 2026 ? ' off' : ''}`, '›'));
+  top.append(yearRow);
+  screen.append(top);
+
+  // CategoryFilter — 2段。どちらにも件数は出さない（§45: 数えない）。
+  const filters = el('div', 'filter-rows');
+  const filterRow = (all, options, current, pick) => {
+    const row = el('div', 'filter-row');
+    const every = el('button', `filter-chip${current === null ? ' on' : ''}`, all);
+    every.onclick = () => pick(null);
+    row.append(every);
+    for (const option of options) {
+      const on = current === option.id;
+      const chip = el('button', `filter-chip${on ? ' on' : ''}`, option.label);
+      chip.onclick = () => pick(on ? null : option.id);
+      row.append(chip);
+    }
+    return row;
+  };
+  filters.append(filterRow(LIST_COPY.allCategories, LOG_TYPES, listFilter.logType, (v) => {
+    listFilter.logType = v; renderList();
+  }));
+  filters.append(filterRow(LIST_COPY.allMoments, MOMENT_TAGS, listFilter.momentTag, (v) => {
+    listFilter.momentTag = v; renderList();
+  }));
+  screen.append(filters);
+  screen.append(el('div', 'rule'));
+
+  const scroll = el('div', 'scroll');
+
+  const byMonth = new Map();
+  for (const entry of LOGS) {
+    if (entry.occurredOn.slice(0, 4) !== String(listYear)) continue;
+    const passes =
+      (!listFilter.logType || entry.logType === listFilter.logType) &&
+      (!listFilter.momentTag || entry.momentTags.includes(listFilter.momentTag));
+    if (!passes) continue;
+    const key = entry.occurredOn.slice(0, 7);
+    byMonth.set(key, [...(byMonth.get(key) ?? []), entry]);
+  }
+
+  const months = [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  if (months.length === 0) {
+    scroll.append(el('div', 'empty', LIST_COPY.empty));
+    screen.append(scroll);
+    return;
+  }
+
+  for (const [monthKey, entries] of months) {
+    const section = el('div', 'month-section');
+
+    const headRow = el('div', 'month-head-row');
+    const head = el('div', 'month-head');
+    head.append(el('span', 'month-short', MONTHS_SHORT[Number(monthKey.slice(5, 7)) - 1]));
+    if (MONTH_TITLE) {
+      head.append(el('span', 'month-dash', '—'));
+      head.append(el('span', 'month-title', MONTH_TITLE));
+    }
+    headRow.append(head);
+
+    // このプレビューは全件読み終わった月しか持たないので ready。
+    // 「MAPを見にいく」と、その横に静かな「読み直す」。
+    const ready = el('div', 'ready-row');
+    const open = el('button', 'month-action');
+    open.append(el('span', 'action-arrow', '→'));
+    open.append(el('span', 'action-label', LIST_COPY.openMap));
+    open.onclick = () => showTab('map');
+    ready.append(open);
+    ready.append(el('button', 'month-action action-quiet', LIST_COPY.rereadMonth));
+    headRow.append(ready);
+    section.append(headRow);
+
+    const rows = el('div', 'log-rows');
+    for (const entry of entries.slice().sort((a, b) => b.occurredOn.localeCompare(a.occurredOn))) {
+      const row = el('button', 'log-row');
+      const body = el('div', 'log-row-body');
+      const meta = el('div', 'log-meta');
+      meta.append(el('span', 'log-date', formatShortDate(entry.occurredOn)));
+      for (const tag of entry.momentTags) {
+        meta.append(el('span', 'log-tag', MOMENT_TAG_JA[tag] ?? tag));
+      }
+      body.append(meta);
+      // §14: 自由記述の無い記録も完成した記録。行はそれで足りる。
+      if (entry.text) body.append(el('div', 'log-written', entry.text));
+      row.append(body);
+      rows.append(row);
+    }
+    section.append(rows);
+    scroll.append(section);
+    scroll.append(el('div', 'rule'));
+  }
+
+  screen.append(scroll);
 }
 
 // ブラウザで開いたときだけ描く。__tests__/mapPreview.test.ts はこのスクリプトを
 // そのまま評価して、上の buildChangeMap が app 側と同じ数を返すか比べています。
 if (typeof document !== 'undefined') {
-  renderNav();
-  render();
-  window.addEventListener('resize', render);
+  showTab('map');
+  window.addEventListener('resize', () => { if (tab === 'map') renderMap(); });
 }
 </script>
 </body>
