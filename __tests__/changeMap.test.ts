@@ -73,12 +73,15 @@ describe('the sky', () => {
   it('has no level below a point (§21)', () => {
     // Branching that the records do not support is invention. What used to be
     // a branch is the evidence list on the card, where records belong.
+    //
+    // Every edge leaving ME and none leaving anything else is the property —
+    // an edge between two points would be the third level growing back.
     const graph = buildChangeMap({
       monthKey: '2026-09',
-      changes: [change('a'), change('b')],
+      changes: [change('a'), change('b'), change('c')],
       ...box,
     });
-    expect(Object.keys(graph)).toEqual(['me', 'nodes', 'edges']);
+    expect(graph.edges).toHaveLength(3);
     for (const edge of graph.edges) {
       expect({ x: edge.fromX, y: edge.fromY }).toEqual({ x: graph.me.x, y: graph.me.y });
     }
@@ -113,6 +116,61 @@ describe('the sky', () => {
     // Nothing on a node is a number the eye can read as a score.
     expect(signal).not.toHaveProperty('rank');
     expect(signal).not.toHaveProperty('score');
+  });
+
+  it('gives each thing the person put down its own arc (§14)', () => {
+    const graph = buildChangeMap({
+      monthKey: '2026-09',
+      targetLabels: { desired_self: 'ありたい姿', emerging_direction: '宣言の外' },
+      changes: [
+        change('a'),
+        change('b'),
+        change('c', {
+          linkedTargetType: 'emerging_direction',
+          linkedTargetId: undefined,
+          linkedTargetLabel: '人と体験をつくる',
+        }),
+      ],
+      ...box,
+    });
+
+    expect(graph.sectors.map((s) => s.label)).toEqual(['ありたい姿', '宣言の外']);
+    // The arc holding two changes holds both of them, and the other holds one.
+    expect(graph.sectors.map((s) => s.changeIds.length)).toEqual([2, 1]);
+  });
+
+  it('keeps a sector label on the canvas', () => {
+    // At the left and right extremes the label box is wider than the room
+    // left for it, and a label half off the screen is worse than a nudged one.
+    const graph = buildChangeMap({
+      monthKey: '2026-09',
+      targetLabels: { desired_self: 'ありたい姿' },
+      changes: ['a', 'b', 'c', 'd', 'e'].map((id) => change(id)),
+      width: 300,
+      height: 320,
+    });
+    for (const sector of graph.sectors) {
+      expect(sector.x).toBeGreaterThan(0);
+      expect(sector.x).toBeLessThan(300);
+      expect(sector.y).toBeGreaterThan(0);
+      expect(sector.y).toBeLessThan(320);
+    }
+  });
+
+  it('puts a sector label clear of the titles under its own points', () => {
+    // A group holding one change puts its label on the same bearing as that
+    // change's title. They need room or they print on top of each other.
+    const graph = buildChangeMap({
+      monthKey: '2026-09',
+      targetLabels: { desired_self: 'ありたい姿' },
+      changes: [change('a')],
+      ...box,
+    });
+    const node = graph.nodes[0]!;
+    const sector = graph.sectors[0]!;
+    const fromMe = (x: number, y: number) => Math.hypot(x - graph.me.x, y - graph.me.y);
+    // Past the deepest a two-line title can reach under the point.
+    expect(fromMe(sector.x, sector.y)).toBeGreaterThan(fromMe(node.x, node.y) + 42);
   });
 
   it('marks the one the person is looking at (§24)', () => {

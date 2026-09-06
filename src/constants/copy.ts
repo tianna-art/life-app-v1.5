@@ -58,6 +58,31 @@ export const CHANGE = {
   none: '今月はまだ、過去との差がはっきり見える変化はありません。',
 } as const;
 
+/**
+ * What a change answers to (§14), in two lengths.
+ *
+ * The short one is for the sky, where a label sits on the rim between the
+ * points and has room for a word. The long one heads the group of cards, where
+ * it is followed by the person's own wording for the thing itself.
+ *
+ * None of them says whether answering to one is better than another. §34 is
+ * explicit that growing outside the stated direction is a discovery, so
+ * 「宣言の外」 is named plainly and sits beside the rest.
+ */
+export const TARGET_SHORT: Record<string, string> = {
+  month_declaration: '今月のテーマ',
+  year_direction: '今年の方向',
+  desired_self: 'ありたい姿',
+  emerging_direction: '宣言の外',
+};
+
+export const TARGET_HEADING: Record<string, string> = {
+  month_declaration: '今月のテーマに対して',
+  year_direction: '今年の方向に対して',
+  desired_self: 'ありたい姿に対して',
+  emerging_direction: '宣言の外で育っているもの',
+};
+
 export const YEAR = {
   thought: 'YOU THOUGHT THIS YEAR WOULD BE ABOUT',
   became: 'IT ACTUALLY BECAME',

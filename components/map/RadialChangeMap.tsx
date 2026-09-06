@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { colors, fonts } from '@/theme';
-import { LABELS } from '@/constants/copy';
+import { LABELS, TARGET_SHORT } from '@/constants/copy';
 import { buildChangeMap } from '@/map/changeMap';
 import type { Change } from '@/types';
 
@@ -37,7 +37,15 @@ export function RadialChangeMap({
   onSelect,
 }: RadialChangeMapProps) {
   const graph = useMemo(
-    () => buildChangeMap({ monthKey, changes, selectedId, width, height }),
+    () =>
+      buildChangeMap({
+        monthKey,
+        changes,
+        targetLabels: TARGET_SHORT,
+        selectedId,
+        width,
+        height,
+      }),
     [monthKey, changes, selectedId, width, height]
   );
 
@@ -77,6 +85,25 @@ export function RadialChangeMap({
       >
         <Text style={styles.me}>{LABELS.me}</Text>
       </View>
+
+      {/* What each arc of the sky answers to (§14). The kind only — the thing
+          itself heads the group of cards, where there is room for it. Without
+          this the five points read as five unrelated findings rather than as
+          movement on what the person said they wanted. */}
+      {graph.sectors.map((sector) =>
+        sector.label ? (
+          <View
+            key={sector.key}
+            pointerEvents="none"
+            testID={`map-sector-${sector.targetType}`}
+            style={[styles.sectorLabel, { left: sector.x - 44, top: sector.y - 7 }]}
+          >
+            <Text numberOfLines={1} style={styles.sector}>
+              {sector.label}
+            </Text>
+          </View>
+        ) : null
+      )}
 
       {graph.nodes.map((node) => (
         <Pressable
@@ -129,4 +156,11 @@ const styles = StyleSheet.create({
     color: colors.ivory,
   },
   titleSelected: { color: colors.brass },
+  sectorLabel: { position: 'absolute', width: 88, alignItems: 'center' },
+  sector: {
+    fontFamily: fonts.sans,
+    fontSize: 9.5,
+    letterSpacing: 1.6,
+    color: colors.brassDim,
+  },
 });
