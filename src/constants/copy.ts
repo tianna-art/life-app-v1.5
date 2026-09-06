@@ -91,6 +91,10 @@ export const LABELS = {
   tryAgain: 'もう一度試す',
   openMap: 'MAPを見にいく',
   regenerateMap: 'MAPを再生成する',
+  /** Every record is read; only the month's own reading runs again. */
+  rereadMonth: '読み直す',
+  /** Read, but nothing came out of it. Going to look would show an empty sky. */
+  readAgain: 'MAPを読み直す',
   new: 'NEW',
   evidence: 'この気づきの根拠',
   evidenceNote: 'この見方のもとになった記録です。書いたままを出しています。',

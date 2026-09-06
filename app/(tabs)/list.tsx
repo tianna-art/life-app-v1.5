@@ -14,6 +14,7 @@ import { CategoryFilter } from '@components/list/CategoryFilter';
 import { LogMenu, LogMenuButton } from '@components/log/LogMenu';
 import { useYearLogs } from '@/hooks/useLogs';
 import { useMonthReviews } from '@/hooks/useMonthReview';
+import { useMonthChangeCounts } from '@/hooks/useChanges';
 import { useUiStore } from '@/state/uiStore';
 import { monthKeyOfDate, selectableYears } from '@/utils/period';
 import { runBackfill } from '@/ai/backfill';
@@ -56,6 +57,7 @@ export default function ListScreen() {
   const yearKeyValue = String(year);
   const { data: entries } = useYearLogs(yearKeyValue);
   const { data: reviews } = useMonthReviews(yearKeyValue);
+  const { data: changeCounts } = useMonthChangeCounts(yearKeyValue);
 
   const years = useMemo(() => selectableYears(year, 5), [year]);
   const reviewByMonth = useMemo(
@@ -120,17 +122,30 @@ export default function ListScreen() {
       const bucket = byMonth.get(monthKey);
       if (!bucket) return 'none';
       const unread = bucket.all.filter((e) => !e.analysis).length;
-      if (unread === 0) return 'ready';
-      // Some read, some not: the map exists but no longer covers the month.
-      return unread === bucket.all.length ? 'none' : 'stale';
+      if (unread > 0) {
+        // Some read, some not: the map exists but no longer covers the month.
+        return unread === bucket.all.length ? 'none' : 'stale';
+      }
+      // Every record read. Whether there is a map to go and see depends on
+      // what the month's own reading made of them, which is a separate job
+      // and can come back with nothing — honestly, or because it failed.
+      return (changeCounts?.get(monthKey) ?? 0) > 0 ? 'ready' : 'empty';
     },
-    [byMonth]
+    [byMonth, changeCounts]
   );
 
+  /**
+   * Read this month.
+   *
+   * Two jobs, and the second can be asked for on its own. Reading the records
+   * is one call each and is skipped when they are all read; reading the month
+   * into changes is one call and always runs, because that is the part whose
+   * rules change and whose failures are invisible from here.
+   */
   const generate = useCallback(
     async (monthKey: string) => {
+      if (running) return;
       const pending = pendingFor(monthKey);
-      if (pending.length === 0 || running) return;
       setRunning(monthKey);
       setDone(0);
       setFailures((current) => {
@@ -138,13 +153,24 @@ export default function ListScreen() {
         return rest;
       });
       try {
-        const result = await runBackfill(pending, { onProgress: (p) => setDone(p.done) });
-        // The brief reasons over the points the records just produced, so it
-        // runs after them and only when something was actually read.
-        if (result.read > 0) await generateMonthChanges(monthKey);
+        const result =
+          pending.length > 0
+            ? await runBackfill(pending, { onProgress: (p) => setDone(p.done) })
+            : { read: 0, fellBack: 0, reason: undefined };
+        // The reading reasons over the records, so it runs after them —
+        // unless there were none to read, in which case it is the whole job.
+        if (result.read > 0 || pending.length === 0) {
+          const published = await generateMonthChanges(monthKey);
+          if (!published) {
+            setFailures((current) => ({
+              ...current,
+              [monthKey]: 'この月を読み直せませんでした。',
+            }));
+          }
+        }
         // A run that read nothing has to say so. Silence here is what makes a
         // working button and a broken one look the same.
-        if (result.read === 0 && result.fellBack > 0) {
+        if (pending.length > 0 && result.read === 0 && result.fellBack > 0) {
           setFailures((current) => ({
             ...current,
             [monthKey]: result.reason ?? '分析に届きませんでした。',
@@ -220,6 +246,7 @@ export default function ListScreen() {
                 failure={failures[monthKey]}
                 done={done}
                 onGenerate={() => void generate(monthKey)}
+                onReread={() => void generate(monthKey)}
                 onOpenMap={() => openMap(monthKey)}
                 onEntryPress={(id) => router.push(`/log/${id}`)}
                 onReviewPress={(key) => router.push(`/month/${key}`)}

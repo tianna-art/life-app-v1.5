@@ -21,6 +21,21 @@ export function useMonthChanges(monthKey: string) {
 }
 
 /**
+ * How many changes each month of a year published.
+ *
+ * One query for the whole archive rather than one per month: LIST prints every
+ * month at once, and what a month offers depends on whether it has anything to
+ * show.
+ */
+export function useMonthChangeCounts(yearKey: string) {
+  return useQuery<Map<string, number>>({
+    queryKey: [...queryKeys.monthChanges('year'), yearKey],
+    queryFn: () => getRepository().countMonthChanges(yearKey),
+    enabled: yearKey.length > 0,
+  });
+}
+
+/**
  * 納得した / 少し違う.
  *
  * The person's answer to a reading, stored beside it rather than over it. It

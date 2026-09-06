@@ -17,6 +17,7 @@ interface MonthSectionProps {
   done: number;
   failure?: string | undefined;
   onGenerate: () => void;
+  onReread: () => void;
   onOpenMap: () => void;
   onEntryPress: (id: string) => void;
   onReviewPress: (monthKey: string) => void;
@@ -40,6 +41,7 @@ export function MonthSection({
   done,
   failure,
   onGenerate,
+  onReread,
   onOpenMap,
   onEntryPress,
   onReviewPress,
@@ -74,6 +76,7 @@ export function MonthSection({
           done={done}
           failure={failure}
           onGenerate={onGenerate}
+          onReread={onReread}
           onOpen={onOpenMap}
         />
       </View>

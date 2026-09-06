@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { LABELS } from '@/constants/copy';
 
-export type MapState = 'none' | 'stale' | 'ready';
+export type MapState = 'none' | 'stale' | 'ready' | 'empty';
 
 interface MonthActionProps {
   state: MapState;
@@ -16,6 +16,15 @@ interface MonthActionProps {
   done: number;
   onGenerate: () => void;
   onOpen: () => void;
+  /**
+   * Read the month again without re-reading its records.
+   *
+   * A month with everything read used to offer only its map. But reading the
+   * records and reading the month are two different jobs — the second can fail
+   * on its own, and its rules change — and there was no way to ask for it
+   * again short of forgetting the records and paying for all of them twice.
+   */
+  onReread: () => void;
   /**
    * Why the last run here read nothing. Shown instead of leaving the button
    * looking untouched — a control that changes nothing and says nothing is
@@ -43,6 +52,7 @@ export function MonthAction({
   done,
   onGenerate,
   onOpen,
+  onReread,
   failure,
 }: MonthActionProps) {
   if (running) {
@@ -56,19 +66,51 @@ export function MonthAction({
     );
   }
 
-  if (state === 'ready') {
+  // Read, but nothing came of it. Sending someone to an empty sky is worse
+  // than offering the one thing that might change it, so the re-read leads.
+  if (state === 'empty') {
     return (
       <Pressable
-        testID="month-open-map"
-        onPress={onOpen}
+        testID="month-reread"
+        onPress={onReread}
         hitSlop={HIT_SLOP}
         accessibilityRole="button"
-        accessibilityLabel={LABELS.openMap}
+        accessibilityLabel={LABELS.readAgain}
         style={({ pressed }) => [styles.action, pressed && styles.pressed]}
       >
         <Text style={styles.arrow}>→</Text>
-        <Text style={styles.label}>{LABELS.openMap}</Text>
+        <Text style={styles.label}>{LABELS.readAgain}</Text>
       </Pressable>
+    );
+  }
+
+  if (state === 'ready') {
+    return (
+      <View style={styles.readyRow}>
+        <Pressable
+          testID="month-open-map"
+          onPress={onOpen}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel={LABELS.openMap}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+        >
+          <Text style={styles.arrow}>→</Text>
+          <Text style={styles.label}>{LABELS.openMap}</Text>
+        </Pressable>
+
+        {/* Quieter than the map, and always there. One call, not twenty. */}
+        <Pressable
+          testID="month-reread"
+          onPress={onReread}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel={LABELS.rereadMonth}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+        >
+          <Text style={styles.quiet}>{LABELS.rereadMonth}</Text>
+        </Pressable>
+      </View>
     );
   }
 
@@ -114,8 +156,10 @@ const styles = StyleSheet.create({
     minHeight: MIN_TOUCH,
     paddingLeft: spacing.sm,
   },
+  readyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   pressed: { opacity: 0.6 },
   arrow: { fontFamily: fonts.sans, fontSize: 12, color: colors.brassDim },
+  quiet: { fontFamily: fonts.sans, fontSize: 12, letterSpacing: 0.8, color: colors.ivoryFaint },
   label: { fontFamily: fonts.sans, fontSize: 12, letterSpacing: 0.8, color: colors.brass },
   count: { fontFamily: fonts.sans, fontSize: 11, color: colors.ivoryFaint },
   progress: { fontFamily: fonts.sans, fontSize: 12, color: colors.brassDim },
