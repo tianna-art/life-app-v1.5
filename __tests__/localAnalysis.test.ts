@@ -1,21 +1,18 @@
 import { analyzeLocally } from '../src/ai/localAnalysis';
-import type { LogWithAnalysis, LogType, MomentTag } from '../src/types';
+import type { CategoryId, LogWithAnalysis } from '../src/types';
 
-function log(
-  id: string,
-  logType: LogType,
-  momentTags: MomentTag[],
-  day: string,
-  answer?: string
-): LogWithAnalysis {
+function log(id: string, categoryId: CategoryId, day: string, body?: string): LogWithAnalysis {
   return {
     id,
     userId: 'u',
     occurredAt: `2026-${day}T09:00:00Z`,
     occurredOn: `2026-${day}`,
-    logType,
-    momentTags,
-    optionalAnswer: answer,
+    categoryId,
+    inputMethod: 'category',
+    classificationSource: 'user',
+    classificationStatus: 'confirmed',
+    aiSignals: [],
+    ...(body ? { body } : {}),
     createdAt: `2026-${day}T09:00:00Z`,
   };
 }
@@ -24,9 +21,8 @@ describe('the offline reading', () => {
   it('leaves the first record as a dot (§31)', () => {
     const result = analyzeLocally({
       logId: 'first',
-      logType: 'self_action',
-      momentTags: ['first_time'],
-      optionalAnswer: '初めて友達に見せた',
+      categoryId: 'progress_tried',
+      body: '初めて友達に見せた',
       occurredAt: '2026-05-01T09:00:00Z',
       history: [],
     });
@@ -34,16 +30,13 @@ describe('the offline reading', () => {
   });
 
   it('finds a pattern the tags actually show, with no model', () => {
-    // friction → changed → retry. §18's three points, from taps alone.
-    const history = [
-      log('a', 'self_action', ['friction'], '04-01'),
-      log('b', 'self_action', ['changed'], '05-01'),
-    ];
+    // しんどかった → 楽になった → やってみた. §18's three points, from the
+    // categories the person chose and nothing else.
+    const history = [log('a', 'self_hard', '04-01'), log('b', 'sustainable_relieved', '05-01')];
     const result = analyzeLocally({
       logId: 'c',
-      logType: 'self_action',
-      momentTags: ['tried'],
-      optionalAnswer: '結論から説明した',
+      categoryId: 'progress_tried',
+      body: '結論から説明した',
       occurredAt: '2026-06-01T09:00:00Z',
       history,
     });
@@ -53,14 +46,13 @@ describe('the offline reading', () => {
 
   it('claims no direction it cannot see', () => {
     const history = [
-      log('a', 'self_action', ['friction'], '04-01'),
-      log('b', 'self_action', ['changed'], '05-01'),
+      log('a', 'progress_tried', '04-01'),
+      log('b', 'progress_tried', '05-01'),
     ];
     const result = analyzeLocally({
       logId: 'c',
-      logType: 'self_action',
-      momentTags: ['tried'],
-      optionalAnswer: '結論から説明した',
+      categoryId: 'progress_tried',
+      body: '結論から説明した',
       occurredAt: '2026-06-01T09:00:00Z',
       history,
     });
@@ -70,12 +62,11 @@ describe('the offline reading', () => {
   });
 
   it('makes nothing of records that show no pattern', () => {
-    const history = [log('a', 'thought', ['enjoyed'], '04-01')];
+    const history = [log('a', 'progress_tried', '04-01')];
     const result = analyzeLocally({
       logId: 'b',
-      logType: 'thought',
-      momentTags: ['enjoyed'],
-      optionalAnswer: '楽しかった',
+      categoryId: 'progress_tried',
+      body: '楽しかった',
       occurredAt: '2026-05-01T09:00:00Z',
       history,
     });
@@ -86,9 +77,8 @@ describe('the offline reading', () => {
   it('asserts only the fields the tags themselves carry (§16)', () => {
     const result = analyzeLocally({
       logId: 'x',
-      logType: 'thought',
-      momentTags: ['discovered'],
-      optionalAnswer: '説明力の問題かもしれない',
+      categoryId: 'progress_learned',
+      body: '説明力の問題かもしれない',
       occurredAt: '2026-04-01T09:00:00Z',
       history: [],
     });
@@ -101,8 +91,7 @@ describe('the offline reading', () => {
   it('records nothing extra when there is no free text', () => {
     const result = analyzeLocally({
       logId: 'x',
-      logType: 'self_action',
-      momentTags: ['tried'],
+      categoryId: 'progress_tried',
       occurredAt: '2026-04-01T09:00:00Z',
       history: [],
     });

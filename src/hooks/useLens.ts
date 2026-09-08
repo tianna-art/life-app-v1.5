@@ -110,6 +110,8 @@ export function useSaveMonthTheme() {
       finalTheme?: string;
       source: MonthTheme['source'];
       candidates?: MonthThemeCandidate[];
+      /** The month's antennas. The domain caps this at two. */
+      antennaIds?: MonthTheme['antennaIds'];
     }
   >({
     mutationFn: (input) => getRepository().saveMonthTheme(input),

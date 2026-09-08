@@ -2,17 +2,23 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { CHANGE, LABELS } from '@/constants/copy';
 import { CHANGE_EVIDENCE_ROLE_JA } from '@/constants/progression';
-import { MOMENT_TAGS } from '@/constants/log';
+import { categoryLabel, detailLabel } from '@/constants/log';
 import { EVIDENCE_SHOWN, phraseForConfidence } from '@/ai/changeRules';
 import { formatShortDate } from '@/utils/period';
 import { HairlineRule } from '@components/ui/HairlineRule';
-import type { Change, MomentTag, ProgressionVerdict } from '@/types';
+import type { Change, ChangeEvidenceEntry, ProgressionVerdict } from '@/types';
 
-const TAG_LABEL = new Map(MOMENT_TAGS.map((tag) => [tag.id, tag.label]));
-
-/** The person's own words for the moment. Their evidence, not the model's. */
-function tagsOf(tags: readonly MomentTag[]): string {
-  return tags.map((tag) => TAG_LABEL.get(tag) ?? '').filter(Boolean).join('・');
+/**
+ * What the person filed the record under, in their own vocabulary.
+ *
+ * Their evidence, not the model's: the category and the detail were chosen by
+ * hand, and printing them beside the quote is what lets someone see why the
+ * reading picked this record and not another.
+ */
+function filedAs(entry: ChangeEvidenceEntry): string {
+  return [categoryLabel(entry.categoryId), detailLabel(entry.categoryId, entry.detailId)]
+    .filter(Boolean)
+    .join('・');
 }
 
 interface ChangeCardProps {
@@ -77,10 +83,8 @@ export function ChangeCard({
                   it the quotes look picked, and the shape the reading found —
                   ひっかかった, then 変わった, then いま — is invisible. */}
               <Text style={styles.role}>{CHANGE_EVIDENCE_ROLE_JA[entry.role]}</Text>
-              {/* The person's own tags, printed as they tapped them. */}
-              {entry.momentTags.length > 0 ? (
-                <Text style={styles.tags}>{tagsOf(entry.momentTags)}</Text>
-              ) : null}
+              {/* What they filed it under, printed as they chose it. */}
+              {filedAs(entry) ? <Text style={styles.tags}>{filedAs(entry)}</Text> : null}
             </View>
             <Text style={styles.quote}>{entry.text}</Text>
           </Pressable>

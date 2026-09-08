@@ -4,24 +4,23 @@ import {
   resolvePattern,
   satisfiedPatterns,
 } from '../src/ai/progressionRules';
-import type { LogType, MomentTag } from '../src/types';
+import type { CategoryId } from '../src/types';
 
-type Row = [logType: LogType, tags: MomentTag[], day: string];
+type Row = [categoryId: CategoryId, day: string];
 
 function path(rows: Row[]) {
-  return rows.map(([logType, momentTags, day], i) => ({
+  return rows.map(([categoryId, day], i) => ({
     logId: `log-${i}`,
-    logType,
-    momentTags,
+    categoryId,
     occurredAt: `2026-${day}T09:00:00Z`,
   }));
 }
 
 describe('PIVOT needs all three points (§18)', () => {
   const full = path([
-    ['self_action', ['friction'], '04-01'],
-    ['self_action', ['changed'], '05-01'],
-    ['self_action', ['tried'], '06-01'],
+    ['self_hard', '04-01'],
+    ['sustainable_relieved', '05-01'],
+    ['progress_tried', '06-01'],
   ]);
 
   it('is satisfied by friction → changed → retry', () => {
@@ -34,61 +33,72 @@ describe('PIVOT needs all three points (§18)', () => {
 
   it('is not satisfied without the change', () => {
     const noChange = path([
-      ['self_action', ['friction'], '04-01'],
-      ['self_action', ['tried'], '06-01'],
+      ['self_hard', '04-01'],
+      ['progress_tried', '06-01'],
     ]);
     expect(patternSatisfied('pivot', noChange)).toBe(false);
   });
 
   it('is not satisfied when the retry came first', () => {
     const wrongOrder = path([
-      ['self_action', ['tried'], '04-01'],
-      ['self_action', ['friction'], '05-01'],
-      ['self_action', ['changed'], '06-01'],
+      ['progress_tried', '04-01'],
+      ['self_hard', '05-01'],
+      ['sustainable_relieved', '06-01'],
     ]);
     expect(patternSatisfied('pivot', wrongOrder)).toBe(false);
   });
 
-  it('is not satisfied by one afternoon carrying all three tags', () => {
-    // One moment is not a movement: the stages may not share a record.
-    const oneDay = path([['self_action', ['friction', 'changed', 'tried'], '04-01']]);
-    expect(patternSatisfied('pivot', oneDay)).toBe(false);
+  it('is not satisfied by one record, whatever it is filed under', () => {
+    // One moment is not a movement: the stages may not share a record, and a
+    // record can only be filed under one category anyway.
+    expect(patternSatisfied('pivot', path([['self_hard', '04-01']]))).toBe(false);
+  });
+
+  it('is not satisfied by an unclassified record', () => {
+    // A free entry nothing has read yet is not evidence of a shape. It
+    // becomes evidence when something says what it is.
+    const unread = [
+      { logId: 'a', occurredAt: '2026-04-01T09:00:00Z' },
+      { logId: 'b', occurredAt: '2026-05-01T09:00:00Z' },
+      { logId: 'c', occurredAt: '2026-06-01T09:00:00Z' },
+    ];
+    expect(patternSatisfied('pivot', unread)).toBe(false);
   });
 });
 
 describe('the other nine', () => {
-  it('FIRST-ACT needs a thought before the doing', () => {
+  it('FIRST-ACT needs the pull before the doing', () => {
     expect(
       patternSatisfied(
         'first_act',
         path([
-          ['thought', [], '04-01'],
-          ['self_action', ['first_time'], '05-01'],
+          ['spark_curious', '04-01'],
+          ['progress_tried', '05-01'],
         ])
       )
     ).toBe(true);
     expect(
-      patternSatisfied('first_act', path([['self_action', ['first_time'], '05-01']]))
+      patternSatisfied('first_act', path([['progress_tried', '05-01']]))
     ).toBe(false);
   });
 
   it('REPEAT needs three, not two', () => {
     const twice = path([
-      ['self_action', ['tried'], '04-01'],
-      ['self_action', ['tried'], '05-01'],
+      ['progress_tried', '04-01'],
+      ['progress_tried', '05-01'],
     ]);
     expect(patternSatisfied('repeat', twice)).toBe(false);
-    expect(patternSatisfied('repeat', [...twice, ...path([['self_action', ['tried'], '06-01']])]))
+    expect(patternSatisfied('repeat', [...twice, ...path([['progress_tried', '06-01']])]))
       .toBe(true);
   });
 
-  it('SOLO needs the help before the doing it alone', () => {
+  it('SOLO needs the hard part before it goes by itself', () => {
     expect(
       patternSatisfied(
         'solo',
         path([
-          ['relationship', ['tried'], '04-01'],
-          ['self_action', ['tried'], '05-01'],
+          ['self_hard', '04-01'],
+          ['self_good', '05-01'],
         ])
       )
     ).toBe(true);
@@ -99,8 +109,8 @@ describe('the other nine', () => {
       patternSatisfied(
         'boundary',
         path([
-          ['self_action', ['friction'], '04-01'],
-          ['self_action', ['self_decided'], '05-01'],
+          ['self_hard', '04-01'],
+          ['values_important', '05-01'],
         ])
       )
     ).toBe(true);
@@ -108,8 +118,8 @@ describe('the other nine', () => {
       patternSatisfied(
         'boundary',
         path([
-          ['self_action', ['self_decided'], '04-01'],
-          ['self_action', ['friction'], '05-01'],
+          ['values_important', '04-01'],
+          ['self_hard', '05-01'],
         ])
       )
     ).toBe(false);
@@ -120,8 +130,8 @@ describe('the other nine', () => {
       patternSatisfied(
         'reframe',
         path([
-          ['thought', ['friction'], '04-01'],
-          ['thought', ['discovered'], '05-01'],
+          ['self_hard', '04-01'],
+          ['progress_learned', '05-01'],
         ])
       )
     ).toBe(true);
@@ -134,8 +144,8 @@ describe('the other nine', () => {
 
 describe('resolvePattern', () => {
   const evidence = path([
-    ['self_action', ['friction'], '04-01'],
-    ['self_action', ['self_decided'], '05-01'],
+    ['self_hard', '04-01'],
+    ['values_important', '05-01'],
   ]);
 
   it('keeps a pattern the records show', () => {
@@ -157,9 +167,9 @@ describe('satisfiedPatterns', () => {
   it('reports every shape the records actually show', () => {
     const found = satisfiedPatterns(
       path([
-        ['self_action', ['friction'], '04-01'],
-        ['self_action', ['changed'], '05-01'],
-        ['self_action', ['tried'], '06-01'],
+        ['self_hard', '04-01'],
+        ['sustainable_relieved', '05-01'],
+        ['progress_tried', '06-01'],
       ])
     );
     expect(found).toContain('pivot');
@@ -168,6 +178,6 @@ describe('satisfiedPatterns', () => {
   });
 
   it('reports nothing for a single record', () => {
-    expect(satisfiedPatterns(path([['self_action', ['tried'], '04-01']]))).toEqual([]);
+    expect(satisfiedPatterns(path([['progress_tried', '04-01']]))).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { LABELS } from '@/constants/copy';
 import { EVIDENCE_ROLE_JA, JOURNEY_ROLE_JA } from '@/constants/progression';
-import { logTypeLabel, momentTagLabel } from '@/constants/log';
+import { LEGACY_MOMENT_TAG_JA, categoryLabel, detailLabel } from '@/constants/log';
 import { Screen } from '@components/ui/Screen';
 import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
@@ -32,10 +32,17 @@ export default function EntryDetailScreen() {
           <>
             <View style={styles.metaRow}>
               <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
-              <Text style={styles.meta}>{logTypeLabel(entry.logType)}</Text>
-              {entry.momentTags.map((tag) => (
+              {/* What it was filed under. A record written before the
+                  antennas has no category and shows its old tags instead. */}
+              {categoryLabel(entry.categoryId) ? (
+                <Text style={styles.meta}>{categoryLabel(entry.categoryId)}</Text>
+              ) : null}
+              {detailLabel(entry.categoryId, entry.detailId) ? (
+                <Text style={styles.tag}>{detailLabel(entry.categoryId, entry.detailId)}</Text>
+              ) : null}
+              {(entry.legacyMomentTags ?? []).map((tag) => (
                 <Text key={tag} style={styles.tag}>
-                  {momentTagLabel(tag)}
+                  {LEGACY_MOMENT_TAG_JA[tag]}
                 </Text>
               ))}
               {/* Absent when the model was not confident enough to name one

@@ -7,8 +7,11 @@ function log(id: string): LogWithAnalysis {
     userId: 'u',
     occurredAt: '2026-09-03T09:00:00Z',
     occurredOn: '2026-09-03',
-    logType: 'self_action',
-    momentTags: ['tried'],
+    categoryId: 'progress_tried',
+    inputMethod: 'category',
+    classificationSource: 'user',
+    classificationStatus: 'confirmed',
+    aiSignals: [],
     createdAt: '2026-09-03T09:00:00Z',
   };
 }

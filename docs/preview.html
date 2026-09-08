@@ -209,6 +209,7 @@
           border-radius: 999px; border: 1px solid var(--frame); background: none; cursor: pointer;
           font-family: var(--sans); font-size: 13px; color: var(--ivory-faint); }
   .chip.l1 { letter-spacing: 1px; }
+  .antenna-plate { font-family: var(--sans); font-size: 9px; letter-spacing: 2.6px; color: var(--brass-dim); }
   .chip.on { border-color: var(--brass); color: var(--brass); }
   .chip.tag.on { background: rgba(194, 161, 92, 0.18); }
 
@@ -317,28 +318,28 @@ const MONTH_THEME = '次の一歩を選ぶ';
 
 // crincran.life の 2026-09。LIST が並べ、LOG の保存がここに増える。
 const LOGS = [
-  ['2026-09-01', 'self_action', ['tried'], '仕事のあとに次の半年で試す選択を一つ決める。少しだけでも手を動かすと、考えているだけの時より気持ちが落ち着いた。'],
-  ['2026-09-02', 'thought', ['friction'], '現職での役割調整をしていて少しモヤモヤ。何が嫌なのかはまだうまく言えない。'],
-  ['2026-09-04', 'relationship', ['enjoyed'], '関係者に今後の希望を伝える。話しているうちに時間を忘れていた。'],
-  ['2026-09-05', 'self_action', ['first_time', 'tried'], '新しいプロジェクトへの参加を決める。やる前は少し緊張したけれど、行ってみたら思ったより普通にできた。'],
-  ['2026-09-07', 'thought', ['discovered'], '今日ふと、不安がなくなるのを待つより、Evidenceがある方向を小さく選びたいのかもしれないと思った。'],
-  ['2026-09-08', 'self_action', ['enjoyed'], 'これまでの記録を見ながら次を考える時間がかなり楽しかった。予定より長くやってしまった。'],
-  ['2026-09-10', 'relationship', ['friction'], '会議で自分の案を最後まで説明する前に話が決まってしまって、少し置いていかれた感じがした。'],
-  ['2026-09-11', 'thought', ['enjoyed', 'discovered'], 'これまでの記録を見ながら次を考える時間は、疲れていても不思議とやめたくならない。こういう時間は覚えておきたい。'],
-  ['2026-09-13', 'self_action', ['changed'], '次の半年で試す選択を一つ決めるの進め方を少し変えた。前より小さく区切って試すことにした。'],
-  ['2026-09-14', 'relationship', ['tried'], '関係者に今後の希望を伝える時に、普段なら黙るところで自分の考えも一つ言ってみた。'],
-  ['2026-09-16', 'thought', ['friction', 'discovered'], '現職での役割調整のあと、単に忙しいというより『自分で決められない』時に消耗している気がした。'],
-  ['2026-09-17', 'self_action', ['self_decided'], '今日は頼まれたことを全部引き受けず、優先するものを自分で決めた。少し不安だけど納得感はある。'],
-  ['2026-09-19', 'relationship', ['first_time'], 'これまであまり話したことのない人に、自分が最近考えていることを少し話した。'],
-  ['2026-09-20', 'self_action', ['friction'], '次の半年で試す選択を一つ決めるを進めようとしたけど、思ったよりまとまらなかった。今日は無理に答えを出さずに残す。'],
-  ['2026-09-22', 'thought', ['discovered'], '『何が正解か』より、『どの状態なら自分が動きやすいか』を見た方がよさそうだと思った。'],
-  ['2026-09-23', 'relationship', ['enjoyed', 'tried'], '関係者に今後の希望を伝える時、相手の反応を見ながら話を広げるのが楽しかった。'],
-  ['2026-09-25', 'self_action', ['tried', 'changed'], '次の半年で試す選択を一つ決めるを前回と違うやり方で試した。完成させてからではなく、途中の状態で一度止めて見直した。'],
-  ['2026-09-26', 'thought', ['friction'], '周りの人の転職や昇進を見ると焦る。でも、自分が本当に欲しいものが同じなのかは分からない。'],
-  ['2026-09-27', 'relationship', ['discovered'], '誰かに話すと、自分だけで考えていた時より何に引っかかっているかがはっきりする。'],
-  ['2026-09-28', 'self_action', ['self_decided', 'tried'], '今週はこれまでの記録を見ながら次を考える時間を優先すると決めて、予定を少し空けた。自分で選んだ時間だと思うと集中しやすかった。'],
-].map(([occurredOn, logType, momentTags, text], i) => ({
-  id: `log-${i}`, occurredOn, logType, momentTags, text,
+  ['2026-09-01', 'progress_tried', '試した', '仕事のあとに次の半年で試す選択を一つ決める。少しだけでも手を動かすと、考えているだけの時より気持ちが落ち着いた。'],
+  ['2026-09-02', 'self_hard', '自分の役割', '現職での役割調整をしていて少しモヤモヤ。何が嫌なのかはまだうまく言えない。'],
+  ['2026-09-04', 'self_fun', '一緒にいた人', '関係者に今後の希望を伝える。話しているうちに時間を忘れていた。'],
+  ['2026-09-05', 'progress_did', '初めてできた', '新しいプロジェクトへの参加を決める。やる前は少し緊張したけれど、行ってみたら思ったより普通にできた。'],
+  ['2026-09-07', 'progress_learned', 'これから', '今日ふと、不安がなくなるのを待つより、Evidenceがある方向を小さく選びたいのかもしれないと思った。'],
+  ['2026-09-08', 'self_fun', 'やっていたこと', 'これまでの記録を見ながら次を考える時間がかなり楽しかった。予定より長くやってしまった。'],
+  ['2026-09-10', 'self_hard', '任され方', '会議で自分の案を最後まで説明する前に話が決まってしまって、少し置いていかれた感じがした。'],
+  ['2026-09-11', 'self_fun', '時間の使い方', 'これまでの記録を見ながら次を考える時間は、疲れていても不思議とやめたくならない。こういう時間は覚えておきたい。'],
+  ['2026-09-13', 'progress_learned', 'やり方', '次の半年で試す選択を一つ決めるの進め方を少し変えた。前より小さく区切って試すことにした。'],
+  ['2026-09-14', 'progress_tried', '話した', '関係者に今後の希望を伝える時に、普段なら黙るところで自分の考えも一つ言ってみた。'],
+  ['2026-09-16', 'self_hard', '任され方', '現職での役割調整のあと、単に忙しいというより『自分で決められない』時に消耗している気がした。'],
+  ['2026-09-17', 'progress_did', '動けた', '今日は頼まれたことを全部引き受けず、優先するものを自分で決めた。少し不安だけど納得感はある。'],
+  ['2026-09-19', 'progress_tried', '話した', 'これまであまり話したことのない人に、自分が最近考えていることを少し話した。'],
+  ['2026-09-20', 'self_hard', 'やっていたこと', '次の半年で試す選択を一つ決めるを進めようとしたけど、思ったよりまとまらなかった。今日は無理に答えを出さずに残す。'],
+  ['2026-09-22', 'progress_learned', '得意なこと', '『何が正解か』より、『どの状態なら自分が動きやすいか』を見た方がよさそうだと思った。'],
+  ['2026-09-23', 'self_fun', '一緒にいた人', '関係者に今後の希望を伝える時、相手の反応を見ながら話を広げるのが楽しかった。'],
+  ['2026-09-25', 'progress_tried', '試した', '次の半年で試す選択を一つ決めるを前回と違うやり方で試した。完成させてからではなく、途中の状態で一度止めて見直した。'],
+  ['2026-09-26', 'self_hard', '環境', '周りの人の転職や昇進を見ると焦る。でも、自分が本当に欲しいものが同じなのかは分からない。'],
+  ['2026-09-27', 'progress_learned', '人との関わり', '誰かに話すと、自分だけで考えていた時より何に引っかかっているかがはっきりする。'],
+  ['2026-09-28', 'progress_did', '動けた', '今週はこれまでの記録を見ながら次を考える時間を優先すると決めて、予定を少し空けた。自分で選んだ時間だと思うと集中しやすかった。'],
+].map(([occurredOn, categoryId, detailId, text], i) => ({
+  id: `log-${i}`, occurredOn, categoryId, detailId, text,
 }));
 
 const CHANGES = [
@@ -355,13 +356,13 @@ const CHANGES = [
     confidence: 'supported',
     verdict: null,
     evidence: [
-      { logId: 'l1', occurredOn: '2026-09-01', role: 'attempt', momentTags: ['tried'],
+      { logId: 'l1', occurredOn: '2026-09-01', role: 'attempt', categoryId: 'progress_tried', detailId: '試した',
         text: '仕事のあとに次の半年で試す選択を一つ決める。少しだけでも手を動かすと、考えているだけの時より気持ちが落ち着いた。' },
-      { logId: 'l2', occurredOn: '2026-09-07', role: 'change', momentTags: ['discovered'],
+      { logId: 'l2', occurredOn: '2026-09-07', role: 'change', categoryId: 'progress_learned', detailId: 'これから',
         text: '今日ふと、不安がなくなるのを待つより、Evidenceがある方向を小さく選びたいのかもしれないと思った。' },
-      { logId: 'l3', occurredOn: '2026-09-17', role: 'current', momentTags: ['self_decided'],
+      { logId: 'l3', occurredOn: '2026-09-17', role: 'current', categoryId: 'progress_did', detailId: '動けた',
         text: '今日は頼まれたことを全部引き受けず、優先するものを自分で決めた。少し不安だけど納得感はある。' },
-      { logId: 'l4', occurredOn: '2026-09-28', role: 'current', momentTags: ['self_decided', 'tried'],
+      { logId: 'l4', occurredOn: '2026-09-28', role: 'current', categoryId: 'progress_did', detailId: '動けた',
         text: '今週はこれまでの記録を見ながら次を考える時間を優先すると決めて、予定を少し空けた。' },
     ],
     gains: [
@@ -382,11 +383,11 @@ const CHANGES = [
     confidence: 'supported',
     verdict: null,
     evidence: [
-      { logId: 'l5', occurredOn: '2026-09-13', role: 'change', momentTags: ['changed'],
+      { logId: 'l5', occurredOn: '2026-09-13', role: 'change', categoryId: 'progress_learned', detailId: 'やり方',
         text: '次の半年で試す選択を一つ決めるの進め方を少し変えた。前より小さく区切って試すことにした。' },
-      { logId: 'l6', occurredOn: '2026-09-20', role: 'friction', momentTags: ['friction'],
+      { logId: 'l6', occurredOn: '2026-09-20', role: 'friction', categoryId: 'self_hard', detailId: 'やっていたこと',
         text: '次の半年で試す選択を一つ決めるを進めようとしたけど、思ったよりまとまらなかった。今日は無理に答えを出さずに残す。' },
-      { logId: 'l7', occurredOn: '2026-09-25', role: 'current', momentTags: ['tried', 'changed'],
+      { logId: 'l7', occurredOn: '2026-09-25', role: 'current', categoryId: 'progress_tried', detailId: '試した',
         text: '前回と違うやり方で試した。完成させてからではなく、途中の状態で一度止めて見直した。' },
     ],
     gains: [{ id: 'g3', category: 'method', label: '途中で一度止めて見直す' }],
@@ -404,11 +405,11 @@ const CHANGES = [
     confidence: 'supported',
     verdict: null,
     evidence: [
-      { logId: 'l8', occurredOn: '2026-09-04', role: 'attempt', momentTags: ['enjoyed'],
+      { logId: 'l8', occurredOn: '2026-09-04', role: 'attempt', categoryId: 'self_fun', detailId: '一緒にいた人',
         text: '関係者に今後の希望を伝える。話しているうちに時間を忘れていた。' },
-      { logId: 'l9', occurredOn: '2026-09-14', role: 'change', momentTags: ['tried'],
+      { logId: 'l9', occurredOn: '2026-09-14', role: 'change', categoryId: 'progress_tried', detailId: '話した',
         text: '関係者に今後の希望を伝える時に、普段なら黙るところで自分の考えも一つ言ってみた。' },
-      { logId: 'l10', occurredOn: '2026-09-19', role: 'current', momentTags: ['first_time'],
+      { logId: 'l10', occurredOn: '2026-09-19', role: 'current', categoryId: 'progress_tried', detailId: '話した',
         text: 'これまであまり話したことのない人に、自分が最近考えていることを少し話した。' },
     ],
     gains: [],
@@ -426,9 +427,9 @@ const CHANGES = [
     confidence: 'signal',
     verdict: null,
     evidence: [
-      { logId: 'l11', occurredOn: '2026-09-02', role: 'friction', momentTags: ['friction'],
+      { logId: 'l11', occurredOn: '2026-09-02', role: 'friction', categoryId: 'self_hard', detailId: '自分の役割',
         text: '現職での役割調整をしていて少しモヤモヤ。何が嫌なのかはまだうまく言えない。' },
-      { logId: 'l12', occurredOn: '2026-09-16', role: 'current', momentTags: ['friction', 'discovered'],
+      { logId: 'l12', occurredOn: '2026-09-16', role: 'current', categoryId: 'self_hard', detailId: '任され方',
         text: '現職での役割調整のあと、単に忙しいというより『自分で決められない』時に消耗している気がした。' },
     ],
     gains: [{ id: 'g4', category: 'clarity', label: '裁量がない時に消耗する' }],
@@ -446,11 +447,11 @@ const CHANGES = [
     confidence: 'supported',
     verdict: null,
     evidence: [
-      { logId: 'l13', occurredOn: '2026-09-11', role: 'evidence', momentTags: ['enjoyed', 'discovered'],
+      { logId: 'l13', occurredOn: '2026-09-11', role: 'evidence', categoryId: 'self_fun', detailId: '時間の使い方',
         text: 'これまでの記録を見ながら次を考える時間は、疲れていても不思議とやめたくならない。' },
-      { logId: 'l14', occurredOn: '2026-09-23', role: 'evidence', momentTags: ['enjoyed', 'tried'],
+      { logId: 'l14', occurredOn: '2026-09-23', role: 'evidence', categoryId: 'self_fun', detailId: '一緒にいた人',
         text: '関係者に今後の希望を伝える時、相手の反応を見ながら話を広げるのが楽しかった。' },
-      { logId: 'l15', occurredOn: '2026-09-27', role: 'current', momentTags: ['discovered'],
+      { logId: 'l15', occurredOn: '2026-09-27', role: 'current', categoryId: 'progress_learned', detailId: '人との関わり',
         text: '誰かに話すと、自分だけで考えていた時より何に引っかかっているかがはっきりする。' },
     ],
     gains: [{ id: 'g5', category: 'connection', label: '話すと引っかかりが見える相手' }],
@@ -485,10 +486,6 @@ const GAIN_CATEGORY_JA = {
   evidence: '実際に行った経験',
   connection: '人とのつながり',
   recovery: '止まったあと、また動いたこと',
-};
-const MOMENT_TAG_JA = {
-  enjoyed: '楽しかった', tried: 'やってみた', first_time: '初めて', friction: 'モヤモヤ',
-  changed: '変えてみた', discovered: '発見した', self_decided: '自分で決めた',
 };
 const CHANGE_COPY = {
   heading: '今月見えた変化',
@@ -909,9 +906,9 @@ function renderCard(change) {
     const head = el('div', 'evidence-head');
     head.append(el('span', 'date', formatShortDate(entry.occurredOn)));
     head.append(el('span', 'role', CHANGE_EVIDENCE_ROLE_JA[entry.role]));
-    if (entry.momentTags.length > 0) {
-      head.append(el('span', 'tags', entry.momentTags.map((t) => MOMENT_TAG_JA[t] ?? t).join('・')));
-    }
+    // 本人が自分で選んだ分類。モデルの解釈ではありません。
+    const filed = [categoryLabel(entry.categoryId), entry.detailId].filter(Boolean);
+    if (filed.length > 0) head.append(el('span', 'tags', filed.join('・')));
     row.append(head);
     row.append(el('div', 'quote', entry.text));
     records.append(row);
@@ -971,49 +968,40 @@ function select(changeId) {
 // 6. LOG — app/(tabs)/log.tsx + components/log/*
 // ===========================================================================
 
-const LOG_TYPES = [
-  { id: 'self_action', label: '自分の行動' },
-  { id: 'relationship', label: '人との関わり' },
-  { id: 'thought', label: 'つぶやき' },
-];
-const MOMENT_TAGS = [
-  { id: 'enjoyed', label: '楽しかった' },
-  { id: 'tried', label: 'やってみた' },
-  { id: 'first_time', label: '初めて' },
-  { id: 'friction', label: 'モヤモヤ' },
-  { id: 'changed', label: '変えてみた' },
-  { id: 'discovered', label: '発見した' },
-  { id: 'self_decided', label: '自分で決めた' },
-];
+// ANTENNA × CATEGORY × DETAIL。src/domain/antennas.ts の写しで、
+// __tests__/preview.test.ts が id とラベルを突き合わせています。
+const ANTENNAS = {
+  progress: { shortLabel: '前進', title: '前進を実感する', categories: [
+    { id: 'progress_did', label: 'できた', detailQuestion: 'どんな「できた」だった？',
+      details: ['初めてできた', '上手くできた', '動けた', '続けられた', '結果が出た', 'またできた', 'その他'] },
+    { id: 'progress_learned', label: '学んだ', detailQuestion: '何について分かった？',
+      details: ['やり方', '得意なこと', '苦手なこと', '人との関わり', 'お金', '時間', 'これから', 'その他'] },
+    { id: 'progress_tried', label: 'やってみた', detailQuestion: '何をやってみた？',
+      details: ['調べた', '話した', '行ってみた', '試した', '作った', '届けた', 'その他'] },
+  ]},
+  self_understanding: { shortLabel: '活かし方', title: '自分の活かし方を知る', categories: [
+    { id: 'self_good', label: '調子がよかった', detailQuestion: '何が関係していそう？',
+      details: ['やっていたこと', '自分の役割', '任され方', '一緒にいた人', '場所', '環境', '時間の使い方', 'その他'] },
+    { id: 'self_hard', label: 'しんどかった', detailQuestion: '何が関係していそう？',
+      details: ['やっていたこと', '自分の役割', '任され方', '一緒にいた人', '場所', '環境', '時間の使い方', 'その他'] },
+    { id: 'self_fun', label: '楽しかった', detailQuestion: '何が関係していそう？',
+      details: ['やっていたこと', '自分の役割', '任され方', '一緒にいた人', '場所', '環境', '時間の使い方', 'その他'] },
+  ]},
+};
+const ANTENNA_ORDER = ['progress', 'self_understanding'];
+/** 今月のアンテナ。最大2つ、月初に選び直す。 */
+const MONTH_ANTENNAS = ['progress', 'self_understanding'];
+const ALL_CATEGORIES = ANTENNA_ORDER.flatMap((id) => ANTENNAS[id].categories);
+const CATEGORY_BY_ID = new Map(ALL_CATEGORIES.map((c) => [c.id, c]));
+const categoryLabel = (id) => CATEGORY_BY_ID.get(id)?.label ?? '';
 const HOME_COPY = {
   date: 'いつのこと？',
-  level1: '出来事のカテゴリ',
-  level2: '感情のカテゴリ',
-  answerPlaceholder: '答えなくても保存できます',
+  category: 'どんな一日だった？',
+  answerPlaceholder: '書かなくても保存できます',
 };
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-// 本物は generate-question 関数が書きます。通信がないので、タグから固定で選ぶ。
-// 長さと形（10〜40字・事実を聞く）だけ本物に合わせています。
-const CANNED_QUESTIONS = {
-  friction: '何が一番引っかかった？',
-  changed: '前と何を変えてみた？',
-  first_time: '今回が初めてだったことは？',
-  discovered: '何が前より分かった？',
-  self_decided: '自分で決めたのはどこ？',
-  enjoyed: '何をしている時が楽しかった？',
-  tried: '何を試してみた？',
-};
-
-const composer = { day: null, logType: null, momentTags: [], answer: '' };
-
-function questionFor(logType, tags) {
-  if (!logType || tags.length === 0) return null;
-  for (const tag of ['friction', 'changed', 'first_time', 'discovered', 'self_decided', 'enjoyed', 'tried']) {
-    if (tags.includes(tag)) return CANNED_QUESTIONS[tag];
-  }
-  return null;
-}
+const composer = { day: null, categoryId: null, detailId: null, body: '' };
 
 function daysIn(monthKey) {
   const year = Number(monthKey.slice(0, 4));
@@ -1071,58 +1059,74 @@ function renderLog() {
   dateLevel.append(dateRow);
   box.append(dateLevel);
 
+  // 今月のアンテナのカテゴリだけを出します。15個あっても、月は3個か6個。
+  // それが最初のタップを反射にします。
   const level1 = el('div', 'level');
-  level1.append(el('div', 'level-label', HOME_COPY.level1));
-  const row1 = el('div', 'chip-row');
-  for (const type of LOG_TYPES) {
-    const on = composer.logType === type.id;
-    const chip = el('button', `chip l1${on ? ' on' : ''}`, type.label);
-    chip.onclick = () => { composer.logType = type.id; renderLog(); };
-    row1.append(chip);
+  level1.append(el('div', 'level-label', HOME_COPY.category));
+  for (const antennaId of MONTH_ANTENNAS) {
+    const group = el('div', 'level');
+    if (MONTH_ANTENNAS.length > 1) {
+      group.append(el('div', 'antenna-plate', ANTENNAS[antennaId].shortLabel));
+    }
+    const row = el('div', 'chip-row');
+    for (const category of ANTENNAS[antennaId].categories) {
+      const on = composer.categoryId === category.id;
+      const chip = el('button', `chip l1${on ? ' on' : ''}`, category.label);
+      chip.onclick = () => {
+        composer.categoryId = category.id;
+        // 詳細はカテゴリのもの。持ち越すと、そのカテゴリに無い選択肢で
+        // 記録が保存されます。
+        composer.detailId = null;
+        renderLog();
+      };
+      row.append(chip);
+    }
+    group.append(row);
+    level1.append(group);
   }
-  level1.append(row1);
   box.append(level1);
 
-  const level2 = el('div', 'level');
-  level2.append(el('div', 'level-label', HOME_COPY.level2));
-  const row2 = el('div', 'chip-row');
-  for (const tag of MOMENT_TAGS) {
-    const on = composer.momentTags.includes(tag.id);
-    const chip = el('button', `chip tag${on ? ' on' : ''}`, tag.label);
-    chip.onclick = () => {
-      composer.momentTags = on
-        ? composer.momentTags.filter((t) => t !== tag.id)
-        : [...composer.momentTags, tag.id];
-      renderLog();
-    };
-    row2.append(chip);
-  }
-  level2.append(row2);
-  box.append(level2);
+  // 詳細と自由記述は、カテゴリが決まってから。問いがカテゴリのものなので、
+  // 聞くことができる前には何も出しません。
+  if (composer.categoryId) {
+    const category = CATEGORY_BY_ID.get(composer.categoryId);
 
-  // Level 3 — 聞くことができてから出る。答えなくても保存できる（§14）。
-  const question = questionFor(composer.logType, composer.momentTags);
-  if (question) {
+    const level2 = el('div', 'level');
+    level2.append(el('div', 'level-label', category.detailQuestion));
+    const row2 = el('div', 'chip-row');
+    for (const detail of category.details) {
+      const on = composer.detailId === detail;
+      const chip = el('button', `chip tag${on ? ' on' : ''}`, detail);
+      chip.onclick = () => {
+        composer.detailId = on ? null : detail;
+        renderLog();
+      };
+      row2.append(chip);
+    }
+    level2.append(row2);
+    box.append(level2);
+
     const level3 = el('div', 'level');
-    level3.append(el('div', 'question', question));
+    level3.append(el('div', 'question', '何があった？'));
     const input = document.createElement('input');
     input.className = 'answer';
     input.placeholder = HOME_COPY.answerPlaceholder;
-    input.value = composer.answer;
-    input.oninput = (e) => { composer.answer = e.target.value; };
+    input.value = composer.body;
+    input.oninput = (e) => { composer.body = e.target.value; };
     level3.append(input);
     box.append(level3);
   }
 
-  const started = composer.logType !== null || composer.momentTags.length > 0 || composer.answer.length > 0;
-  const canSave = composer.logType !== null && composer.momentTags.length > 0;
+  const started = composer.categoryId !== null || composer.body.length > 0;
+  // カテゴリだけで完成した記録です（自由記述は任意）。
+  const canSave = composer.categoryId !== null;
 
   const actions = el('div', 'actions');
   if (started) {
     const reset = el('button', 'action');
     reset.append(el('span', 'reset-glyph', '×'));
     reset.onclick = () => {
-      composer.logType = null; composer.momentTags = []; composer.answer = '';
+      composer.categoryId = null; composer.detailId = null; composer.body = '';
       renderLog();
     };
     actions.append(reset);
@@ -1137,11 +1141,11 @@ function renderLog() {
     LOGS.push({
       id: `log-${LOGS.length}`,
       occurredOn: composer.day,
-      logType: composer.logType,
-      momentTags: [...composer.momentTags],
-      text: composer.answer.trim(),
+      categoryId: composer.categoryId,
+      detailId: composer.detailId,
+      text: composer.body.trim(),
     });
-    composer.logType = null; composer.momentTags = []; composer.answer = '';
+    composer.categoryId = null; composer.detailId = null; composer.body = '';
     renderLog();
   };
   actions.append(save);
@@ -1157,13 +1161,13 @@ function renderLog() {
 
 const LIST_COPY = {
   allCategories: 'すべて',
-  allMoments: 'すべての瞬間',
+  allMoments: 'すべての記録',
   openMap: 'MAPを見にいく',
   rereadMonth: '読み直す',
   empty: 'この月には、まだ記録がありません。',
 };
 
-const listFilter = { logType: null, momentTag: null };
+const listFilter = { antennaId: null, categoryId: null };
 let listYear = 2026;
 
 function renderList() {
@@ -1196,11 +1200,16 @@ function renderList() {
     }
     return row;
   };
-  filters.append(filterRow(LIST_COPY.allCategories, LOG_TYPES, listFilter.logType, (v) => {
-    listFilter.logType = v; renderList();
+  const antennaOptions = ANTENNA_ORDER.map((id) => ({ id, label: ANTENNAS[id].shortLabel }));
+  const categoryOptions = (listFilter.antennaId ? [listFilter.antennaId] : ANTENNA_ORDER)
+    .flatMap((id) => ANTENNAS[id].categories);
+  filters.append(filterRow(LIST_COPY.allCategories, antennaOptions, listFilter.antennaId, (v) => {
+    // アンテナを変えるとカテゴリは外れます。他のアンテナのカテゴリが
+    // 残ると、上の行を黙って広げてしまうので。
+    listFilter.antennaId = v; listFilter.categoryId = null; renderList();
   }));
-  filters.append(filterRow(LIST_COPY.allMoments, MOMENT_TAGS, listFilter.momentTag, (v) => {
-    listFilter.momentTag = v; renderList();
+  filters.append(filterRow(LIST_COPY.allMoments, categoryOptions, listFilter.categoryId, (v) => {
+    listFilter.categoryId = v; renderList();
   }));
   screen.append(filters);
   screen.append(el('div', 'rule'));
@@ -1210,9 +1219,12 @@ function renderList() {
   const byMonth = new Map();
   for (const entry of LOGS) {
     if (entry.occurredOn.slice(0, 4) !== String(listYear)) continue;
+    const antenna = CATEGORY_BY_ID.get(entry.categoryId)
+      ? ANTENNA_ORDER.find((id) => ANTENNAS[id].categories.some((c) => c.id === entry.categoryId))
+      : null;
     const passes =
-      (!listFilter.logType || entry.logType === listFilter.logType) &&
-      (!listFilter.momentTag || entry.momentTags.includes(listFilter.momentTag));
+      (!listFilter.antennaId || antenna === listFilter.antennaId) &&
+      (!listFilter.categoryId || entry.categoryId === listFilter.categoryId);
     if (!passes) continue;
     const key = entry.occurredOn.slice(0, 7);
     byMonth.set(key, [...(byMonth.get(key) ?? []), entry]);
@@ -1255,8 +1267,8 @@ function renderList() {
       const body = el('div', 'log-row-body');
       const meta = el('div', 'log-meta');
       meta.append(el('span', 'log-date', formatShortDate(entry.occurredOn)));
-      for (const tag of entry.momentTags) {
-        meta.append(el('span', 'log-tag', MOMENT_TAG_JA[tag] ?? tag));
+      for (const label of [categoryLabel(entry.categoryId), entry.detailId].filter(Boolean)) {
+        meta.append(el('span', 'log-tag', label));
       }
       body.append(meta);
       // §14: 自由記述の無い記録も完成した記録。行はそれで足りる。

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { buildChangeMap } from '@/map/changeMap';
 import { groupChanges } from '@/map/changeGroups';
 import { TARGET_SHORT } from '@/constants/copy';
-import { LOG_TYPES, MOMENT_TAGS } from '@/constants/log';
+import { ALL_CATEGORIES, ANTENNAS, ANTENNA_ORDER } from '@/domain/antennas';
 import type { Change } from '@/types';
 
 const ROOT = join(__dirname, '..');
@@ -25,15 +25,15 @@ function loadPreview(): {
   groupChanges: (changes: unknown[]) => Array<Record<string, unknown>>;
   CHANGES: Change[];
   TARGET_SHORT: Record<string, string>;
-  LOGS: Array<{ id: string; occurredOn: string; logType: string; momentTags: string[]; text: string }>;
-  LOG_TYPES: Array<{ id: string; label: string }>;
-  MOMENT_TAGS: Array<{ id: string; label: string }>;
+  LOGS: Array<{ id: string; occurredOn: string; categoryId: string; detailId: string; text: string }>;
+  ANTENNAS: Record<string, { shortLabel: string; categories: Array<{ id: string; label: string; detailQuestion: string; details: string[] }> }>;
+  MONTH_ANTENNAS: string[];
 } {
   const html = readFileSync(join(ROOT, 'docs/preview.html'), 'utf8');
   const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
   if (!script) throw new Error('the preview has no script');
   const factory = new Function(
-    `${script}\nreturn { buildChangeMap, groupChanges, CHANGES, TARGET_SHORT, LOGS, LOG_TYPES, MOMENT_TAGS };`
+    `${script}\nreturn { buildChangeMap, groupChanges, CHANGES, TARGET_SHORT, LOGS, ANTENNAS, MONTH_ANTENNAS };`
   );
   return factory() as ReturnType<typeof loadPreview>;
 }
@@ -117,23 +117,43 @@ describe('the browser preview', () => {
     expect(page).toContain('button.onclick = () => showTab(name);');
   });
 
-  it('uses the same categories and tags the composer does', () => {
-    // LOG writes what LIST filters and what a change quotes. One list of ids
+  it('uses the same categories and details the composer does', () => {
+    // LOG writes what LIST filters and what a change quotes. One id or label
     // wrong here and the preview exercises a vocabulary the app has not got.
-    expect(preview.LOG_TYPES.map((t) => t.id)).toEqual(LOG_TYPES.map((t) => t.id));
-    expect(preview.LOG_TYPES.map((t) => t.label)).toEqual(LOG_TYPES.map((t) => t.label));
-    expect(preview.MOMENT_TAGS.map((t) => t.id)).toEqual(MOMENT_TAGS.map((t) => t.id));
-    expect(preview.MOMENT_TAGS.map((t) => t.label)).toEqual(MOMENT_TAGS.map((t) => t.label));
+    for (const antennaId of preview.MONTH_ANTENNAS) {
+      const mine = ANTENNAS[antennaId as keyof typeof ANTENNAS];
+      const theirs = preview.ANTENNAS[antennaId];
+      expect(theirs?.shortLabel).toBe(mine.shortLabel);
+      expect(theirs?.categories.map((c) => c.id)).toEqual(mine.categories.map((c) => c.id));
+      expect(theirs?.categories.map((c) => c.label)).toEqual(mine.categories.map((c) => c.label));
+      expect(theirs?.categories.map((c) => c.detailQuestion)).toEqual(
+        mine.categories.map((c) => c.detailQuestion)
+      );
+      // The details are the second tap, so they have to match too — a detail
+      // the app has not got is a record the composer could not have made.
+      expect(theirs?.categories.map((c) => c.details)).toEqual(
+        mine.categories.map((c) => c.details.map((d) => d.label))
+      );
+    }
+  });
+
+  it('never offers more antennas than a month may have', () => {
+    expect(preview.MONTH_ANTENNAS.length).toBeLessThanOrEqual(2);
+    for (const id of preview.MONTH_ANTENNAS) {
+      expect(ANTENNA_ORDER).toContain(id);
+    }
   });
 
   it('carries records the app would accept', () => {
-    const types = new Set(LOG_TYPES.map((t) => t.id));
-    const tags = new Set(MOMENT_TAGS.map((t) => t.id));
+    const known = new Map(ALL_CATEGORIES.map((c) => [c.id, c]));
     expect(preview.LOGS.length).toBeGreaterThan(0);
     for (const entry of preview.LOGS) {
-      expect(types.has(entry.logType as never)).toBe(true);
-      expect(entry.momentTags.length).toBeGreaterThan(0);
-      for (const tag of entry.momentTags) expect(tags.has(tag as never)).toBe(true);
+      const category = known.get(entry.categoryId as never);
+      expect(category).toBeDefined();
+      // A detail only means anything inside its own category.
+      if (entry.detailId) {
+        expect(category?.details.some((d) => d.label === entry.detailId)).toBe(true);
+      }
       expect(entry.occurredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });

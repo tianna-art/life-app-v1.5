@@ -14,10 +14,9 @@ import { Toast } from '@components/ui/Toast';
 import { useCreateLog } from '@/hooks/useLogs';
 import { useMonthReview } from '@/hooks/useMonthReview';
 import { useMonthTheme, useYearDirection } from '@/hooks/useLens';
-import { generateQuestion } from '@/ai/client';
 import { useUiStore } from '@/state/uiStore';
 import { monthKeyOf, shiftMonthKey } from '@/utils/period';
-import type { LogType, Mirror, MomentTag, NewLogInput } from '@/types';
+import type { Mirror, NewLogInput } from '@/types';
 
 /**
  * HOME (§8).
@@ -66,18 +65,6 @@ export default function LogScreen() {
   const seenMonthEnds = useUiStore((s) => s.seenMonthEnds);
   const showMonthComplete =
     viewingNow && Boolean(previousReview) && !seenMonthEnds.includes(previousMonth);
-
-  const handleNeedQuestion = useCallback(
-    (input: { logType: LogType; momentTags: MomentTag[] }) =>
-      generateQuestion({
-        logType: input.logType,
-        momentTags: input.momentTags,
-        desiredSelfCards: direction?.desiredSelfCards,
-        lenses: direction?.progressionLenses,
-        monthTheme: monthTheme?.initialTheme,
-      }),
-    [direction?.desiredSelfCards, direction?.progressionLenses, monthTheme?.initialTheme]
-  );
 
   const handleSave = useCallback(
     (input: NewLogInput) => {
@@ -152,12 +139,15 @@ export default function LogScreen() {
 
           <View style={styles.breath} />
 
+          {/* Only the month's antennas are offered. A month with none chosen
+              yet has nothing to write into: the categories are the antennas'
+              and there is no default set. */}
           <DailyComposer
             monthKey={monthKey}
+            antennaIds={monthTheme?.antennaIds ?? []}
             defaultDay={defaultDay}
             latestDay={latestDay}
             onSave={handleSave}
-            onNeedQuestion={handleNeedQuestion}
             saving={createLog.isPending}
           />
 

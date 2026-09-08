@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, colors, fonts, spacing } from '@/theme';
 import { formatShortDate } from '@/utils/period';
-import { logTypeLabel, momentTagLabel } from '@/constants/log';
+import { LEGACY_MOMENT_TAG_JA, categoryLabel, detailLabel } from '@/constants/log';
 import type { DailyLog } from '@/types';
 
 /**
@@ -28,8 +28,18 @@ export function LogRow({
   entry: DailyLog;
   onPress: (id: string) => void;
 }) {
-  const written = entry.optionalAnswer || entry.body || '';
-  const tags = entry.momentTags.map(momentTagLabel);
+  const written = entry.body || entry.optionalAnswer || '';
+  // What the person filed it under, then which part of it. A row written
+  // before the antennas has neither and prints its old tags instead — the
+  // archive shows what a record actually carries, not a guess at what it
+  // would carry today.
+  const filed = [
+    categoryLabel(entry.categoryId),
+    detailLabel(entry.categoryId, entry.detailId),
+  ].filter(Boolean);
+  const tags = filed.length > 0
+    ? filed
+    : (entry.legacyMomentTags ?? []).map((tag) => LEGACY_MOMENT_TAG_JA[tag]);
 
   return (
     <Pressable
@@ -37,16 +47,14 @@ export function LogRow({
       onPress={() => onPress(entry.id)}
       hitSlop={HIT_SLOP}
       accessibilityRole="button"
-      accessibilityLabel={`${formatShortDate(entry.occurredOn)} ${logTypeLabel(
-        entry.logType
-      )} ${tags.join('、')} ${written}`}
+      accessibilityLabel={`${formatShortDate(entry.occurredOn)} ${tags.join('、')} ${written}`}
       accessibilityHint="記録の全文を開きます"
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <View style={styles.body}>
         <View style={styles.meta}>
           <Text style={styles.date}>{formatShortDate(entry.occurredOn)}</Text>
-          {tags.map((tag) => (
+          {tags.map((tag: string) => (
             <Text key={tag} style={styles.tag}>
               {tag}
             </Text>

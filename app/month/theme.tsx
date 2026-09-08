@@ -16,9 +16,10 @@ import { MONTH, ONBOARDING } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
-import { useMonthThemeCandidates, useSaveMonthTheme } from '@/hooks/useLens';
+import { AntennaPicker } from '@components/log/AntennaPicker';
+import { useMonthTheme, useMonthThemeCandidates, useSaveMonthTheme } from '@/hooks/useLens';
 import { formatMonthEyebrow, monthKeyOf } from '@/utils/period';
-import type { MonthThemeCandidate } from '@/types';
+import type { AntennaId, MonthThemeCandidate } from '@/types';
 
 const SOURCE_LABEL: Record<MonthThemeCandidate['source'], string> = {
   continue: 'CONTINUE',
@@ -45,6 +46,14 @@ export default function MonthThemeScreen() {
 
   const [own, setOwn] = useState('');
   const [writing, setWriting] = useState(false);
+  const stored = useMonthTheme(year, month);
+  const [antennaIds, setAntennaIds] = useState<AntennaId[]>([]);
+
+  // A month already under way keeps what it was given. Re-opening the screen
+  // must not silently clear the antennas the person is writing under.
+  useEffect(() => {
+    if (stored.data?.antennaIds?.length) setAntennaIds(stored.data.antennaIds);
+  }, [stored.data?.antennaIds]);
 
   useEffect(() => {
     if (candidates.isPending || candidates.data) return;
@@ -61,6 +70,7 @@ export default function MonthThemeScreen() {
         ...(theme ? { initialTheme: theme } : {}),
         source: theme ? source : 'none',
         candidates: candidates.data ?? [],
+        antennaIds,
       },
       { onSuccess: () => router.replace('/log') }
     );
@@ -83,6 +93,15 @@ export default function MonthThemeScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          {/* The antennas come first: they decide what the month can even
+              notice, and the theme is a sentence about that. Choosing a theme
+              without them would leave the composer with nothing to offer. */}
+          <Text style={styles.heading}>{MONTH.antennaHeading}</Text>
+          <Text style={styles.hint}>{MONTH.antennaHint}</Text>
+          <AntennaPicker value={antennaIds} onChange={setAntennaIds} />
+
+          <HairlineRule />
+
           <Text style={styles.heading}>{MONTH.themeHeading}</Text>
           <HairlineRule />
 

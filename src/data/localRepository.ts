@@ -112,6 +112,7 @@ export class LocalRepository implements Repository {
     finalTheme?: string;
     source: MonthTheme['source'];
     candidates?: MonthTheme['candidates'];
+    antennaIds?: MonthTheme['antennaIds'];
   }): Promise<MonthTheme> {
     const store = await readStore();
     const existing = store.monthThemes.find(
@@ -124,6 +125,7 @@ export class LocalRepository implements Repository {
       month: input.month,
       initialTheme: input.initialTheme ?? existing?.initialTheme,
       finalTheme: input.finalTheme ?? existing?.finalTheme,
+      antennaIds: input.antennaIds ?? existing?.antennaIds ?? [],
       source: input.source,
       candidates: input.candidates ?? existing?.candidates ?? [],
     };
@@ -182,10 +184,13 @@ export class LocalRepository implements Repository {
       userId: LOCAL_USER,
       occurredAt,
       occurredOn: occurredAt.slice(0, 10),
-      logType: input.logType,
-      momentTags: input.momentTags,
-      aiQuestion: input.aiQuestion,
-      optionalAnswer: input.optionalAnswer,
+      ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+      ...(input.detailId ? { detailId: input.detailId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      inputMethod: input.inputMethod ?? 'category',
+      classificationSource: 'user',
+      classificationStatus: input.categoryId ? 'confirmed' : 'unclassified',
+      aiSignals: [],
       createdAt: new Date().toISOString(),
     };
     await mutateStore((store) => ({ ...store, logs: [log, ...store.logs] }));
@@ -284,8 +289,8 @@ export class LocalRepository implements Repository {
             occurredOn: log.occurredOn,
             role: row.role,
             eventSummary: store.analyses[log.id]?.eventSummary ?? fallbackSummary(log),
-            logType: log.logType,
-            momentTags: log.momentTags,
+            ...(log.categoryId ? { categoryId: log.categoryId } : {}),
+            ...(log.detailId ? { detailId: log.detailId } : {}),
           },
         ];
       });

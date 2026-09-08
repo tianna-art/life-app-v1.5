@@ -1,9 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LOG_TYPES, MOMENT_TAGS } from '../src/constants/log';
-import { DIRECTION_AREAS } from '../src/constants/areas';
-import { DESIRED_SELF_CARDS } from '../src/constants/desiredSelf';
+import { ALL_CATEGORIES, ANTENNAS, ANTENNA_ORDER, MAX_ANTENNAS } from '../src/domain/antennas';
 
 const ROOT = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -36,29 +34,51 @@ describe('demo data', () => {
     expect(Number(stated)).toBe(logs.length);
   });
 
-  it('uses only categories and tags the app knows', () => {
-    const types = new Set(LOG_TYPES.map((t) => t.label));
-    const tags = new Set(MOMENT_TAGS.map((t) => t.label));
+  it('files every record under a category the domain has, with one of its details', () => {
+    const byLabel = new Map(ALL_CATEGORIES.map((c) => [c.label, c]));
     for (const row of logs) {
-      expect(types.has(row.level1 ?? '')).toBe(true);
-      const parts = (row.moment_tags ?? '').split('・').filter(Boolean);
-      expect(parts.length).toBeGreaterThan(0);
-      for (const part of parts) expect(tags.has(part)).toBe(true);
+      const category = byLabel.get(row.category ?? '');
+      expect(category).toBeDefined();
+      // A detail only means anything inside its own category. One borrowed
+      // from another would load a record the composer could not have made.
+      if (row.detail) {
+        expect(category?.details.some((d) => d.label === row.detail)).toBe(true);
+      }
     }
   });
 
-  it('uses only areas and cards the app knows', () => {
-    // One card was renamed after the spreadsheet was written. The alias lives
-    // in the generator; this is the list of labels allowed to miss.
-    const renamed = new Set(['力が出る環境が分かる']);
-    const areas = new Set(DIRECTION_AREAS.map((a) => a.label));
-    const cards = new Set(DESIRED_SELF_CARDS.map((c) => c.label));
+  it('chooses antennas the domain has, and no more than the ceiling', () => {
+    const titles = new Set(ANTENNA_ORDER.map((id) => ANTENNAS[id].title));
+    const perMonth = new Map<string, number>();
     for (const row of setup) {
       // The declarations are the person's own sentences, not picks from a
       // list, so there is nothing to look them up against.
-      if (row.kind === '年テーマ' || row.kind === '月テーマ') continue;
-      const known = row.kind === '方向性' ? areas : cards;
-      expect(known.has(row.label ?? '') || renamed.has(row.label ?? '')).toBe(true);
+      if (row.kind !== 'アンテナ') continue;
+      expect(titles.has(row.label ?? '')).toBe(true);
+      const month = row.group ?? '';
+      perMonth.set(month, (perMonth.get(month) ?? 0) + 1);
+    }
+    expect(perMonth.size).toBeGreaterThan(0);
+    for (const count of perMonth.values()) {
+      expect(count).toBeLessThanOrEqual(MAX_ANTENNAS);
+    }
+  });
+
+  it('files every record under an antenna its month actually chose', () => {
+    // Otherwise the composer could never have produced it: it only offers the
+    // categories of the month's own antennas.
+    const byLabel = new Map(ALL_CATEGORIES.map((c) => [c.label, c]));
+    const titles = new Map(ANTENNA_ORDER.map((id) => [ANTENNAS[id].title, id]));
+    const chosen = new Map<string, string[]>();
+    for (const row of setup) {
+      if (row.kind !== 'アンテナ') continue;
+      const id = titles.get(row.label ?? '');
+      chosen.set(row.group ?? '', [...(chosen.get(row.group ?? '') ?? []), id ?? '']);
+    }
+    for (const row of logs) {
+      const month = (row.occurred_on ?? '').slice(0, 7);
+      const antenna = byLabel.get(row.category ?? '')?.antennaId ?? '';
+      expect(chosen.get(month) ?? []).toContain(antenna);
     }
   });
 
@@ -107,7 +127,7 @@ describe('demo data', () => {
       'supabase/demo/purge_others.sql',
     ];
     const before = generated.map(read);
-    execFileSync('node', [join(ROOT, 'scripts/build-demo-sql.mjs')], { cwd: ROOT });
+    execFileSync('npx', ['tsx', join(ROOT, 'scripts/build-demo-sql.ts')], { cwd: ROOT });
     expect(generated.map(read)).toEqual(before);
   });
 

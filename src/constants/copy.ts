@@ -8,10 +8,10 @@ export const HOME = {
   // a line naming the screen you are already looking at is one more thing to
   // read before the first tap. The two labels below are the whole prompt.
   date: 'いつのこと？',
-  level1: '出来事のカテゴリ',
-  level2: '感情のカテゴリ',
-  /** Placeholder for the optional answer. Says plainly that it is optional. */
-  answerPlaceholder: '答えなくても保存できます',
+  /** Above the month's categories. The antennas decide which are offered. */
+  category: 'どんな一日だった？',
+  /** Placeholder for the free text. Says plainly that it is optional. */
+  answerPlaceholder: '書かなくても保存できます',
   save: '保存',
   reset: '入力内容を消す',
 } as const;
@@ -30,6 +30,8 @@ export const ONBOARDING = {
 } as const;
 
 export const MONTH = {
+  antennaHeading: '今月は、何を見ていく？',
+  antennaHint: '2つまで。来月また選び直せます。',
   themeHeading: '今月のテーマ',
   skip: '今月は決めない',
   startedWith: 'YOU STARTED WITH',
@@ -111,7 +113,7 @@ export const LABELS = {
   adjusted: '少し違う',
   saveEdit: 'この言い方にする',
   allCategories: 'すべて',
-  allMoments: 'すべての瞬間',
+  allMoments: 'すべての記録',
   generateMap: 'MAPを生成する',
   tryAgain: 'もう一度試す',
   openMap: 'MAPを見にいく',

@@ -61,10 +61,13 @@ export function queuedToLogs(items: QueuedLog[], userId: string): DailyLog[] {
     userId,
     occurredAt: item.occurredAt,
     occurredOn: item.occurredAt.slice(0, 10),
-    logType: item.logType,
-    momentTags: item.momentTags,
-    aiQuestion: item.aiQuestion,
-    optionalAnswer: item.optionalAnswer,
+    ...(item.categoryId ? { categoryId: item.categoryId } : {}),
+    ...(item.detailId ? { detailId: item.detailId } : {}),
+    ...(item.body ? { body: item.body } : {}),
+    inputMethod: item.inputMethod ?? 'category',
+    classificationSource: 'user',
+    classificationStatus: item.categoryId ? 'confirmed' : 'unclassified',
+    aiSignals: [],
     createdAt: item.queuedAt,
   }));
 }
@@ -83,10 +86,10 @@ export async function flushQueue(
   for (const item of items) {
     try {
       await send({
-        logType: item.logType,
-        momentTags: item.momentTags,
-        ...(item.aiQuestion ? { aiQuestion: item.aiQuestion } : {}),
-        ...(item.optionalAnswer ? { optionalAnswer: item.optionalAnswer } : {}),
+        ...(item.categoryId ? { categoryId: item.categoryId } : {}),
+        ...(item.detailId ? { detailId: item.detailId } : {}),
+        ...(item.body ? { body: item.body } : {}),
+        ...(item.inputMethod ? { inputMethod: item.inputMethod } : {}),
         occurredAt: item.occurredAt,
       });
       await removeFromQueue(item.clientId);

@@ -1,14 +1,14 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { LABELS } from '@/constants/copy';
-import { LOG_TYPES, MOMENT_TAGS } from '@/constants/log';
-import type { LogType, MomentTag } from '@/types';
+import { ANTENNAS, ANTENNA_ORDER } from '@/constants/log';
+import type { AntennaId, CategoryId } from '@/types';
 
 export interface ListFilter {
-  /** null means every door. */
-  logType: LogType | null;
-  /** null means every kind of moment. */
-  momentTag: MomentTag | null;
+  /** null means every antenna. */
+  antennaId: AntennaId | null;
+  /** null means every category under whichever antennas are shown. */
+  categoryId: CategoryId | null;
 }
 
 interface CategoryFilterProps {
@@ -79,13 +79,24 @@ export function CategoryFilter({ value, onChange }: CategoryFilterProps) {
     </ScrollView>
   );
 
+  // Narrowing to an antenna narrows what the second row offers, because a
+  // category only means anything under the question it belongs to. Choosing a
+  // category from another antenna would silently widen the first row again, so
+  // changing the antenna clears it.
+  const categories = (value.antennaId ? [value.antennaId] : ANTENNA_ORDER).flatMap(
+    (id) => ANTENNAS[id].categories
+  );
+
   return (
     <View style={styles.rows}>
-      {row(LABELS.allCategories, 'filter', LOG_TYPES, value.logType, (logType) =>
-        onChange({ ...value, logType })
+      {row(LABELS.allCategories, 'filter', ANTENNA_ORDER.map((id) => ({
+        id,
+        label: ANTENNAS[id].shortLabel,
+      })), value.antennaId, (antennaId) =>
+        onChange({ antennaId, categoryId: null })
       )}
-      {row(LABELS.allMoments, 'moment-filter', MOMENT_TAGS, value.momentTag, (momentTag) =>
-        onChange({ ...value, momentTag })
+      {row(LABELS.allMoments, 'category-filter', categories, value.categoryId, (categoryId) =>
+        onChange({ ...value, categoryId })
       )}
     </View>
   );

@@ -11,8 +11,11 @@ const log = (id: string, occurredAt: string): DailyLog => ({
   userId: 'u1',
   occurredAt,
   occurredOn: occurredAt.slice(0, 10),
-  logType: 'self_action',
-  momentTags: ['tried'],
+  categoryId: 'progress_tried',
+  inputMethod: 'category',
+  classificationSource: 'user',
+  classificationStatus: 'confirmed',
+  aiSignals: [],
   createdAt: occurredAt,
 });
 

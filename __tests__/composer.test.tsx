@@ -1,239 +1,135 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { DailyComposer } from '../components/log/DailyComposer';
 
-const noQuestion = () => Promise.resolve(null);
-
-/** The composer now always knows which month and day it is writing into. */
-const frame = { monthKey: '2026-09', defaultDay: '2026-09-05', latestDay: '2026-09-05' };
+/** The composer always knows which month and day it is writing into. */
+const frame = {
+  monthKey: '2026-09',
+  defaultDay: '2026-09-05',
+  latestDay: '2026-09-05',
+  antennaIds: ['progress'] as const,
+};
 
 /**
- * §14's target is 5-15 seconds, and §14 is explicit that a record with no free
- * text is a complete record. These tests hold both.
+ * Three taps and a line, and the line is optional.
+ *
+ * The category and the detail are already a record: 「何があった？」 is asked
+ * the same way under every category and answering it is not required. That is
+ * the whole reason the target is seconds rather than a sitting.
  */
 describe('DailyComposer', () => {
-  it('saves with a door and a tag, and nothing else (§14)', () => {
+  it('saves on a category alone', () => {
     const onSave = jest.fn();
-    const screen = render(<DailyComposer {...frame} onSave={onSave} onNeedQuestion={noQuestion} />);
+    const screen = render(<DailyComposer {...frame} onSave={onSave} />);
 
     fireEvent.press(screen.getByTestId('composer-save'));
     expect(onSave).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByTestId('level1-self_action'));
-    fireEvent.press(screen.getByTestId('composer-save'));
-    expect(onSave).not.toHaveBeenCalled();
-
-    fireEvent.press(screen.getByTestId('moment-tried'));
+    fireEvent.press(screen.getByTestId('category-progress_did'));
     fireEvent.press(screen.getByTestId('composer-save'));
 
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ logType: 'self_action', momentTags: ['tried'] })
+      expect.objectContaining({ categoryId: 'progress_did', inputMethod: 'category' })
     );
+    // Nothing was written, so nothing is sent as though it had been.
+    expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty('body');
   });
 
-  it('takes more than one moment tag at once (§10)', () => {
-    const onSave = jest.fn();
-    const screen = render(<DailyComposer {...frame} onSave={onSave} onNeedQuestion={noQuestion} />);
+  it('offers only the month antennas, not all fifteen', () => {
+    // The fifteen exist; a month is three or six of them. Putting them all on
+    // the screen would turn the first tap from a reflex into a search.
+    const screen = render(<DailyComposer {...frame} onSave={jest.fn()} />);
+    expect(screen.getByTestId('category-progress_did')).toBeTruthy();
+    expect(screen.queryByTestId('category-values_important')).toBeNull();
+    expect(screen.queryByTestId('category-self_hard')).toBeNull();
+  });
 
-    fireEvent.press(screen.getByTestId('level1-relationship'));
-    fireEvent.press(screen.getByTestId('moment-first_time'));
-    fireEvent.press(screen.getByTestId('moment-enjoyed'));
+  it('offers both antennas when two were picked', () => {
+    const screen = render(
+      <DailyComposer {...frame} antennaIds={['progress', 'values']} onSave={jest.fn()} />
+    );
+    expect(screen.getByTestId('category-progress_did')).toBeTruthy();
+    expect(screen.getByTestId('category-values_important')).toBeTruthy();
+  });
+
+  it('asks nothing before there is something to ask about', () => {
+    // The detail's question belongs to the category, so neither the detail nor
+    // the free text exists until one is chosen.
+    const screen = render(<DailyComposer {...frame} onSave={jest.fn()} />);
+    expect(screen.queryByTestId('detail-picker')).toBeNull();
+    expect(screen.queryByTestId('body-input')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('category-progress_did'));
+    expect(screen.getByTestId('detail-picker')).toBeTruthy();
+    expect(screen.getByTestId('body-input')).toBeTruthy();
+  });
+
+  it('asks the question that belongs to the category', () => {
+    const screen = render(<DailyComposer {...frame} onSave={jest.fn()} />);
+    fireEvent.press(screen.getByTestId('category-progress_did'));
+    expect(screen.getByText('どんな「できた」だった？')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('category-progress_learned'));
+    expect(screen.getByText('何について分かった？')).toBeTruthy();
+  });
+
+  it('takes one detail, and lets it be taken back', () => {
+    // One, not several: the category already said what kind of day it was, and
+    // a record about two things is two records.
+    const onSave = jest.fn();
+    const screen = render(<DailyComposer {...frame} onSave={onSave} />);
+
+    fireEvent.press(screen.getByTestId('category-progress_did'));
+    fireEvent.press(screen.getByTestId('detail-first_time'));
+    fireEvent.press(screen.getByTestId('detail-kept_going'));
+    fireEvent.press(screen.getByTestId('composer-save'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ detailId: 'kept_going' }));
+
+    onSave.mockClear();
+    fireEvent.press(screen.getByTestId('category-progress_did'));
+    fireEvent.press(screen.getByTestId('detail-first_time'));
+    fireEvent.press(screen.getByTestId('detail-first_time'));
+    fireEvent.press(screen.getByTestId('composer-save'));
+    expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty('detailId');
+  });
+
+  it('drops a detail that belonged to another category', () => {
+    // Details are not shared: keeping one across a change of category would
+    // file the record under an option that category never offered.
+    const onSave = jest.fn();
+    const screen = render(<DailyComposer {...frame} onSave={onSave} />);
+
+    fireEvent.press(screen.getByTestId('category-progress_did'));
+    fireEvent.press(screen.getByTestId('detail-first_time'));
+    fireEvent.press(screen.getByTestId('category-progress_learned'));
     fireEvent.press(screen.getByTestId('composer-save'));
 
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        logType: 'relationship',
-        momentTags: ['first_time', 'enjoyed'],
-      })
+      expect.objectContaining({ categoryId: 'progress_learned' })
     );
+    expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty('detailId');
   });
 
-  it('lets a tag be untapped', () => {
+  it('keeps what was written, and clears everything on reset', () => {
     const onSave = jest.fn();
-    const screen = render(<DailyComposer {...frame} onSave={onSave} onNeedQuestion={noQuestion} />);
+    const screen = render(<DailyComposer {...frame} onSave={onSave} />);
 
-    fireEvent.press(screen.getByTestId('level1-thought'));
-    fireEvent.press(screen.getByTestId('moment-friction'));
-    fireEvent.press(screen.getByTestId('moment-discovered'));
-    fireEvent.press(screen.getByTestId('moment-friction'));
+    fireEvent.press(screen.getByTestId('category-progress_tried'));
+    fireEvent.changeText(screen.getByTestId('body-input'), '  初めて人に見せた  ');
     fireEvent.press(screen.getByTestId('composer-save'));
-
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ logType: 'thought', momentTags: ['discovered'] })
+      expect.objectContaining({ body: '初めて人に見せた' })
     );
+
+    // Saving clears it, so the next record does not inherit the last one.
+    expect(screen.queryByTestId('body-input')).toBeNull();
   });
 
-  it('offers three doors and seven tags (§9, §10)', () => {
-    const screen = render(<DailyComposer {...frame} onSave={jest.fn()} onNeedQuestion={noQuestion} />);
-    for (const door of ['self_action', 'relationship', 'thought']) {
-      expect(screen.getByTestId(`level1-${door}`)).toBeTruthy();
-    }
-    for (const tag of [
-      'enjoyed',
-      'tried',
-      'first_time',
-      'friction',
-      'changed',
-      'discovered',
-      'self_decided',
-    ]) {
-      expect(screen.getByTestId(`moment-${tag}`)).toBeTruthy();
-    }
-  });
-
-  it('asks the question only once there is something to ask about', async () => {
-    const onNeedQuestion = jest.fn().mockResolvedValue('前と何を変えた？');
-    const screen = render(<DailyComposer {...frame} onSave={jest.fn()} onNeedQuestion={onNeedQuestion} />);
-
-    expect(screen.queryByTestId('level3')).toBeNull();
-    expect(onNeedQuestion).not.toHaveBeenCalled();
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('level1-self_action'));
-      fireEvent.press(screen.getByTestId('moment-changed'));
-    });
-
-    await waitFor(() => expect(screen.getByTestId('level3')).toBeTruthy());
-    expect(onNeedQuestion).toHaveBeenCalledWith({
-      logType: 'self_action',
-      momentTags: ['changed'],
-    });
-  });
-
-  it('keeps the question with its answer when one is given (§11)', async () => {
+  it('files the record on the day that was chosen, not on today', () => {
     const onSave = jest.fn();
-    const screen = render(
-      <DailyComposer
-        {...frame}
-        onSave={onSave}
-        onNeedQuestion={() => Promise.resolve('前と何を変えた？')}
-      />
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('level1-self_action'));
-      fireEvent.press(screen.getByTestId('moment-changed'));
-    });
-    await waitFor(() => expect(screen.getByTestId('answer-input')).toBeTruthy());
-
-    fireEvent.changeText(screen.getByTestId('answer-input'), '結論から話した');
+    const screen = render(<DailyComposer {...frame} onSave={onSave} />);
+    fireEvent.press(screen.getByTestId('category-progress_did'));
     fireEvent.press(screen.getByTestId('composer-save'));
-
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        logType: 'self_action',        momentTags: ['changed'],        aiQuestion: '前と何を変えた？',        optionalAnswer: '結論から話した',
-      })
-    );
-  });
-
-  it('does not save whitespace as an answer', async () => {
-    const onSave = jest.fn();
-    const screen = render(
-      <DailyComposer
-        {...frame}
-        onSave={onSave}
-        onNeedQuestion={() => Promise.resolve('誰に見せた？')}
-      />
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('level1-relationship'));
-      fireEvent.press(screen.getByTestId('moment-tried'));
-    });
-    await waitFor(() => expect(screen.getByTestId('answer-input')).toBeTruthy());
-
-    fireEvent.changeText(screen.getByTestId('answer-input'), '   ');
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    expect(onSave).toHaveBeenCalledWith(
-      expect.not.objectContaining({ optionalAnswer: expect.anything() })
-    );
-  });
-
-  it('clears itself after a save', () => {
-    const onSave = jest.fn();
-    const screen = render(<DailyComposer {...frame} onSave={onSave} onNeedQuestion={noQuestion} />);
-
-    fireEvent.press(screen.getByTestId('level1-self_action'));
-    fireEvent.press(screen.getByTestId('moment-tried'));
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    fireEvent.press(screen.getByTestId('composer-save'));
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
-});
-
-/**
- * The day a record belongs to.
- *
- * A record used to always be today, and the composer was hidden on any month
- * but this one so that looking at June could not silently write into it.
- * Naming the day is what makes the other months safe to open.
- */
-describe('the day on the composer', () => {
-  it('saves the day that is chosen, not the day it is', () => {
-    const onSave = jest.fn();
-    const screen = render(
-      <DailyComposer
-        monthKey="2026-09"
-        defaultDay="2026-09-05"
-        latestDay="2026-09-05"
-        onSave={onSave}
-        onNeedQuestion={noQuestion}
-      />
-    );
-
-    fireEvent.press(screen.getByTestId('day-2026-09-02'));
-    fireEvent.press(screen.getByTestId('level1-thought'));
-    fireEvent.press(screen.getByTestId('moment-discovered'));
-    fireEvent.press(screen.getByTestId('composer-save'));
-
-    const saved = onSave.mock.calls[0]?.[0] as { occurredAt: string };
-    expect(saved.occurredAt.slice(0, 10)).toBe('2026-09-02');
-  });
-
-  it('does not offer a day that has not happened', () => {
-    const screen = render(
-      <DailyComposer
-        monthKey="2026-09"
-        defaultDay="2026-09-05"
-        latestDay="2026-09-05"
-        onSave={jest.fn()}
-        onNeedQuestion={noQuestion}
-      />
-    );
-    expect(screen.getByTestId('day-2026-09-05')).toBeTruthy();
-    expect(screen.queryByTestId('day-2026-09-06')).toBeNull();
-  });
-
-  it('opens on every day of a month that is already behind us', () => {
-    const screen = render(
-      <DailyComposer
-        monthKey="2026-06"
-        defaultDay="2026-06-01"
-        onSave={jest.fn()}
-        onNeedQuestion={noQuestion}
-      />
-    );
-    expect(screen.getByTestId('day-2026-06-30')).toBeTruthy();
-  });
-
-  it('moves with the month rather than keeping the day it was left on', () => {
-    const screen = render(
-      <DailyComposer
-        monthKey="2026-09"
-        defaultDay="2026-09-05"
-        onSave={jest.fn()}
-        onNeedQuestion={noQuestion}
-      />
-    );
-    screen.rerender(
-      <DailyComposer
-        monthKey="2026-06"
-        defaultDay="2026-06-01"
-        onSave={jest.fn()}
-        onNeedQuestion={noQuestion}
-      />
-    );
-    expect(screen.getByTestId('day-2026-06-01')).toBeTruthy();
+    // Midday, so it cannot land on the day before in another timezone.
+    expect(onSave.mock.calls[0]?.[0].occurredAt).toBe('2026-09-05T12:00:00.000Z');
   });
 });

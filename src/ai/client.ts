@@ -14,9 +14,8 @@ import type {
   Gain,
   GainCategory,
   LogAnalysis,
-  LogType,
+  CategoryId,
   LogWithAnalysis,
-  MomentTag,
   Mirror,
   MonthThemeCandidate,
   Progression,
@@ -35,8 +34,6 @@ import {
 } from './progressionRules';
 import { analyzeLocally } from './localAnalysis';
 import { buildMirror } from './mirror';
-import { isUsableQuestion, pickQuestion } from '@/constants/questions';
-import { watchedPatterns } from '@/constants/desiredSelf';
 
 export interface AnalysisOutcome {
   analysis: LogAnalysis;
@@ -116,58 +113,6 @@ function readStringArray(value: unknown, limit = 8): string[] {
 function readOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
-
-// ---------------------------------------------------------------------------
-// STAGE 0 — the Level 3 question (§11-§13)
-// ---------------------------------------------------------------------------
-
-export interface QuestionContext {
-  logType: LogType;
-  momentTags: readonly MomentTag[];
-  desiredSelfCards?: readonly string[];
-  lenses?: readonly string[];
-  monthTheme?: string | undefined;
-}
-
-/**
- * The one-line question, asked before the save.
- *
- * The table in `constants/questions.ts` answers first and answers instantly,
- * so the field is never waiting on a network call. The model is then given a
- * chance to say something better, and its answer is used only if it is short
- * enough and carries none of the forbidden reflective phrasing (§12).
- *
- * That ordering is the whole design: the fallback is not a degraded mode, it
- * is the floor, and the model can only improve on it.
- */
-export async function generateQuestion(context: QuestionContext): Promise<string | null> {
-  const watched = watchedPatterns([...(context.desiredSelfCards ?? [])]);
-  const fallback = pickQuestion({
-    logType: context.logType,
-    momentTags: context.momentTags,
-    watched,
-  });
-
-  try {
-    const raw = await invoke<{ question?: unknown }>('generate-question', {
-      log_type: context.logType,
-      moment_tags: context.momentTags,
-      lenses: context.lenses ?? [],
-      month_theme: context.monthTheme ?? null,
-      fallback,
-    });
-    const question = readOptionalString(raw.question);
-    if (question && isUsableQuestion(question)) return question;
-  } catch {
-    // Unreachable or slow: the table's answer is already good.
-  }
-
-  return fallback;
-}
-
-// ---------------------------------------------------------------------------
-// STAGE 1 & 2 — reading one record (§16-§19)
-// ---------------------------------------------------------------------------
 
 function readProgression(raw: unknown): Progression | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -274,7 +219,7 @@ export async function analyzeLog(log: DailyLog): Promise<AnalysisOutcome> {
         progressions,
         mirror: buildMirror({
           logId: log.id,
-          momentTags: log.momentTags,
+          ...(log.categoryId ? { categoryId: log.categoryId } : {}),
           analysis,
           joined,
           emerged,
@@ -311,9 +256,8 @@ async function analyzeLogLocally(
 
   const result = analyzeLocally({
     logId: log.id,
-    logType: log.logType,
-    momentTags: log.momentTags,
-    optionalAnswer: log.optionalAnswer,
+    categoryId: log.categoryId as CategoryId,
+    ...(log.body ? { body: log.body } : {}),
     occurredAt: log.occurredAt,
     history,
   });
@@ -348,7 +292,7 @@ async function analyzeLogLocally(
     progressions,
     mirror: buildMirror({
       logId: log.id,
-      momentTags: log.momentTags,
+      ...(log.categoryId ? { categoryId: log.categoryId } : {}),
       analysis: result.analysis,
       joined: progressions,
     }),

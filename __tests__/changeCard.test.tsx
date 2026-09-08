@@ -26,16 +26,12 @@ const change = (overrides: Partial<Change> = {}): Change =>
         occurredOn: '2026-09-01',
         role: 'attempt',
         text: '次の半年で試す選択を一つ決める',
-        logType: 'thought',
-        momentTags: [],
       },
       {
         logId: 'l2',
         occurredOn: '2026-09-07',
         role: 'change',
         text: '証拠がある方向を小さく選びたい',
-        logType: 'thought',
-        momentTags: [],
       },
     ],
     gains: [],
@@ -150,16 +146,12 @@ describe('the summary card', () => {
           occurredOn: '2026-09-20',
           role: 'evidence',
           text: '三つ目',
-          logType: 'thought',
-          momentTags: [],
         },
         {
           logId: 'l4',
           occurredOn: '2026-09-28',
           role: 'current',
           text: '四つ目',
-          logType: 'thought',
-          momentTags: [],
         },
       ],
     });
@@ -188,16 +180,16 @@ describe('the summary card', () => {
               occurredOn: '2026-09-02',
               role: 'friction',
               text: '何が嫌なのかはまだうまく言えない',
-              logType: 'thought',
-              momentTags: ['friction'],
+              categoryId: 'self_hard',
+              detailId: 'people',
             },
             {
               logId: 'l2',
               occurredOn: '2026-09-17',
               role: 'current',
               text: '優先するものを自分で決めた',
-              logType: 'self_action',
-              momentTags: ['self_decided', 'tried'],
+              categoryId: 'values_important',
+              detailId: 'freedom',
             },
           ],
         })}
@@ -211,9 +203,9 @@ describe('the summary card', () => {
     // picked and the shape the reading found is invisible.
     expect(getByText('ひっかかった')).toBeTruthy();
     expect(getByText('いま')).toBeTruthy();
-    // The person's own tags, as they tapped them.
-    expect(getByText('モヤモヤ')).toBeTruthy();
-    expect(getByText('自分で決めた・やってみた')).toBeTruthy();
+    // And what the person filed it under, in their own vocabulary.
+    expect(getByText('しんどかった・一緒にいた人')).toBeTruthy();
+    expect(getByText('大切だと思った・自由')).toBeTruthy();
   });
 
   it('says how far the records let it go (§17)', () => {

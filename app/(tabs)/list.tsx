@@ -17,6 +17,7 @@ import { useMonthReviews } from '@/hooks/useMonthReview';
 import { useMonthChangeCounts } from '@/hooks/useChanges';
 import { useUiStore } from '@/state/uiStore';
 import { monthKeyOfDate, selectableYears } from '@/utils/period';
+import { antennaOfCategory } from '@/constants/log';
 import { runBackfill } from '@/ai/backfill';
 import { generateMonthChanges } from '@/ai/client';
 import { signOutEverywhere } from '@/lib/session';
@@ -26,7 +27,7 @@ import type { ListFilter } from '@components/list/CategoryFilter';
 import type { MapState } from '@components/list/MonthAction';
 import type { DailyLog, LogWithAnalysis } from '@/types';
 
-const NO_FILTER: ListFilter = { logType: null, momentTag: null };
+const NO_FILTER: ListFilter = { antennaId: null, categoryId: null };
 
 /**
  * LIST (§20).
@@ -75,8 +76,10 @@ export default function ListScreen() {
       const bucket = map.get(key) ?? { shown: [], all: [] };
       bucket.all.push(entry);
       const passes =
-        (!filter.logType || entry.logType === filter.logType) &&
-        (!filter.momentTag || entry.momentTags.includes(filter.momentTag));
+        (!filter.antennaId ||
+          (entry.categoryId !== undefined &&
+            antennaOfCategory(entry.categoryId) === filter.antennaId)) &&
+        (!filter.categoryId || entry.categoryId === filter.categoryId);
       if (passes) bucket.shown.push(entry);
       map.set(key, bucket);
     }

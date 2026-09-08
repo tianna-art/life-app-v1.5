@@ -194,17 +194,15 @@ export function resolveGainCategory(value: unknown): GainCategory | undefined {
  */
 export interface PatternEvidence {
   logId: string;
-  logType: LogType;
-  momentTags: readonly MomentTag[];
+  /** What the person filed it under. Absent on an unclassified free entry. */
+  categoryId?: string | undefined;
   occurredAt: string;
 }
 
 /** One thing that has to appear, in order, for a pattern to be that pattern. */
 export interface PatternStage {
-  /** Satisfied by any one of these tags. Empty means any tag will do. */
-  anyTag?: readonly MomentTag[];
-  /** Satisfied only from these doors. Empty means any door will do. */
-  anyType?: readonly LogType[];
+  /** Satisfied by any one of these categories. Empty means any will do. */
+  anyCategory?: readonly string[];
 }
 
 export interface PatternRequirement {
@@ -227,73 +225,80 @@ export interface PatternRequirement {
 export const PATTERN_REQUIREMENTS: readonly PatternRequirement[] = [
   {
     pattern: 'naming',
-    // Vague to nameable. Two namings, and the later one is the specific one.
-    stages: [{ anyTag: ['discovered'] }, { anyTag: ['discovered'] }],
+    // Vague to nameable. Two learnings, and the later one is the specific one.
+    stages: [{ anyCategory: ['progress_learned'] }, { anyCategory: ['progress_learned'] }],
     shape: '曖昧 → 具体的に言える',
   },
   {
     pattern: 'first_act',
-    // Thinking about it, then doing it.
-    stages: [{ anyType: ['thought'] }, { anyTag: ['tried', 'first_time'] }],
+    // Drawn to it, then doing it.
+    stages: [
+      { anyCategory: ['spark_curious', 'spark_inspired'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
+    ],
     shape: '考える → 試す',
   },
   {
     pattern: 'repeat',
     // Once is an attempt; three times is a habit forming.
     stages: [
-      { anyTag: ['tried', 'first_time'] },
-      { anyTag: ['tried', 'first_time'] },
-      { anyTag: ['tried', 'first_time'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
     ],
     shape: '一度 → 繰り返す',
   },
   {
     pattern: 'solo',
-    // Needed someone, then did it themselves.
-    stages: [
-      { anyType: ['relationship'] },
-      { anyType: ['self_action'], anyTag: ['tried', 'first_time'] },
-    ],
+    // It was hard, then it went by itself.
+    stages: [{ anyCategory: ['self_hard'] }, { anyCategory: ['self_good', 'progress_did'] }],
     shape: '助けが必要 → 自分でもできる',
   },
   {
     pattern: 'pivot',
-    // §18 names this one: all three points are required.
+    // §18 names this one: all three points are required. Something was hard,
+    // something was done about it, and it was tried again.
     stages: [
-      { anyTag: ['friction'] },
-      { anyTag: ['changed'] },
-      { anyTag: ['tried', 'first_time'] },
+      { anyCategory: ['self_hard'] },
+      { anyCategory: ['sustainable_relieved'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
     ],
     shape: 'うまくいかない → やり方を変える → 再試行',
   },
   {
     pattern: 'expose',
-    // Kept in, then shown to someone.
-    stages: [{ anyType: ['self_action', 'thought'] }, { anyType: ['relationship'] }],
+    // Held inside, then out where someone could see it.
+    stages: [
+      { anyCategory: ['spark_curious', 'progress_learned'] },
+      { anyCategory: ['progress_tried', 'progress_did'] },
+    ],
     shape: '自分の内側 → 身近な人 → 外部',
   },
   {
     pattern: 'own_call',
-    stages: [{ anyTag: ['self_decided'] }, { anyTag: ['self_decided'] }],
+    // Twice named as mattering. One is a feeling; two is a criterion.
+    stages: [{ anyCategory: ['values_important'] }, { anyCategory: ['values_important'] }],
     shape: '他人基準 → 自分で決める',
   },
   {
     pattern: 'transfer',
-    // A method found once, used again later. Whether the second use is a
-    // different situation is the model's call; that it was used twice is not.
-    stages: [{ anyTag: ['changed'] }, { anyTag: ['tried', 'first_time', 'changed'] }],
+    // A way of working that eased something, used again later.
+    stages: [
+      { anyCategory: ['sustainable_relieved', 'sustainable_easy'] },
+      { anyCategory: ['sustainable_easy', 'progress_tried', 'self_good'] },
+    ],
     shape: 'ある場面の方法 → 別の場面でも使う',
   },
   {
     pattern: 'reframe',
-    // Stuck on it, then saw it differently.
-    stages: [{ anyTag: ['friction'] }, { anyTag: ['discovered'] }],
+    // Something was off, then something was understood.
+    stages: [{ anyCategory: ['values_wrong', 'self_hard'] }, { anyCategory: ['progress_learned'] }],
     shape: '問題Aだと思っていた → 別の捉え方',
   },
   {
     pattern: 'boundary',
-    // Put up with it, then drew a line.
-    stages: [{ anyTag: ['friction'] }, { anyTag: ['self_decided'] }],
+    // Put up with it, then named what mattered instead.
+    stages: [{ anyCategory: ['values_wrong', 'self_hard'] }, { anyCategory: ['values_important'] }],
     shape: '受け入れる → 条件をつける / 断る',
   },
 ] as const;
@@ -301,13 +306,10 @@ export const PATTERN_REQUIREMENTS: readonly PatternRequirement[] = [
 const REQUIREMENT_BY_PATTERN = new Map(PATTERN_REQUIREMENTS.map((r) => [r.pattern, r]));
 
 function stageMet(stage: PatternStage, record: PatternEvidence): boolean {
-  if (stage.anyType && stage.anyType.length > 0 && !stage.anyType.includes(record.logType)) {
-    return false;
-  }
-  if (stage.anyTag && stage.anyTag.length > 0) {
-    return stage.anyTag.some((tag) => record.momentTags.includes(tag));
-  }
-  return true;
+  if (!stage.anyCategory || stage.anyCategory.length === 0) return true;
+  // An unclassified record satisfies nothing. It is not evidence of a shape
+  // until something has said what it is.
+  return record.categoryId !== undefined && stage.anyCategory.includes(record.categoryId);
 }
 
 /**

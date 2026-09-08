@@ -6,62 +6,77 @@
  * them is looked up against the app's own constants, so a renamed card or tag
  * fails here rather than loading a row the app cannot read.
  *
- *   node scripts/build-demo-sql.mjs
+ *   npm run build:demo
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ALL_CATEGORIES, ANTENNAS, ANTENNA_ORDER, MAX_ANTENNAS } from '../src/domain/antennas';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 /** id/label pairs out of a constants file, without importing TypeScript. */
-function catalogue(source) {
-  const out = new Map();
+function catalogue(source: string): Map<string, string> {
+  const out = new Map<string, string>();
   const re = /id:\s*'([a-z0-9_]+)'\s*,\s*\n?\s*label:\s*'([^']+)'/g;
-  for (const [, id, label] of source.matchAll(re)) out.set(label, id);
+  for (const [, id, label] of source.matchAll(re)) out.set(label ?? '', id ?? '');
   return out;
 }
 
-const areas = catalogue(read('src/constants/areas.ts'));
-const cards = catalogue(read('src/constants/desiredSelf.ts'));
-const logTypes = catalogue(read('src/constants/log.ts'));
-const tags = catalogue(read('src/constants/log.ts'));
+// The domain is imported, not parsed. Reading ids out of the file with a
+// regex is how the two drift: a rename that the parser does not expect turns
+// into a silent miss, and the demo loads a vocabulary the app has not got.
+const ANTENNA_BY_TITLE = new Map(
+  ANTENNA_ORDER.map((id) => [ANTENNAS[id].title, id])
+);
+const CATEGORY_BY_LABEL = new Map(
+  ALL_CATEGORIES.map((category) => [category.label, category])
+);
 
-/**
- * The spreadsheet was written before the card was renamed. Same card, same id
- * — mapping it here is honest, inventing a new card would not be.
- */
-const LABEL_ALIASES = new Map([['力が出る環境が分かる', '力が出る条件が分かる']]);
+const LABEL_ALIASES = new Map<string, string>();
 
-function lookup(catalog, label, what) {
+function lookup(catalog: Map<string, string>, label: string, what: string): string {
   const key = LABEL_ALIASES.get(label) ?? label;
   const id = catalog.get(key);
   if (!id) throw new Error(`${what}「${label}」は constants にありません。`);
   return id;
 }
 
-function tsv(path) {
+function tsv(path: string): Record<string, string>[] {
   const [head, ...rest] = read(path).trim().split('\n');
-  const cols = head.split('\t');
+  const cols = (head ?? '').split('\t');
   return rest.map((line) => {
     const cells = line.split('\t');
     return Object.fromEntries(cols.map((c, i) => [c, cells[i] ?? '']));
   });
 }
 
-const lit = (value) => (value === null ? 'null' : `'${String(value).replace(/'/g, "''")}'`);
-const array = (ids) => `array[${ids.map(lit).join(', ')}]`;
+const lit = (value: string | null | undefined): string => (value === null ? 'null' : `'${String(value).replace(/'/g, "''")}'`);
+const array = (ids: readonly string[]): string => `array[${ids.map(lit).join(', ')}]`;
 
 // ---- the lens -------------------------------------------------------------
 
 const setup = tsv('supabase/demo/setup.tsv').filter((r) => r.selected === '1');
-const selectedAreas = setup
-  .filter((r) => r.kind === '方向性')
-  .map((r) => lookup(areas, r.label, '方向性'));
-const selectedCards = setup
-  .filter((r) => r.kind === 'なりたい姿')
-  .map((r) => lookup(cards, r.label, 'なりたい姿'));
+
+/**
+ * The month's antennas. At most two, and the ceiling is the domain's.
+ *
+ * This is the lens. It used to be the year's — ten directions and thirty-one
+ * cards, chosen once — and it is the month's now, because a month is the unit
+ * of observation.
+ */
+const monthAntennas = new Map<string, string[]>();
+for (const row of setup.filter((r) => r.kind === 'アンテナ')) {
+  const id = ANTENNA_BY_TITLE.get(row.label ?? '');
+  if (!id) throw new Error(`アンテナ「${row.label}」は domain にありません。`);
+  const list = monthAntennas.get(row.group ?? '') ?? [];
+  if (list.length >= MAX_ANTENNAS) {
+    throw new Error(`${row.group} のアンテナが ${MAX_ANTENNAS} を超えています。`);
+  }
+  monthAntennas.set(row.group ?? '', [...list, id]);
+}
 
 /**
  * The declarations (§5).
@@ -83,34 +98,50 @@ for (const year of yearThemes.keys()) {
 const monthThemes = setup
   .filter((r) => r.kind === '月テーマ')
   .map((r) => ({
-    year: Number(r.group.slice(0, 4)),
-    month: Number(r.group.slice(5, 7)),
-    theme: r.label,
+    year: Number((r.group ?? '').slice(0, 4)),
+    month: Number((r.group ?? '').slice(5, 7)),
+    theme: r.label ?? '',
   }));
 
 // ---- the records ----------------------------------------------------------
 
-const logs = tsv('supabase/demo/logs.tsv').map((row, index) => ({
-  key: row.log_id,
-  occurredOn: row.occurred_on,
-  logType: lookup(logTypes, row.level1, '第1カテゴリ'),
-  momentTags: row.moment_tags
-    .split('・')
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => lookup(tags, t, '第2カテゴリ')),
-  text: row.text,
-  index,
-}));
+const logs = tsv('supabase/demo/logs.tsv').map((row, index) => {
+  const category = CATEGORY_BY_LABEL.get(row.category ?? '');
+  if (!category) throw new Error(`カテゴリ「${row.category}」は domain にありません。`);
+  // A detail only means anything inside its category, so it is looked up
+  // there: 「人」 is a source of influence under ときめき and someone you were
+  // with under 活かし方.
+  const detail = row.detail
+    ? category.details.find((d) => d.label === row.detail)
+    : null;
+  if (row.detail && !detail) {
+    throw new Error(`「${row.category}」に詳細「${row.detail}」はありません。`);
+  }
+  return {
+    key: row.log_id ?? '',
+    occurredOn: row.occurred_on ?? '',
+    categoryId: category.id as string,
+    detailId: detail?.id ?? null,
+    text: row.text ?? '',
+    index,
+  };
+});
 
-if (logs.some((l) => l.momentTags.length === 0)) {
-  throw new Error('瞬間タグのない行があります。');
+// Every demo record is filed under an antenna the month actually chose.
+// Otherwise the composer could never have produced it.
+for (const log of logs) {
+  const month = log.occurredOn.slice(0, 7);
+  const chosen = monthAntennas.get(month) ?? [];
+  const antenna = ALL_CATEGORIES.find((c) => c.id === log.categoryId)?.antennaId;
+  if (!antenna || !chosen.includes(antenna)) {
+    throw new Error(`${log.key}: ${month} のアンテナに ${antenna} がありません。`);
+  }
 }
 
 // Records are read strictly in the order they happened (§17), so two records
 // on the same day must not tie. The minute comes from the row's position,
 // which is the only ordering the spreadsheet actually asserts.
-const occurredAt = (log) => {
+const occurredAt = (log: { occurredOn: string; index: number }): string => {
   const minute = String(log.index % 60).padStart(2, '0');
   return `${log.occurredOn}T21:${minute}:00+09:00`;
 };
@@ -121,13 +152,13 @@ const values = logs
   .map(
     (log) =>
       `    (${lit(log.key)}, ${lit(log.occurredOn)}, ${lit(occurredAt(log))}, ` +
-      `${lit(log.logType)}, ${array(log.momentTags)}, ${lit(log.text)})`
+      `${lit(log.categoryId)}, ${lit(log.detailId)}, ${lit(log.text)})`
   )
   .join(',\n');
 
 const sql = `-- crincran — demo data.
 --
--- Generated by scripts/build-demo-sql.mjs from supabase/demo/*.tsv. Edit the
+-- Generated by scripts/build-demo-sql.ts from supabase/demo/*.tsv. Edit the
 -- TSVs and re-run; do not edit this file.
 --
 -- ${logs.length} records, ${years[0]} to ${years[years.length - 1]}, plus the lens and the declarations they were
@@ -152,63 +183,70 @@ begin
     raise exception 'このメールアドレスのアカウントが見つかりません: %', '__DEMO_EMAIL__';
   end if;
 
-  -- The lens, one row per year the records span. Same choices each year: the
-  -- spreadsheet asserts one direction, not a change of direction.
-  insert into public.year_directions
-    (user_id, year, selected_areas, desired_self_cards, initial_theme)
-  select uid, y, ${array(selectedAreas)}, ${array(selectedCards)}, t.theme
+  -- The year's declaration. One row per year the records span; it is a
+  -- heading, not a target, and the year-end reading compares against it.
+  insert into public.year_directions (user_id, year, initial_theme)
+  select uid, y, t.theme
     from unnest(
       array[${years.join(', ')}],
       array[${years.map((y) => lit(yearThemes.get(y) ?? null)).join(', ')}]::text[]
     ) as t(y, theme)
-  -- Never over a direction the person actually built. The theme the demo
-  -- writes is its own; a row carrying one already is theirs and is left as it
-  -- is, which is also why the update below cannot reach it.
+  -- Never over a declaration the person made. The theme the demo writes is
+  -- its own, which is also why the update below cannot reach theirs.
   on conflict (user_id, year) do update
-     set selected_areas = excluded.selected_areas,
-         desired_self_cards = excluded.desired_self_cards,
-         initial_theme = excluded.initial_theme
-   where public.year_directions.initial_theme is null
-     and public.year_directions.progression_lenses = '{}';
+     set initial_theme = excluded.initial_theme
+   where public.year_directions.initial_theme is null;
 
-  -- §5's month declaration. Its source is custom because the person wrote it
-  -- rather than taking one of the three the model offered — there was no month
-  -- before it to base a candidate on, which is what a first month looks like.
-  insert into public.month_themes (user_id, year, month, initial_theme, source)
-  select uid, m.year, m.month, m.theme, 'custom'
+  -- The month's declaration and its antennas. The antennas are the lens: at
+  -- most two, chosen at the start of the month, and what the composer offers
+  -- categories from. Source is custom because the person wrote the theme
+  -- rather than taking one of the three the model offered — there was no
+  -- month before it to base a candidate on.
+  insert into public.month_themes
+    (user_id, year, month, initial_theme, source, antenna_ids)
+  select uid, m.year, m.month, m.theme, 'custom', m.antennas
     from (values
 ${monthThemes
-  .map((m) => `      (${m.year}, ${m.month}, ${lit(m.theme)})`)
+  .map(
+    (m) =>
+      `      (${m.year}, ${m.month}, ${lit(m.theme)}, ` +
+      `${array(monthAntennas.get(`${m.year}-${String(m.month).padStart(2, '0')}`) ?? [])})`
+  )
   .join(',\n')}
-    ) as m(year, month, theme)
+    ) as m(year, month, theme, antennas)
   on conflict (user_id, year, month) do update
      set initial_theme = excluded.initial_theme,
-         source = excluded.source
+         source = excluded.source,
+         antenna_ids = excluded.antenna_ids
    where public.month_themes.initial_theme is null
      and public.month_themes.final_theme is null;
 
   for demo in
     select * from (values
 ${values}
-    ) as t(key, occurred_on, occurred_at, log_type, moment_tags, body)
+    ) as t(key, occurred_on, occurred_at, category_id, detail_id, body)
   loop
     insert into public.logs
-      (id, user_id, occurred_on, occurred_at, type, moment_tags, optional_answer)
+      (id, user_id, occurred_on, occurred_at, category_id, detail_id, body,
+       input_method, classification_source, classification_status)
     values (
       md5(uid::text || ':crincran-demo:' || demo.key)::uuid,
       uid,
       demo.occurred_on::date,
       demo.occurred_at::timestamptz,
-      demo.log_type::public.log_type,
-      demo.moment_tags::public.moment_tag[],
-      demo.body
+      demo.category_id,
+      demo.detail_id,
+      demo.body,
+      'category'::public.log_input_method,
+      'user'::public.classification_source,
+      'confirmed'::public.classification_status
     )
     on conflict (id) do update
        set occurred_on = excluded.occurred_on,
            occurred_at = excluded.occurred_at,
-           type = excluded.type,
-           moment_tags = excluded.moment_tags,
-           optional_answer = excluded.optional_answer;
+           category_id = excluded.category_id,
+           detail_id = excluded.detail_id,
+           body = excluded.body;
     inserted := inserted + 1;
   end loop;
 
@@ -223,7 +261,7 @@ writeFileSync(join(ROOT, 'supabase/demo/demo_data.sql'), sql);
 // wrote themselves can be caught by it.
 const removal = `-- crincran — remove the demo data.
 --
--- Generated by scripts/build-demo-sql.mjs. Deletes the ${logs.length} demo records and
+-- Generated by scripts/build-demo-sql.ts. Deletes the ${logs.length} demo records and
 -- the years' lens rows, and nothing else: the ids are derived the same way
 -- they were written, so a record the person made themselves cannot match.
 
@@ -258,8 +296,7 @@ begin
      and year = any(array[${years.join(', ')}])
      and (initial_theme is null
           or initial_theme in (${[...yearThemes.values()].map(lit).join(', ')}))
-     and final_theme is null
-     and progression_lenses = '{}';
+     and final_theme is null;
 
   raise notice 'crincran demo: removed % records for %', removed, '__DEMO_EMAIL__';
 end $$;
@@ -274,7 +311,7 @@ writeFileSync(join(ROOT, 'supabase/demo/demo_data_remove.sql'), removal);
 // the removal, so "not the demo" here means exactly the rows that file spares.
 const purge = `-- crincran — remove everything in an account EXCEPT the demo records.
 --
--- Generated by scripts/build-demo-sql.mjs.
+-- Generated by scripts/build-demo-sql.ts.
 --
 -- DESTRUCTIVE and not undoable: this deletes records the person wrote. Run it
 -- only on an account meant to hold nothing but the demo.
@@ -339,5 +376,5 @@ writeFileSync(join(ROOT, 'supabase/demo/purge_others.sql'), purge);
 
 console.log(
   `supabase/demo/demo_data.sql — ${logs.length} records, ` +
-    `${selectedAreas.length} areas, ${selectedCards.length} cards, years ${years.join('/')}`
+    `${[...monthAntennas.values()].flat().length} antenna choices, years ${years.join('/')}`
 );

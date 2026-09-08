@@ -17,17 +17,45 @@
 // Level 1 & 2 — what the person taps (§9, §10)
 // ---------------------------------------------------------------------------
 
-/** The door the record is left through. Not an exclusive classification. */
-export type LogType = 'self_action' | 'relationship' | 'thought';
+/**
+ * The vocabulary a record is filed under.
+ *
+ * `src/domain/antennas.ts` holds the five antennas, the fifteen categories and
+ * the details under each. It is the source of truth for the ids and for every
+ * label; nothing here restates them.
+ */
+import type { AntennaId, CategoryId, DetailId } from '@/domain/antennas';
+
+export type { AntennaId, CategoryId, DetailId };
+
+/** How the record was left. */
+export type LogInputMethod = 'category' | 'free_text' | 'voice' | 'flow';
+
+/** Who filed it. A free-text entry is classified by the reading, not the person. */
+export type ClassificationSource = 'user' | 'ai';
+export type ClassificationStatus = 'confirmed' | 'pending' | 'unclassified';
 
 /**
- * What kind of moment it was. More than one may be true at once — "first time"
- * and "enjoyed" and "friction" can all describe the same afternoon.
+ * A second category the classifier also saw.
  *
- * None of these is a verdict. `friction` in particular is not a failure and is
- * never read as one (§10).
+ * Kept beside the chosen one rather than instead of it: a record can be
+ * evidence for another antenna without the person having filed it there.
  */
-export type MomentTag =
+export interface AiSignal {
+  antennaId: string;
+  categoryId: string;
+}
+
+/**
+ * The door a v3 record was left through, and what kind of moment it was.
+ *
+ * Retired 2026-09 in favour of the antenna vocabulary. Rows written under them
+ * keep them, and the archive still prints what they carry, so the types stay
+ * — nothing new is written with either.
+ */
+export type LegacyLogType = 'self_action' | 'relationship' | 'thought';
+
+export type LegacyMomentTag =
   | 'enjoyed'
   | 'tried'
   | 'first_time'
@@ -70,6 +98,15 @@ export interface MonthTheme {
   userId: string;
   year: number;
   month: number;
+  /**
+   * The month's antennas, in the order they were picked. At most two.
+   *
+   * This is the lens. It used to be the year's — ten directions and thirty-one
+   * cards chosen once — and it is the month's now, because a month is the unit
+   * of observation and a lens that cannot be re-aimed stops matching the
+   * person before the year is out.
+   */
+  antennaIds: AntennaId[];
   initialTheme?: string | undefined;
   finalTheme?: string | undefined;
   source: ThemeSource;
@@ -94,22 +131,35 @@ export interface DailyLog {
   occurredAt: string;
   /** `YYYY-MM-DD`, derived from occurredAt. Every period query joins on this. */
   occurredOn: string;
-  logType: LogType;
-  momentTags: MomentTag[];
-  /** The one-line question the model asked, kept beside its answer. */
-  aiQuestion?: string | undefined;
-  /** Optional by design (§14). Most records will not have one. */
-  optionalAnswer?: string | undefined;
-  /** v3 free text. Read-only: nothing new is written here. */
+  /**
+   * One of the fifteen. Absent on a free-text entry nothing has read yet, and
+   * on every record written before the antennas existed.
+   */
+  categoryId?: CategoryId | undefined;
+  /** One option under that category. Its meaning depends on the category. */
+  detailId?: DetailId | undefined;
+  inputMethod: LogInputMethod;
+  classificationSource: ClassificationSource;
+  classificationStatus: ClassificationStatus;
+  /** Other categories the classifier saw. Never overrides the chosen one. */
+  aiSignals: AiSignal[];
+  /** What the person wrote. `何があった？` is the same question every time. */
   body?: string | undefined;
+  /** v4 rows: the one-line question the model asked, beside its answer. */
+  aiQuestion?: string | undefined;
+  optionalAnswer?: string | undefined;
+  /** v3/v4 rows only. Nothing new is written with either. */
+  legacyLogType?: LegacyLogType | undefined;
+  legacyMomentTags?: LegacyMomentTag[] | undefined;
   createdAt: string;
 }
 
 export interface NewLogInput {
-  logType: LogType;
-  momentTags: MomentTag[];
-  aiQuestion?: string;
-  optionalAnswer?: string;
+  /** Absent when the record was left as free text for the reading to file. */
+  categoryId?: CategoryId;
+  detailId?: DetailId;
+  body?: string;
+  inputMethod?: LogInputMethod;
   /** Defaults to now. */
   occurredAt?: string;
 }
@@ -243,8 +293,8 @@ export interface ProgressionStep {
   role: ProgressionEvidenceRole;
   /** The model's one-line reading of that record. */
   eventSummary: string;
-  logType: LogType;
-  momentTags: MomentTag[];
+  categoryId?: CategoryId | undefined;
+  detailId?: DetailId | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,8 +432,9 @@ export interface ChangeEvidenceEntry {
   role: ChangeEvidenceRole;
   /** The record as it was written. Not a paraphrase (§26). */
   text: string;
-  logType: LogType;
-  momentTags: MomentTag[];
+  /** What the person filed it under. The card prints the label, not the id. */
+  categoryId?: CategoryId | undefined;
+  detailId?: DetailId | undefined;
 }
 
 export type PeriodType = 'month' | 'year' | 'long_term';

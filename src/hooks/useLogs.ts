@@ -93,10 +93,15 @@ export function useCreateLog() {
             userId: 'pending',
             occurredAt: item.occurredAt,
             occurredOn: item.occurredAt.slice(0, 10),
-            logType: item.logType,
-            momentTags: item.momentTags,
-            aiQuestion: item.aiQuestion,
-            optionalAnswer: item.optionalAnswer,
+            ...(item.categoryId ? { categoryId: item.categoryId } : {}),
+            ...(item.detailId ? { detailId: item.detailId } : {}),
+            ...(item.body ? { body: item.body } : {}),
+            inputMethod: item.inputMethod ?? 'category',
+            classificationSource: 'user' as const,
+            classificationStatus: item.categoryId
+              ? ('confirmed' as const)
+              : ('unclassified' as const),
+            aiSignals: [],
             createdAt: item.queuedAt,
           },
           queued: true,
@@ -113,7 +118,11 @@ export function useCreateLog() {
         return {
           log,
           queued: false,
-          mirror: buildMirror({ logId: log.id, momentTags: log.momentTags, joined: [] }),
+          mirror: buildMirror({
+            logId: log.id,
+            ...(log.categoryId ? { categoryId: log.categoryId } : {}),
+            joined: [],
+          }),
         };
       }
     },

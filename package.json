@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "tsx scripts/seed.ts",
-    "sync:shared": "tsx scripts/sync-shared.ts"
+    "sync:shared": "tsx scripts/sync-shared.ts",
+    "build:demo": "tsx scripts/build-demo-sql.ts"
   },
   "jest": {
     "preset": "jest-expo",

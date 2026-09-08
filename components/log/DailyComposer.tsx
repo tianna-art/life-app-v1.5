@@ -1,79 +1,56 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, spacing } from '@/theme';
 import { HOME } from '@/constants/copy';
+import { getCategoryById } from '@/constants/log';
 import { DatePicker } from './DatePicker';
-import { Level1Picker } from './Level1Picker';
-import { MomentTagPicker } from './MomentTagPicker';
-import type { LogType, MomentTag, NewLogInput } from '@/types';
+import { CategoryPicker } from './CategoryPicker';
+import { DetailPicker } from './DetailPicker';
+import type { AntennaId, CategoryId, DetailId, NewLogInput } from '@/types';
 
 interface DailyComposerProps {
   /** The month being written into, `YYYY-MM`. */
   monthKey: string;
+  /** The month's antennas. Their categories are what this offers. */
+  antennaIds: readonly AntennaId[];
   /** The day the composer opens on. Today, or the first of another month. */
   defaultDay: string;
   /** Days after this are not offered. Absent once the month is behind us. */
   latestDay?: string | undefined;
   onSave: (input: NewLogInput) => void;
-  /**
-   * Asks for the one-line question once a door and a tag are chosen. Returns
-   * null when there is nothing worth asking.
-   */
-  onNeedQuestion: (input: {
-    logType: LogType;
-    momentTags: MomentTag[];
-  }) => Promise<string | null>;
   saving?: boolean;
 }
 
 /**
- * The whole input surface (§8, §14).
+ * The whole input surface.
  *
- * Open the app, tap a door, tap what kind of moment it was, and ✓. The
- * question appears once there is something to ask about, and answering it is
- * optional — §14 is explicit that a record with no free text is a complete
- * record. Target: 5-15 seconds.
+ * Which day, which category, what about it, and what happened. Three taps and
+ * a line, and the line is optional: the category and the detail are already a
+ * record, and 「何があった？」 is asked the same way every time on purpose —
+ * a different question per category reads as an exam, and the category label
+ * has already said what kind of day it was.
  *
- * The question is fetched but never waited on: the save button is live from
- * the moment a door and a tag exist, so a slow network cannot make the fast
- * path slow.
+ * Only the month's antennas are offered. The fifteen categories exist; a month
+ * is three or six of them, and that is what makes the first tap a reflex.
+ *
+ * The detail appears once a category is chosen, because the question above it
+ * belongs to the category. Nothing is asked before there is something to ask.
  */
 export function DailyComposer({
   monthKey,
+  antennaIds,
   defaultDay,
   latestDay,
   onSave,
-  onNeedQuestion,
   saving = false,
 }: DailyComposerProps) {
   const [day, setDay] = useState(defaultDay);
-  const [logType, setLogType] = useState<LogType | null>(null);
-  const [momentTags, setMomentTags] = useState<MomentTag[]>([]);
-  const [question, setQuestion] = useState<string | null>(null);
-  const [answer, setAnswer] = useState('');
+  const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
+  const [detailId, setDetailId] = useState<DetailId | null>(null);
+  const [body, setBody] = useState('');
 
-  // Which request is current. A slower earlier answer must not overwrite a
-  // newer one when the person keeps tapping.
-  const requestRef = useRef(0);
-
-  useEffect(() => {
-    if (!logType || momentTags.length === 0) {
-      setQuestion(null);
-      return;
-    }
-    const token = (requestRef.current += 1);
-    let cancelled = false;
-    void onNeedQuestion({ logType, momentTags }).then((next) => {
-      if (cancelled || token !== requestRef.current) return;
-      setQuestion(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [logType, momentTags, onNeedQuestion]);
-
-  const canSave = logType !== null && momentTags.length > 0 && !saving;
-  const started = logType !== null || momentTags.length > 0 || answer.length > 0;
+  const canSave = categoryId !== null && !saving;
+  const started = categoryId !== null || body.length > 0;
 
   // Moving to another month moves the composer with it, rather than leaving
   // a day from the month the person just left.
@@ -81,25 +58,30 @@ export function DailyComposer({
     setDay(defaultDay);
   }, [defaultDay]);
 
+  // A detail belongs to its category. Keeping one across a change of category
+  // would file the record under an option that category never offered.
+  useEffect(() => {
+    setDetailId(null);
+  }, [categoryId]);
+
   const reset = () => {
     setDay(defaultDay);
-    setLogType(null);
-    setMomentTags([]);
-    setQuestion(null);
-    setAnswer('');
+    setCategoryId(null);
+    setDetailId(null);
+    setBody('');
   };
 
   const handleSave = () => {
-    if (!logType || momentTags.length === 0 || saving) return;
-    const trimmed = answer.trim();
+    if (!categoryId || saving) return;
+    const trimmed = body.trim();
     onSave({
-      logType,
-      momentTags,
+      categoryId,
+      ...(detailId ? { detailId } : {}),
       // Midday, so a record cannot land on the day before in another
       // timezone — the day the person chose is the day it belongs to.
       occurredAt: new Date(`${day}T12:00:00Z`).toISOString(),
-      ...(question ? { aiQuestion: question } : {}),
-      ...(trimmed ? { optionalAnswer: trimmed } : {}),
+      ...(trimmed ? { body: trimmed } : {}),
+      inputMethod: 'category',
     });
     reset();
   };
@@ -109,28 +91,29 @@ export function DailyComposer({
       <DatePicker value={day} monthKey={monthKey} onChange={setDay} latest={latestDay} />
 
       <View style={styles.level}>
-        <Text style={styles.levelLabel}>{HOME.level1}</Text>
-        <Level1Picker value={logType} onChange={setLogType} />
+        <Text style={styles.levelLabel}>{HOME.category}</Text>
+        <CategoryPicker antennaIds={antennaIds} value={categoryId} onChange={setCategoryId} />
       </View>
 
-      <View style={styles.level}>
-        <Text style={styles.levelLabel}>{HOME.level2}</Text>
-        <MomentTagPicker value={momentTags} onChange={setMomentTags} />
-      </View>
+      {categoryId ? (
+        <View style={styles.level} testID="detail-level">
+          <DetailPicker categoryId={categoryId} value={detailId} onChange={setDetailId} />
+        </View>
+      ) : null}
 
-      {/* Level 3. Absent until there is something to ask about, and never a
-          reason to wait — the save is already available above it. */}
-      {question ? (
-        <View style={styles.level} testID="level3">
-          <Text style={styles.question}>{question}</Text>
+      {/* 何があった？ — the same question under every category, and answering
+          it is optional. The save above is already available. */}
+      {categoryId ? (
+        <View style={styles.level} testID="free-text">
+          <Text style={styles.question}>{getCategoryById(categoryId).freeTextPrompt}</Text>
           <TextInput
-            testID="answer-input"
-            value={answer}
-            onChangeText={setAnswer}
+            testID="body-input"
+            value={body}
+            onChangeText={setBody}
             style={styles.input}
             placeholder={HOME.answerPlaceholder}
             placeholderTextColor={colors.ivoryFaint}
-            accessibilityLabel={question}
+            accessibilityLabel={getCategoryById(categoryId).freeTextPrompt}
             accessibilityHint={HOME.answerPlaceholder}
             onSubmitEditing={handleSave}
             returnKeyType="done"

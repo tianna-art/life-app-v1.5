@@ -14,9 +14,8 @@
  */
 import type {
   LogAnalysis,
-  LogType,
+  CategoryId,
   LogWithAnalysis,
-  MomentTag,
   ProgressionEvidenceRole,
   ProgressionPattern,
   ProgressionType,
@@ -41,9 +40,8 @@ export interface LocalAnalysisResult {
 
 export interface LocalAnalysisInput {
   logId: string;
-  logType: LogType;
-  momentTags: readonly MomentTag[];
-  optionalAnswer?: string | undefined;
+  categoryId: CategoryId;
+  body?: string | undefined;
   occurredAt: string;
   /** Everything already written, any order. */
   history: readonly LogWithAnalysis[];
@@ -131,18 +129,29 @@ const TYPE_FOR_PATTERN: Record<ProgressionPattern, ProgressionType> = {
 };
 
 /** What a record does in a path, read from what the person tapped. */
-function evidenceRole(tags: readonly MomentTag[], logType: LogType): ProgressionEvidenceRole {
-  if (tags.includes('friction')) return 'friction';
-  if (tags.includes('changed')) return 'adaptation';
-  if (tags.includes('self_decided')) return 'turning_point';
-  if (tags.includes('discovered')) return 'turning_point';
-  if (tags.includes('first_time') || tags.includes('tried')) return 'attempt';
-  if (logType === 'thought') return 'origin';
-  return 'evidence';
+function evidenceRole(categoryId: CategoryId | undefined): ProgressionEvidenceRole {
+  switch (categoryId) {
+    case 'self_hard':
+      return 'friction';
+    case 'sustainable_relieved':
+      return 'adaptation';
+    case 'values_important':
+    case 'values_wrong':
+    case 'progress_learned':
+      return 'turning_point';
+    case 'progress_tried':
+    case 'progress_did':
+      return 'attempt';
+    case 'spark_curious':
+    case 'spark_inspired':
+      return 'origin';
+    default:
+      return 'evidence';
+  }
 }
 
 export function analyzeLocally(input: LocalAnalysisInput): LocalAnalysisResult {
-  const answer = input.optionalAnswer?.trim() ?? '';
+  const answer = input.body?.trim() ?? '';
   const terms = answer.length > 0 ? surfaceTerms(answer) : [];
 
   const analysis: LogAnalysis = {
@@ -154,45 +163,52 @@ export function analyzeLocally(input: LocalAnalysisInput): LocalAnalysisResult {
     themes: [...terms].sort((a, b) => b.length - a.length).slice(0, 6),
     people: [],
     // Only the fields the tags themselves assert. Nothing is inferred.
-    ...(input.momentTags.includes('friction') && answer ? { friction: answer.slice(0, 120) } : {}),
-    ...(input.momentTags.includes('discovered') && answer
+    // Only what the category itself asserts. Nothing is inferred: 「しんどか
+    // った」 is friction because the person said so, and nothing else here
+    // reads a feeling into a line they wrote.
+    ...(input.categoryId === 'self_hard' && answer ? { friction: answer.slice(0, 120) } : {}),
+    ...(input.categoryId === 'progress_learned' && answer
       ? { discovery: answer.slice(0, 120) }
       : {}),
-    ...(input.momentTags.includes('changed') && answer
+    ...(input.categoryId === 'sustainable_relieved' && answer
       ? { adaptation: answer.slice(0, 120) }
       : {}),
-    ...(input.momentTags.includes('self_decided') && answer ? { choice: answer.slice(0, 120) } : {}),
+    ...(input.categoryId === 'values_important' && answer ? { choice: answer.slice(0, 120) } : {}),
     // Never high: this path matched strings, it did not read anything.
     confidence: 0.3,
     analyzedAt: new Date().toISOString(),
   };
 
-  // What the record needs to belong to the same thread as an earlier one.
-  // With free text, shared terms decide. Without it — the common case in v4 —
-  // the door does, which is coarse but is real evidence rather than a guess.
+  // What the record might belong with. With free text, shared terms decide.
+  //
+  // Without it, everything recent is offered and the pattern floors do the
+  // discriminating — which is what they are for. This used to pre-filter on
+  // the door the record came through, and that was arbitrary work: a shape
+  // like しんどかった → 楽になった → やってみた crosses three categories by
+  // definition, so a filter that keeps only records like this one can never
+  // find it. Narrowing before the floor runs does not make the answer safer;
+  // it makes it smaller.
   const termSet = new Set(terms);
   const related = input.history
     .filter((log) => log.id !== input.logId)
     .filter((log) => {
-      if (termSet.size > 0) {
-        const theirs = log.analysis?.themes ?? surfaceTerms(log.optionalAnswer ?? log.body ?? '');
-        if (theirs.filter((t) => termSet.has(t)).length >= 2) return true;
-      }
-      return log.logType === input.logType;
+      if (termSet.size === 0) return true;
+      const theirs = log.analysis?.themes ?? surfaceTerms(log.body ?? log.optionalAnswer ?? '');
+      // Shared words are a stronger signal than proximity, so when there are
+      // any, they decide — but a record with none is not excluded by them.
+      return theirs.length === 0 || theirs.filter((t) => termSet.has(t)).length >= 2;
     })
-    .slice(0, 8);
+    .slice(-8);
 
   const evidence = [
     ...related.map((log) => ({
       logId: log.id,
-      logType: log.logType,
-      momentTags: log.momentTags,
+      ...(log.categoryId ? { categoryId: log.categoryId } : {}),
       occurredAt: log.occurredAt,
     })),
     {
       logId: input.logId,
-      logType: input.logType,
-      momentTags: [...input.momentTags],
+      categoryId: input.categoryId,
       occurredAt: input.occurredAt,
     },
   ];
@@ -223,7 +239,7 @@ export function analyzeLocally(input: LocalAnalysisInput): LocalAnalysisResult {
         goalExternal: false,
         evidence: evidence.map((e) => ({
           logId: e.logId,
-          role: evidenceRole(e.momentTags, e.logType),
+          role: evidenceRole(e.categoryId as CategoryId | undefined),
           occurredAt: e.occurredAt,
         })),
       },

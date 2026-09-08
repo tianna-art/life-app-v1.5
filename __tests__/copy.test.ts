@@ -13,7 +13,7 @@ import {
 } from '../src/constants/copy';
 import { DIRECTION_AREAS } from '../src/constants/areas';
 import { DESIRED_SELF_CARDS } from '../src/constants/desiredSelf';
-import { MOMENT_TAGS, LOG_TYPES } from '../src/constants/log';
+import { ALL_CATEGORIES, ANTENNAS, ANTENNA_ORDER } from '../src/constants/log';
 
 const ROOT = join(__dirname, '..');
 const SCANNED = ['app', 'components', 'src', 'supabase/functions'];
@@ -41,8 +41,12 @@ describe('the app does not praise, diagnose or count', () => {
     EMERGED_LINE,
     ...DIRECTION_AREAS.map((a) => a.label),
     ...DESIRED_SELF_CARDS.map((c) => c.label),
-    ...MOMENT_TAGS.map((t) => t.label),
-    ...LOG_TYPES.map((t) => t.label),
+    ...ALL_CATEGORIES.map((c) => c.label),
+    ...ALL_CATEGORIES.map((c) => c.detailQuestion),
+    ...ALL_CATEGORIES.flatMap((c) => c.details.map((d) => d.label)),
+    ...ANTENNA_ORDER.map((id) => ANTENNAS[id].title),
+    ...ANTENNA_ORDER.map((id) => ANTENNAS[id].recommendedWhen),
+    ...ANTENNA_ORDER.map((id) => ANTENNAS[id].provides),
   ];
 
   it('keeps the forbidden register out of every shipped string', () => {
@@ -55,7 +59,7 @@ describe('the app does not praise, diagnose or count', () => {
   });
 
   it('asks about what happened, never about what it meant (§12)', () => {
-    const asked = [HOME.level1, HOME.level2, HOME.answerPlaceholder];
+    const asked = [HOME.category, HOME.answerPlaceholder, ...ALL_CATEGORIES.map((c) => c.detailQuestion)];
     for (const banned of ['なぜ', '学び', '意味', '次は何', 'どうして']) {
       for (const value of asked) expect(value).not.toContain(banned);
     }
@@ -78,7 +82,7 @@ describe('the app does not praise, diagnose or count', () => {
   });
 
   it('says plainly that the free text is optional (§14)', () => {
-    expect(HOME.answerPlaceholder).toContain('答えなくても');
+    expect(HOME.answerPlaceholder).toContain('書かなくても');
   });
 
   it('ships no streak, point, badge or percentage anywhere in the source', () => {

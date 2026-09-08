@@ -1,13 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  AiSignal,
+  AntennaId,
+  ClassificationSource,
+  ClassificationStatus,
   DailyLog,
+  LegacyMomentTag,
+  LogInputMethod,
   Gain,
   GainCategory,
   JourneyRole,
   LogAnalysis,
-  LogType,
   LogWithAnalysis,
-  MomentTag,
   Change,
   ChangeEvidenceEntry,
   ChangeEvidenceRole,
@@ -35,13 +39,15 @@ import type {
 } from '@/types';
 import { requireSupabase } from '@/lib/supabase';
 import { monthRange } from '@/utils/period';
-import { logTypeForLegacy } from '@/constants/log';
+import { isAntennaId, isCategoryId, isLegacyLogType } from '@/constants/log';
 import { maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progressionRules';
 import { resolveGainCategory } from '@/ai/progressionRules';
 import type { Repository } from './repository';
 
 const LOG_COLUMNS =
-  'id, user_id, occurred_on, occurred_at, type, moment_tags, ai_question, optional_answer, body, created_at';
+  'id, user_id, occurred_on, occurred_at, category_id, detail_id, input_method, ' +
+  'classification_source, classification_status, ai_signals, body, ' +
+  'type, moment_tags, ai_question, optional_answer, created_at';
 
 const CHANGE_COLUMNS =
   'id, user_id, period_type, year, month, title, linked_target_type, linked_target_id, ' +
@@ -90,11 +96,18 @@ interface LogRow {
   user_id: string;
   occurred_on: string;
   occurred_at: string;
-  type: string;
-  moment_tags: MomentTag[] | null;
+  category_id: string | null;
+  detail_id: string | null;
+  input_method: LogInputMethod;
+  classification_source: ClassificationSource;
+  classification_status: ClassificationStatus;
+  ai_signals: AiSignal[] | null;
+  body: string | null;
+  /** v3/v4. Read so the archive can still print an old row; never written. */
+  type: string | null;
+  moment_tags: LegacyMomentTag[] | null;
   ai_question: string | null;
   optional_answer: string | null;
-  body: string | null;
   created_at: string;
 }
 
@@ -180,6 +193,7 @@ interface MonthThemeRow {
   final_theme: string | null;
   source: ThemeSource;
   candidates: MonthThemeCandidate[] | null;
+  antenna_ids: string[] | null;
 }
 
 interface MonthReviewRow {
@@ -205,16 +219,28 @@ interface YearReviewRow {
 }
 
 function mapLog(row: LogRow, analysis?: AnalysisRow): LogWithAnalysis {
+  // A v4 row wrote its free text into optional_answer; a v5 row writes body.
+  // Both are the same thing to everything that reads it.
+  const written = row.body ?? row.optional_answer ?? undefined;
+
   const base: DailyLog = {
     id: row.id,
     userId: row.user_id,
     occurredAt: row.occurred_at,
     occurredOn: row.occurred_on,
-    logType: logTypeForLegacy(row.type),
-    momentTags: row.moment_tags ?? [],
-    aiQuestion: row.ai_question ?? undefined,
-    optionalAnswer: row.optional_answer ?? undefined,
-    body: row.body ?? undefined,
+    // Unknown ids are dropped rather than kept: a category the app cannot name
+    // would print as a blank label, which reads as a bug rather than as
+    // history.
+    ...(isCategoryId(row.category_id) ? { categoryId: row.category_id } : {}),
+    ...(row.detail_id ? { detailId: row.detail_id } : {}),
+    inputMethod: row.input_method,
+    classificationSource: row.classification_source,
+    classificationStatus: row.classification_status,
+    aiSignals: row.ai_signals ?? [],
+    ...(written ? { body: written } : {}),
+    ...(row.ai_question ? { aiQuestion: row.ai_question } : {}),
+    ...(isLegacyLogType(row.type) ? { legacyLogType: row.type } : {}),
+    ...(row.moment_tags?.length ? { legacyMomentTags: row.moment_tags } : {}),
     createdAt: row.created_at,
   };
   return analysis ? { ...base, analysis: mapAnalysis(analysis) } : base;
@@ -302,6 +328,9 @@ function mapMonthTheme(row: MonthThemeRow): MonthTheme {
     finalTheme: row.final_theme ?? undefined,
     source: row.source,
     candidates: row.candidates ?? [],
+    // An id the app no longer knows is dropped rather than kept: it would
+    // offer categories that do not exist.
+    antennaIds: (row.antenna_ids ?? []).filter(isAntennaId),
   };
 }
 
@@ -444,6 +473,7 @@ export class SupabaseRepository implements Repository {
     finalTheme?: string;
     source: ThemeSource;
     candidates?: MonthThemeCandidate[];
+    antennaIds?: AntennaId[];
   }): Promise<MonthTheme> {
     const userId = await this.userId();
     const { data, error } = await this.client
@@ -457,6 +487,7 @@ export class SupabaseRepository implements Repository {
           ...(input.initialTheme !== undefined ? { initial_theme: input.initialTheme } : {}),
           ...(input.finalTheme !== undefined ? { final_theme: input.finalTheme } : {}),
           ...(input.candidates !== undefined ? { candidates: input.candidates } : {}),
+          ...(input.antennaIds !== undefined ? { antenna_ids: input.antennaIds } : {}),
         },
         { onConflict: 'user_id,year,month' }
       )
@@ -479,7 +510,7 @@ export class SupabaseRepository implements Repository {
       .order('occurred_on', { ascending: false })
       .order('created_at', { ascending: false });
     if (error) throw error;
-    const rows = (data ?? []) as LogRow[];
+    const rows = (data ?? []) as unknown as LogRow[];
     if (rows.length === 0) return [];
 
     const { data: analyses, error: analysisError } = await this.client
@@ -521,7 +552,7 @@ export class SupabaseRepository implements Repository {
         .eq('log_id', id),
     ]);
 
-    const log = mapLog(data as LogRow, (analysis as AnalysisRow | null) ?? undefined);
+    const log = mapLog(data as unknown as LogRow, (analysis as AnalysisRow | null) ?? undefined);
     const rows = (evidence ?? []) as EvidenceRow[];
     if (rows.length === 0) return log;
 
@@ -546,15 +577,19 @@ export class SupabaseRepository implements Repository {
         user_id: userId,
         occurred_at: occurredAt,
         occurred_on: occurredAt.slice(0, 10),
-        type: input.logType,
-        moment_tags: input.momentTags,
-        ai_question: input.aiQuestion ?? null,
-        optional_answer: input.optionalAnswer?.trim() || null,
+        category_id: input.categoryId ?? null,
+        detail_id: input.detailId ?? null,
+        body: input.body?.trim() || null,
+        input_method: input.inputMethod ?? 'category',
+        // Filed by the person unless they left it as free text for the
+        // reading to file, and then it is not filed yet.
+        classification_source: 'user',
+        classification_status: input.categoryId ? 'confirmed' : 'unclassified',
       })
       .select(LOG_COLUMNS)
       .single();
     if (error) throw error;
-    return mapLog(data as LogRow);
+    return mapLog(data as unknown as LogRow);
   }
 
   async deleteLog(id: string): Promise<void> {
@@ -683,7 +718,7 @@ export class SupabaseRepository implements Repository {
       this.client.from('log_ai_analysis').select('log_id, event_summary').in('log_id', logIds),
     ]);
 
-    const logById = new Map(((logs ?? []) as LogRow[]).map((l) => [l.id, l]));
+    const logById = new Map(((logs ?? []) as unknown as LogRow[]).map((l) => [l.id, l]));
     const summaryById = new Map(
       ((analyses ?? []) as { log_id: string; event_summary: string | null }[]).map((a) => [
         a.log_id,
@@ -700,9 +735,9 @@ export class SupabaseRepository implements Repository {
           occurredOn: log.occurred_on,
           role: row.role,
           eventSummary:
-            summaryById.get(log.id) || log.optional_answer?.slice(0, 80) || log.body?.slice(0, 80) || '',
-          logType: logTypeForLegacy(log.type),
-          momentTags: log.moment_tags ?? [],
+            summaryById.get(log.id) || log.body?.slice(0, 80) || log.optional_answer?.slice(0, 80) || '',
+          ...(isCategoryId(log.category_id) ? { categoryId: log.category_id } : {}),
+          ...(log.detail_id ? { detailId: log.detail_id } : {}),
         },
       ];
     });
@@ -792,7 +827,7 @@ export class SupabaseRepository implements Repository {
       .in('id', logIds);
     if (logError) throw logError;
 
-    const logById = new Map(((logs ?? []) as LogRow[]).map((l) => [l.id, l]));
+    const logById = new Map(((logs ?? []) as unknown as LogRow[]).map((l) => [l.id, l]));
     const gains = ((gainRows ?? []) as GainRow[]).map(mapGain);
 
     return changes.map((row) => {
@@ -803,15 +838,15 @@ export class SupabaseRepository implements Repository {
           if (!log) return [];
           // The record as written. A card that quoted a paraphrase would be
           // asking the person to check the reading against the reading.
-          const written = log.optional_answer ?? log.body ?? '';
+          const written = log.body ?? log.optional_answer ?? '';
           return [
             {
               logId: log.id,
               occurredOn: log.occurred_on,
               role: e.role,
               text: written,
-              logType: logTypeForLegacy(log.type),
-              momentTags: log.moment_tags ?? [],
+              ...(isCategoryId(log.category_id) ? { categoryId: log.category_id } : {}),
+              ...(log.detail_id ? { detailId: log.detail_id } : {}),
             },
           ];
         })
