@@ -241,6 +241,17 @@ export class SupabaseRepository implements Repository {
   private static readonly LOG_COLUMNS =
     'id, user_id, occurred_on, period_key, body, category_id, detail_id, input_method, source, source_id, created_at';
 
+  async firstRecordedPeriod(): Promise<string | null> {
+    const { data, error } = await this.client
+      .from('logs')
+      .select('period_key')
+      .order('period_key', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.period_key ?? null;
+  }
+
   async listLogs(periodKey: string): Promise<JournalLog[]> {
     const { data, error } = await this.client
       .from('logs')

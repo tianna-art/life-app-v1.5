@@ -15,6 +15,7 @@ export const queryKeys = {
   monthInsights: (periodKey: string) => ['reading', 'insights', periodKey] as const,
   monthHypothesis: (periodKey: string) => ['reading', 'hypothesis', periodKey] as const,
   periodTitles: (periodType: 'month' | 'year') => ['period-titles', periodType] as const,
+  firstRecorded: () => ['first-recorded'] as const,
   outbox: () => ['outbox'] as const,
 } as const;
 

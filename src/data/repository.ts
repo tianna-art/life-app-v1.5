@@ -54,6 +54,11 @@ export interface Repository {
   listCategoryDetails(categoryId: string): Promise<CategoryDetail[]>;
 
   // 記録
+  /**
+   * The earliest month anything was ever recorded in, or null. Months before
+   * it ended without the app, so their names can only be typed by hand.
+   */
+  firstRecordedPeriod(): Promise<string | null>;
   listLogs(periodKey: string): Promise<JournalLog[]>;
   listLogsInYear(year: number): Promise<JournalLog[]>;
   getLogs(ids: string[]): Promise<JournalLog[]>;

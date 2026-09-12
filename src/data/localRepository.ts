@@ -170,6 +170,12 @@ export class LocalRepository implements Repository {
 
   // -- 記録 -----------------------------------------------------------------
 
+  async firstRecordedPeriod(): Promise<string | null> {
+    const store = await readStore();
+    if (store.logs.length === 0) return null;
+    return store.logs.reduce((min, l) => (l.periodKey < min ? l.periodKey : min), store.logs[0]!.periodKey);
+  }
+
   async listLogs(periodKey: string): Promise<JournalLog[]> {
     const store = await readStore();
     return store.logs.filter((l) => l.periodKey === periodKey).sort(byNewest);
