@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
 import { FLOW_STEPS } from '@/constants/generated/preview';
+import { FLOW_BACKDROPS, FLOW_VEIL } from '@/constants/flowBackdrops';
 import type { FlowSession, FlowStage } from '@/types';
 
 /**
@@ -188,16 +189,28 @@ export function FlowQuest({
   if (!stage) return null;
 
   return (
-    <View style={[styles.wrap, { backgroundColor: stage.tint }]} testID={`flow-${stage.id}`}>
+    <ImageBackground
+      source={FLOW_BACKDROPS[stage.id]}
+      // Nothing of the photograph is cut off: it is fitted whole, and the
+      // deep ground it sits on carries whatever the fit leaves over.
+      resizeMode="contain"
+      style={[styles.wrap, styles.stageWrap]}
+      imageStyle={styles.backdrop}
+      testID={`flow-${stage.id}`}
+    >
+      {/* The dimming sits between the picture and the words rather than being
+          baked into the file, so the same photograph can be turned up or down
+          in one place if it ever reads wrong on a real screen. */}
+      <View style={styles.veil} pointerEvents="none" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={[styles.stageName, { color: stage.color }]}>{stage.name}</Text>
-        <Text style={styles.stageLabel}>{stage.label}</Text>
-        <Text style={styles.body}>{stage.copy}</Text>
+        <Text style={styles.stageLabelOnPhoto}>{stage.label}</Text>
+        <Text style={styles.bodyOnPhoto}>{stage.copy}</Text>
 
-        <Text style={styles.question}>{stage.question}</Text>
+        <Text style={styles.questionOnPhoto}>{stage.question}</Text>
         <View style={styles.examples}>
           {stage.examples.map((example) => (
-            <Text key={example} style={styles.example}>
+            <Text key={example} style={styles.exampleOnPhoto}>
               {example}
             </Text>
           ))}
@@ -213,7 +226,7 @@ export function FlowQuest({
           textAlignVertical="top"
         />
 
-        <Text style={styles.foot}>{stage.foot}</Text>
+        <Text style={styles.footOnPhoto}>{stage.foot}</Text>
 
         {/* Every stage moves forward, the last one included: 雲 leads to
             全ての流れを振り返る, not to a decision. What becomes of the run is
@@ -232,7 +245,7 @@ export function FlowQuest({
           <Text style={styles.primaryOnTint}>{stage.next}</Text>
         </Pressable>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -317,4 +330,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   askRow: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' },
+
+  /* The stage screens, which sit on a photograph. ------------------------- */
+  stageWrap: { backgroundColor: colors.brownDeep, overflow: 'hidden' },
+  backdrop: { borderRadius: radii.xl },
+  veil: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: FLOW_VEIL,
+  },
+  stageLabelOnPhoto: { fontFamily: fonts.serif, fontSize: 15, color: colors.onBrown },
+  bodyOnPhoto: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 24,
+    color: 'rgba(250, 246, 236, 0.92)',
+  },
+  questionOnPhoto: { fontFamily: fonts.serif, fontSize: 16, lineHeight: 26, color: colors.onBrown },
+  exampleOnPhoto: { fontFamily: fonts.sans, fontSize: 11, color: 'rgba(250, 246, 236, 0.82)' },
+  footOnPhoto: {
+    fontFamily: fonts.serif,
+    fontSize: 12,
+    lineHeight: 21,
+    color: 'rgba(250, 246, 236, 0.72)',
+    textAlign: 'center',
+  },
 });
