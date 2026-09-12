@@ -1,8 +1,10 @@
 /**
  * 感情クエスト.
  *
- * The two rules worth testing are both about what is *not* kept: nothing is
- * stored until the end, and a stage left blank stays absent.
+ * Three rules worth testing, all about what is *not* done: nothing is stored
+ * until the end, the decision is made on the 見返し where the words can be
+ * read back rather than from inside the last stage, and a stage left blank
+ * stays absent.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { FlowQuest } from '@components/flow/FlowQuest';
@@ -12,6 +14,14 @@ function walkTo(stage: 'rain' | 'river' | 'ocean' | 'cloud') {
   const order = ['rain', 'river', 'ocean', 'cloud'] as const;
   for (const id of order) {
     if (id === stage) return;
+    fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+  }
+}
+
+/** All four stages, and on to the 見返し. */
+function walkToReview() {
+  walkTo('rain');
+  for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
     fireEvent.press(screen.getByTestId(`flow-next-${id}`));
   }
 }
@@ -31,8 +41,14 @@ describe('nothing is kept until the end', () => {
     fireEvent.press(screen.getByTestId('flow-next-river'));
     expect(screen.queryByTestId('flow-save')).toBeNull();
 
-    // Only the last stage carries the decision, and it carries both halves.
+    // Not even on 雲: the last stage moves on like the others.
     fireEvent.press(screen.getByTestId('flow-next-ocean'));
+    expect(screen.queryByTestId('flow-save')).toBeNull();
+    expect(screen.getByTestId('flow-next-cloud')).toBeTruthy();
+
+    // The 見返し is where it is decided, and it carries both halves.
+    fireEvent.press(screen.getByTestId('flow-next-cloud'));
+    expect(screen.getByTestId('flow-review')).toBeTruthy();
     expect(screen.getByTestId('flow-close')).toBeTruthy();
     expect(screen.getByTestId('flow-save')).toBeTruthy();
     expect(screen.getByTestId('flow-discard')).toBeTruthy();
@@ -47,11 +63,16 @@ describe('nothing is kept until the end', () => {
 
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), 'いちばん言いにくいこと');
-    fireEvent.press(screen.getByTestId('flow-next-rain'));
-    fireEvent.press(screen.getByTestId('flow-next-river'));
-    fireEvent.press(screen.getByTestId('flow-next-ocean'));
-    fireEvent.press(screen.getByTestId('flow-discard'));
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
+      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    }
 
+    // Asked first, because this is the one step that cannot be walked back.
+    fireEvent.press(screen.getByTestId('flow-discard'));
+    expect(screen.getByTestId('flow-drop-ask')).toBeTruthy();
+    expect(onDiscard).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('flow-drop-yes'));
     expect(onDiscard).toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
     // And it is gone, not waiting behind the doorway.
@@ -72,6 +93,13 @@ describe('what a finished run keeps', () => {
     fireEvent.press(screen.getByTestId('flow-next-river'));
     fireEvent.press(screen.getByTestId('flow-next-ocean'));
     fireEvent.changeText(screen.getByTestId('flow-input-cloud'), '持っていくもの');
+    fireEvent.press(screen.getByTestId('flow-next-cloud'));
+
+    // Both are read back before anything is decided about them.
+    expect(screen.getByTestId('flow-review-rain')).toBeTruthy();
+    expect(screen.getByTestId('flow-review-cloud')).toBeTruthy();
+    expect(screen.queryByTestId('flow-review-river')).toBeNull();
+
     fireEvent.press(screen.getByTestId('flow-save'));
 
     expect(onSave).toHaveBeenCalledWith({ rain: '降らせたもの', cloud: '持っていくもの' });
@@ -82,9 +110,10 @@ describe('what a finished run keeps', () => {
     render(<FlowQuest last={null} onSave={onSave} onDiscard={jest.fn()} />);
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '   ');
-    fireEvent.press(screen.getByTestId('flow-next-rain'));
-    fireEvent.press(screen.getByTestId('flow-next-river'));
-    fireEvent.press(screen.getByTestId('flow-next-ocean'));
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
+      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    }
+    expect(screen.queryByTestId('flow-review-rain')).toBeNull();
     fireEvent.press(screen.getByTestId('flow-save'));
     expect(onSave).toHaveBeenCalledWith({});
   });
@@ -92,12 +121,50 @@ describe('what a finished run keeps', () => {
   it('requires nothing of any stage', () => {
     const onSave = jest.fn();
     render(<FlowQuest last={null} onSave={onSave} onDiscard={jest.fn()} />);
-    walkTo('rain');
-    fireEvent.press(screen.getByTestId('flow-next-rain'));
-    fireEvent.press(screen.getByTestId('flow-next-river'));
-    fireEvent.press(screen.getByTestId('flow-next-ocean'));
+    walkToReview();
     fireEvent.press(screen.getByTestId('flow-save'));
     expect(onSave).toHaveBeenCalledWith({});
+  });
+});
+
+describe('the 見返し', () => {
+  it('adds nothing to what was written', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '降らせたもの');
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
+      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    }
+    // No summary, no reading, no encouragement — the words and nothing else.
+    expect(screen.getByText('降らせたもの')).toBeTruthy();
+    expect(screen.queryByTestId('flow-input-rain')).toBeNull();
+  });
+
+  it('can be walked back out of, with everything still there', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '書いたもの');
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
+      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    }
+    fireEvent.press(screen.getByTestId('flow-back'));
+    expect(screen.getByTestId('flow-cloud')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('flow-next-cloud'));
+    expect(screen.getByText('書いたもの')).toBeTruthy();
+  });
+
+  it('lets a change of mind about discarding leave everything where it was', () => {
+    const onDiscard = jest.fn();
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={onDiscard} />);
+    walkTo('rain');
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '消したくないもの');
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
+      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    }
+    fireEvent.press(screen.getByTestId('flow-discard'));
+    fireEvent.press(screen.getByTestId('flow-drop-no'));
+    expect(onDiscard).not.toHaveBeenCalled();
+    expect(screen.getByText('消したくないもの')).toBeTruthy();
   });
 });
 
