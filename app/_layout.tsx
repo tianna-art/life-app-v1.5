@@ -9,6 +9,7 @@ import { createQueryClient } from '@/lib/queryClient';
 import { colors } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOutboxSync } from '@/hooks/useLogs';
+import { useNotifySchedule } from '@/hooks/useNotify';
 import { AuthGate } from '@components/ui/AuthGate';
 import { PhoneFrame } from '@components/ui/PhoneFrame';
 
@@ -32,6 +33,7 @@ export default function RootLayout() {
 function AppShell() {
   const auth = useAuth();
   useOutboxSync();
+  useNotifySchedule();
 
   if (auth.loading) {
     return (

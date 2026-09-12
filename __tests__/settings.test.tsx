@@ -1,9 +1,9 @@
 /**
  * マイページ.
  *
- * The rules under test: all three items are on screen before any of them
- * works, the two that are empty cannot be opened onto nothing, and ログアウト
- * is never offered without saying which account it would leave.
+ * The rules under test: all three items are on screen whether or not they do
+ * anything, an item with no working home does not open onto nothing, and
+ * ログアウト is never offered without saying which account it would leave.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -41,11 +41,29 @@ describe('マイページ', () => {
     expect(screen.getByTestId('settings-account')).toBeTruthy();
   });
 
-  it('does not open the two that have nothing behind them', () => {
+  it('opens the ones that work', () => {
+    renderScreen();
+    fireEvent.press(screen.getByTestId('settings-export'));
+    expect(screen.getByTestId('settings-export-open')).toBeTruthy();
+    expect(screen.getByTestId('export-run')).toBeTruthy();
+  });
+
+  it('offers 通知 as two moments and a time, and nothing daily', async () => {
     renderScreen();
     fireEvent.press(screen.getByTestId('settings-notify'));
+    await waitFor(() => expect(screen.getByTestId('notify-toggle')).toBeTruthy());
+    expect(screen.getByTestId('notify-hour-21')).toBeTruthy();
+    expect(
+      screen.getByText('知らせるのは月初と月末だけです。書けていない日のことは言いません。')
+    ).toBeTruthy();
+  });
+
+  it('shows one panel at a time', async () => {
+    renderScreen();
     fireEvent.press(screen.getByTestId('settings-export'));
-    expect(screen.queryByTestId('settings-account-open')).toBeNull();
+    fireEvent.press(screen.getByTestId('settings-account'));
+    await waitFor(() => expect(screen.getByTestId('settings-account-open')).toBeTruthy());
+    expect(screen.queryByTestId('settings-export-open')).toBeNull();
   });
 
   it('names the account before offering to leave it', async () => {

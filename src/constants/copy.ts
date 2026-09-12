@@ -22,14 +22,19 @@ export { COPY } from './generated/preview';
 export const LOCAL_COPY = {
   /** Marks a 要約 as the person's own words rather than the reading's. */
   summaryIsYours: '自分の言葉',
-  /**
-   * マイページ. The preview's own note says 「今月の方向以外は、まだ中身が
-   * ありません」, which was true of the preview and is not true here: アカウント
-   * works. Saying so accurately is the point of the line.
-   */
-  settingsNote: '通知と記録の書き出しは、まだ中身がありません。何が入るかだけ置いています。',
   /** The line above ログアウト, so nobody signs out of the wrong account. */
   signedInAs: 'ログイン中',
+  /** 通知. Two moments, and the reason there are only two. */
+  notifyWhen: '知らせる時刻',
+  notifyOn: '月初と月末に知らせる',
+  notifyWhy: '知らせるのは月初と月末だけです。書けていない日のことは言いません。',
+  notifyRefused: '端末の設定で通知が許可されていません。',
+  notifyWebOnly: '通知はアプリでだけ受け取れます。',
+  /** 記録の書き出し. */
+  exportDo: 'いま書き出す',
+  exportWhat: '記録と、方向・足跡タイトル・要約を1つのファイルにします。読みは入りません。',
+  exportDone: '書き出しました。',
+  exportFailed: '書き出せませんでした。',
 } as const;
 
 /**

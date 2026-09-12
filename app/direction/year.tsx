@@ -6,6 +6,7 @@ import { COPY } from '@/constants/copy';
 import { YEAR_SETUP_QUESTIONS } from '@/constants/generated/preview';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
+import { VoiceEntry } from '@components/ui/VoiceEntry';
 import { useSaveYearDirection, useYearDirection } from '@/hooks/useDirection';
 
 type Route = 'choose' | 'ask' | 'free';
@@ -108,6 +109,7 @@ export default function YearDirectionScreen() {
                   accessibilityLabel={question}
                   textAlignVertical="top"
                 />
+                <VoiceEntry testID={`year-answer-voice-${index}`} />
               </View>
             ))}
 
@@ -125,6 +127,7 @@ export default function YearDirectionScreen() {
               accessibilityLabel={COPY.yearFreeQ}
               textAlignVertical="top"
             />
+            <VoiceEntry testID="year-direction-voice" />
             <SaveButton onPress={() => commit(draft, answers)} disabled={draft.trim().length === 0} />
           </View>
         ) : null}
@@ -145,6 +148,7 @@ export default function YearDirectionScreen() {
               autoFocus
               textAlignVertical="top"
             />
+            <VoiceEntry testID="year-free-voice" />
             <SaveButton onPress={() => commit(draft)} disabled={draft.trim().length === 0} />
           </View>
         ) : null}

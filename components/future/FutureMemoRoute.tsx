@@ -4,6 +4,7 @@ import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
 import { DATE_KINDS, FUTURE_TYPES, TYPE_LABEL, DONE_TYPE_LABEL } from '@/constants/generated/preview';
 import { Chip } from '@components/ui/Chip';
+import { VoiceEntry } from '@components/ui/VoiceEntry';
 import { useFutureMemoMutations, useFutureMemos } from '@/hooks/useFutureMemos';
 import type { DateKind, FutureMemo, FutureType } from '@/types';
 
@@ -68,6 +69,8 @@ export function FutureMemoRoute() {
         accessibilityLabel="未来メモのメモ"
         textAlignVertical="top"
       />
+
+      <VoiceEntry testID="future-voice" />
 
       <View style={styles.typeRow}>
         {(Object.entries(DATE_KINDS) as [DateKind, string][]).map(([id, label]) => (

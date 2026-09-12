@@ -4,6 +4,7 @@ import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
 import { categoriesForMonth, categoryById } from '@/constants/antennas';
 import { Chip } from '@components/ui/Chip';
+import { VoiceEntry } from '@components/ui/VoiceEntry';
 import type { AntennaId, NewLogInput } from '@/types';
 
 interface ComposerProps {
@@ -73,6 +74,10 @@ export function Composer({
         accessibilityLabel="ひとこと記録の本文"
         textAlignVertical="top"
       />
+
+      {/* Under the field, as in the preview: the transcript would land in the
+          body above, unedited. */}
+      <VoiceEntry testID="composer-voice" />
 
       {/* 2/3 — what kind of thing it was. Appears once there is something to
           describe, and not before. */}
