@@ -6,6 +6,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
+  PeriodChange,
   PeriodSummary,
   PeriodTitle,
   VisionItem,
@@ -29,6 +30,7 @@ export interface LocalStoreShape {
   summaries: PeriodSummary[];
   monthInsights: MonthInsight[];
   monthHypotheses: MonthHypothesis[];
+  periodChanges: PeriodChange[];
   periodTitles: PeriodTitle[];
 }
 
@@ -44,6 +46,7 @@ export const EMPTY_STORE: LocalStoreShape = {
   summaries: [],
   monthInsights: [],
   monthHypotheses: [],
+  periodChanges: [],
   periodTitles: [],
 };
 

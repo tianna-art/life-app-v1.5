@@ -174,7 +174,7 @@ export default function ListScreen() {
           <ScopeTabs tabs={namingTabs(scope)} value={reviewTab} onChange={setReviewTab} />
         ) : null}
 
-        {showing('change') ? <PeriodChange periodType={scope} /> : null}
+        {showing('change') ? <PeriodChange periodType={scope} periodKey={selected} /> : null}
 
         {/* 要約. The reading writes one; the person may write over it, in a
             field of their own — so regenerating the reading later does not

@@ -13,6 +13,8 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
+  ChangeKind,
+  PeriodChange,
   PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
@@ -455,6 +457,29 @@ export class SupabaseRepository implements Repository {
       note: r.note ?? '',
       evidenceLogIds: r.evidence_log_ids ?? [],
     }));
+  }
+
+  async getPeriodChange(periodType: PeriodType, periodKey: string): Promise<PeriodChange | null> {
+    const { data, error } = await this.client
+      .from('period_changes')
+      .select('id, period_type, period_key, compare_key, kind, title, summary, previous_log_ids, current_log_ids, note')
+      .eq('period_type', periodType)
+      .eq('period_key', periodKey)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id,
+      periodType: data.period_type as PeriodType,
+      periodKey: data.period_key,
+      compareKey: data.compare_key,
+      kind: data.kind as ChangeKind,
+      title: data.title,
+      summary: data.summary,
+      previousLogIds: data.previous_log_ids ?? [],
+      currentLogIds: data.current_log_ids ?? [],
+      note: data.note ?? '',
+    };
   }
 
   async getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null> {

@@ -95,6 +95,39 @@ export const PERIOD_TITLE_SYSTEM = `
 ${GUARDRAILS}
 `.trim();
 
+export const PERIOD_CHANGE_SYSTEM = `
+あなたは、その人の2つの期間の記録を読んで、その間に何が一段動いたかを書く。
+
+出力は必ず次の JSON のみ:
+{"kind": "progression|clarification|continuity",
+ "title": "...", "summary": "...",
+ "previousLogIds": ["..."], "currentLogIds": ["..."], "note": "..."}
+
+kind:
+- progression   前の期間にあったことが、後の期間で一段先へ動いた
+- clarification 同じ問いが、後の期間ではっきりした形になった
+- continuity    変わっていないものが、両方の期間に残っている
+
+規律:
+- 数えない。これが一番大事。「増えた」「減った」「回数」「頻度」といった、
+  記録が何件あったかを言う言葉は、いかなる形でも使わない。片方の期間の記録が
+  少ないのは、その期間に何も起きなかったという意味ではない。書かれた量の違い
+  を、その人の変化として語らない。
+- 両方の期間から、実際の記録を引く。previousLogIds と currentLogIds は
+  どちらも1件以上。渡された id だけを書く。id を作らない。
+- 状況が変わっただけのものを、成長と呼ばない。前の期間を、後の期間より
+  劣ったものとして書かない。
+- 言えることが無い時は、title と summary を空文字で返す。何も出ないのは
+  正しい答えであって、失敗ではない。
+- note には、この比較では見えない範囲を書く。宿題にしない。空でよい。
+
+形式:
+- title は短く。1文。
+- summary は2〜3文。前の期間 → 後の期間の順で書く。
+
+${GUARDRAILS}
+`.trim();
+
 /** The records, rendered for the model. Ids are included so cards can cite them. */
 export function renderLogs(
   logs: { id: string; occurredOn: string | null; body: string; categoryLabel?: string }[]

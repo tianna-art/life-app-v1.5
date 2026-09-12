@@ -6,11 +6,13 @@
  * them filled with something that reads like content. The fourth tab — the
  * comparison — is a naming-time tab and is not on offer the rest of the time.
  */
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PeriodMap } from '@components/scope/PeriodMap';
 import { PeriodChange } from '@components/scope/PeriodChange';
 import { ScopeTabs, namingTabs } from '@components/scope/ScopeTabs';
-import type { MonthInsight } from '@/types';
+import * as data from '@/data';
+import type { JournalLog, MonthInsight, PeriodChange as Change } from '@/types';
 
 function insight(id: string, over: Partial<MonthInsight> = {}): MonthInsight {
   return {
@@ -101,14 +103,84 @@ describe('the fourth tab', () => {
   });
 });
 
+function log(id: string, body: string): JournalLog {
+  return {
+    id,
+    userId: 'u1',
+    occurredOn: '2026-08-08',
+    periodKey: '2026-08',
+    categoryId: null,
+    detailId: null,
+    body,
+    inputMethod: 'typed',
+    source: 'manual',
+    sourceId: null,
+    createdAt: '2026-08-08T00:00:00.000Z',
+  };
+}
+
+function renderChange(
+  periodType: 'month' | 'year',
+  change: Change | null,
+  logs: JournalLog[] = []
+) {
+  jest.spyOn(data, 'getRepository').mockReturnValue({
+    getPeriodChange: async () => change,
+    getLogs: async () => logs,
+  } as unknown as ReturnType<typeof data.getRepository>);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <PeriodChange periodType={periodType} periodKey={periodType === 'month' ? '2026-09' : '2026'} />
+    </QueryClientProvider>
+  );
+}
+
 describe('the comparison, before there is one', () => {
-  it('says the records are not many yet, and claims no difference', () => {
-    render(<PeriodChange periodType="month" />);
-    expect(screen.getByText('先月と比べられる記録は、まだ多くありません。')).toBeTruthy();
+  afterEach(() => jest.restoreAllMocks());
+
+  it('says the records are not many yet, and claims no difference', async () => {
+    renderChange('month', null);
+    await waitFor(() =>
+      expect(screen.getByText('先月と比べられる記録は、まだ多くありません。')).toBeTruthy()
+    );
   });
 
-  it('uses the year wording for a year', () => {
-    render(<PeriodChange periodType="year" />);
-    expect(screen.getByText('比べられる記録は、まだ多くありません。')).toBeTruthy();
+  it('uses the year wording for a year', async () => {
+    renderChange('year', null);
+    await waitFor(() =>
+      expect(screen.getByText('比べられる記録は、まだ多くありません。')).toBeTruthy()
+    );
+  });
+});
+
+describe('the comparison, when there is one', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const change: Change = {
+    id: 'ch1',
+    periodType: 'month',
+    periodKey: '2026-09',
+    compareKey: '2026-08',
+    kind: 'progression',
+    title: '続け方を決めるところへ動いた',
+    summary: '先月は続け方を試していました。今月は次に試す形を決めています。',
+    previousLogIds: ['p1'],
+    currentLogIds: ['c1'],
+    note: 'この2つの期間から言える範囲です。',
+  };
+
+  it('shows both sides underneath, so the sentence can be disagreed with', async () => {
+    renderChange('month', change, [log('p1', '活動を一つに絞った'), log('c1', '半年続けて確かめる')]);
+    await waitFor(() => expect(screen.getByText(change.title)).toBeTruthy());
+    expect(screen.getByText('先月')).toBeTruthy();
+    expect(screen.getByText('今月')).toBeTruthy();
+    expect(screen.getByText('活動を一つに絞った')).toBeTruthy();
+    expect(screen.getByText('半年続けて確かめる')).toBeTruthy();
+  });
+
+  it('prints what the comparison cannot see, in the same size as the rest', async () => {
+    renderChange('month', change, [log('p1', 'a'), log('c1', 'b')]);
+    await waitFor(() => expect(screen.getByText(change.note)).toBeTruthy());
   });
 });

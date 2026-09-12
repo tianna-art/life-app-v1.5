@@ -30,6 +30,18 @@ export function readMonthInsights(periodKey: string) {
   );
 }
 
+/**
+ * The comparison with the period before. `written: false` is the ordinary
+ * answer — most often because one of the two periods is too thin to hold a
+ * comparison, which the function decides before asking a model anything.
+ */
+export function readPeriodChange(periodType: 'month' | 'year', periodKey: string) {
+  return invoke<{ written: boolean; reason?: string; problems?: string[] }>('period-change', {
+    periodType,
+    periodKey,
+  });
+}
+
 export function proposeTitles(periodType: 'month' | 'year', periodKey: string) {
   return invoke<{ titles: string[]; problems?: string[] }>('period-title', {
     periodType,

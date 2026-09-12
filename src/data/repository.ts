@@ -8,6 +8,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
+  PeriodChange,
   PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
@@ -87,6 +88,11 @@ export interface Repository {
   }): Promise<PeriodSummary>;
   listMonthInsights(periodKey: string): Promise<MonthInsight[]>;
   getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null>;
+  /**
+   * The comparison with the period before. Null is the usual answer: it is
+   * written only when both periods hold enough to be compared.
+   */
+  getPeriodChange(periodType: PeriodType, periodKey: string): Promise<PeriodChange | null>;
 
   // 足跡タイトル
   listPeriodTitles(periodType: PeriodType): Promise<PeriodTitle[]>;

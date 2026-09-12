@@ -214,3 +214,144 @@ export function checkTitles(titles: string[]): Verdict {
   }
   return { ok: problems.length === 0, problems };
 }
+
+/* ------------------------------------------------------------------------ *
+ * 先月からの変化 / 去年との違い
+ * ------------------------------------------------------------------------ */
+
+export type ChangeKind = 'progression' | 'clarification' | 'continuity';
+export const CHANGE_KINDS: readonly ChangeKind[] = [
+  'progression',
+  'clarification',
+  'continuity',
+];
+
+/** Below this on either side there is not enough of a period to compare. */
+export const CHANGE_MIN_PER_SIDE = 2;
+/**
+ * How lopsided the two sides may be.
+ *
+ * This is the rule the whole comparison rests on. One record beside five, and
+ * 「増えた」 writes itself — but nothing about the person changed; one of the
+ * two months is simply thinner on the page. A reading cannot tell those apart,
+ * and neither can the person reading it afterwards, so when the sides are that
+ * unequal no comparison is made at all. Three to one is the line: enough room
+ * for months that genuinely differ in how much happened, not enough to call
+ * a quiet month a change.
+ */
+export const CHANGE_MAX_IMBALANCE = 3;
+
+/**
+ * Counting. A comparison is about what the records say, never about how many
+ * there are — and every one of these words is a way of reporting the second
+ * thing while sounding like the first.
+ */
+const COUNTING = [
+  '増え',
+  '減っ',
+  '減り',
+  '回数',
+  '頻度',
+  '件数',
+  'より多く',
+  'より少な',
+  '多くなり',
+  '少なくなり',
+] as const;
+
+export interface ProposedChange {
+  kind: string;
+  title: string;
+  summary: string;
+  previousLogIds: string[];
+  currentLogIds: string[];
+  note?: string;
+}
+
+export interface AcceptedChange extends ProposedChange {
+  kind: ChangeKind;
+  note: string;
+}
+
+export interface ChangeVerdict {
+  accepted: AcceptedChange | null;
+  problems: string[];
+}
+
+/**
+ * Whether these two periods may be compared at all — before a model is asked
+ * anything.
+ *
+ * Checked first because the honest answer to a thin period is silence, and
+ * asking for a comparison that will have to be thrown away invites a good one
+ * to be written for the wrong reasons.
+ */
+export function sidesAreComparable(previousCount: number, currentCount: number): boolean {
+  if (previousCount < CHANGE_MIN_PER_SIDE || currentCount < CHANGE_MIN_PER_SIDE) return false;
+  const [few, many] =
+    previousCount < currentCount ? [previousCount, currentCount] : [currentCount, previousCount];
+  return many <= few * CHANGE_MAX_IMBALANCE;
+}
+
+/**
+ * Sifts the comparison the model proposed.
+ *
+ * Unlike 見えてきたこと there is no demotion here: a comparison is either
+ * supported or it is not said. Half a comparison — one side quoted, the other
+ * asserted — reads exactly like a whole one.
+ */
+export function acceptChange(
+  proposal: ProposedChange,
+  previousLogIds: readonly string[],
+  currentLogIds: readonly string[]
+): ChangeVerdict {
+  const problems: string[] = [];
+  const previousKnown = new Set(previousLogIds);
+  const currentKnown = new Set(currentLogIds);
+
+  if (!sidesAreComparable(previousLogIds.length, currentLogIds.length)) {
+    problems.push(
+      `sides: ${previousLogIds.length} and ${currentLogIds.length} records — one period is` +
+        ' too thin to hold a comparison'
+    );
+  }
+
+  const kind = CHANGE_KINDS.includes(proposal.kind as ChangeKind)
+    ? (proposal.kind as ChangeKind)
+    : null;
+  if (!kind) problems.push(`kind: 「${proposal.kind}」 is not one of ${CHANGE_KINDS.join(', ')}`);
+
+  const title = (proposal.title ?? '').trim();
+  const summary = (proposal.summary ?? '').trim();
+  if (title.length === 0) problems.push('title: blank');
+  if (summary.length === 0) problems.push('summary: blank');
+
+  const previous = [...new Set(proposal.previousLogIds ?? [])].filter((id) => previousKnown.has(id));
+  const current = [...new Set(proposal.currentLogIds ?? [])].filter((id) => currentKnown.has(id));
+  if (previous.length === 0) problems.push('evidence: nothing quoted from the earlier period');
+  if (current.length === 0) problems.push('evidence: nothing quoted from the later period');
+
+  const words = `${title}${summary}`;
+  for (const banned of COUNTING) {
+    if (words.includes(banned)) problems.push(`counts rather than reads — 「${banned}」`);
+  }
+  // A period is allowed to have been what it was. Nothing here turns the
+  // earlier one into the worse one.
+  for (const banned of RESCUE_PHRASES) {
+    if (words.includes(banned)) problems.push(`rescues — 「${banned}」`);
+  }
+
+  if (problems.length > 0 || !kind) return { accepted: null, problems };
+
+  return {
+    accepted: {
+      kind,
+      title,
+      summary,
+      previousLogIds: previous,
+      currentLogIds: current,
+      note: (proposal.note ?? '').trim(),
+    },
+    problems: [],
+  };
+}

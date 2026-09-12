@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { readMonthInsights, readMonthSummary } from '@/ai/client';
+import { readMonthInsights, readMonthSummary, readPeriodChange } from '@/ai/client';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
-import type { MonthHypothesis, MonthInsight, PeriodSummary, PeriodType } from '@/types';
+import type {
+  MonthHypothesis,
+  MonthInsight,
+  PeriodChange,
+  PeriodSummary,
+  PeriodType,
+} from '@/types';
 
 /**
  * What the records suggest. Read only — an Edge Function writes these, and
@@ -19,6 +25,19 @@ export function useMonthHypothesis(periodKey: string) {
   return useQuery<MonthHypothesis | null>({
     queryKey: queryKeys.monthHypothesis(periodKey),
     queryFn: () => getRepository().getMonthHypothesis(periodKey),
+  });
+}
+
+/**
+ * The comparison with the period before, if one was written. Usually nothing:
+ * a comparison needs material on both sides, and most periods early on do not
+ * have it — which the screen says plainly rather than filling in.
+ */
+export function usePeriodChange(periodType: PeriodType, periodKey: string) {
+  return useQuery<PeriodChange | null>({
+    queryKey: queryKeys.periodChange(periodType, periodKey),
+    queryFn: () => getRepository().getPeriodChange(periodType, periodKey),
+    enabled: periodKey.length > 0,
   });
 }
 
@@ -68,6 +87,9 @@ export function useGenerateReading() {
     mutationFn: async (input: { periodType: PeriodType; periodKey: string }) => {
       if (input.periodType === 'month') await readMonthInsights(input.periodKey);
       await readMonthSummary(input.periodKey);
+      // Asked for last and refused most often: the function counts both
+      // periods before it asks a model anything.
+      await readPeriodChange(input.periodType, input.periodKey);
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['reading'] });

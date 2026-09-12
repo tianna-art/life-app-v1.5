@@ -3,140 +3,332 @@
   "insights": [
     {
       "name": "cites records that do not exist",
-      "logIds": ["l1", "l2", "l3"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1",
+        "l2",
+        "l3"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [
         {
           "antennaId": "progress",
           "label": "積み上がったこと",
           "text": "続けられる形が見えてきた",
-          "evidenceLogIds": ["log-a", "log-b"]
+          "evidenceLogIds": [
+            "log-a",
+            "log-b"
+          ]
         }
       ],
-      "expect": { "accepted": 0, "hypothesis": false }
+      "expect": {
+        "accepted": 0,
+        "hypothesis": false
+      }
     },
     {
       "name": "one record presented as a pattern",
-      "logIds": ["l1", "l2", "l3"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1",
+        "l2",
+        "l3"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [
         {
           "antennaId": "progress",
           "label": "自分に合う進み方",
           "text": "低い頻度なら続けられる",
-          "evidenceLogIds": ["l1"]
+          "evidenceLogIds": [
+            "l1"
+          ]
         }
       ],
-      "expect": { "accepted": 1, "labels": ["手がかり"], "hypothesis": false }
+      "expect": {
+        "accepted": 1,
+        "labels": [
+          "手がかり"
+        ],
+        "hypothesis": false
+      }
     },
     {
       "name": "the same record cited twice to reach two",
-      "logIds": ["l1", "l2"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1",
+        "l2"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [
         {
           "antennaId": "progress",
           "label": "積み上がったこと",
           "text": "二回とも同じことが起きた",
-          "evidenceLogIds": ["l1", "l1"]
+          "evidenceLogIds": [
+            "l1",
+            "l1"
+          ]
         }
       ],
-      "expect": { "accepted": 1, "labels": ["手がかり"], "hypothesis": false }
+      "expect": {
+        "accepted": 1,
+        "labels": [
+          "手がかり"
+        ],
+        "hypothesis": false
+      }
     },
     {
       "name": "a card about an アンテナ the month never chose",
-      "logIds": ["l1", "l2"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1",
+        "l2"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [
         {
           "antennaId": "spark",
           "label": "心が向く方向",
           "text": "知らない世界に反応していた",
-          "evidenceLogIds": ["l1", "l2"]
+          "evidenceLogIds": [
+            "l1",
+            "l2"
+          ]
         }
       ],
-      "expect": { "accepted": 0, "hypothesis": false }
+      "expect": {
+        "accepted": 0,
+        "hypothesis": false
+      }
     },
     {
       "name": "an invented label",
-      "logIds": ["l1", "l2"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1",
+        "l2"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [
         {
           "antennaId": "progress",
           "label": "あなたの強み",
           "text": "任された仕事ほど集中できていた",
-          "evidenceLogIds": ["l1", "l2"]
+          "evidenceLogIds": [
+            "l1",
+            "l2"
+          ]
         }
       ],
-      "expect": { "accepted": 1, "labels": ["手がかり"], "hypothesis": false }
+      "expect": {
+        "accepted": 1,
+        "labels": [
+          "手がかり"
+        ],
+        "hypothesis": false
+      }
     },
     {
       "name": "six cards where four is the most that may show",
-      "logIds": ["l1", "l2", "l3", "l4", "l5", "l6"],
-      "antennaIds": ["progress", "values"],
-      "proposed": [
-        { "antennaId": "progress", "label": "積み上がったこと", "text": "a", "evidenceLogIds": ["l1", "l2"] },
-        { "antennaId": "progress", "label": "続けやすい方法", "text": "b", "evidenceLogIds": ["l2", "l3"] },
-        { "antennaId": "values", "label": "大切にしたいもの", "text": "c", "evidenceLogIds": ["l3", "l4"] },
-        { "antennaId": "values", "label": "心が向く方向", "text": "d", "evidenceLogIds": ["l4", "l5"] },
-        { "antennaId": "progress", "label": "力が出る条件", "text": "e", "evidenceLogIds": ["l5", "l6"] },
-        { "antennaId": "values", "label": "自分に合う進み方", "text": "f", "evidenceLogIds": ["l6", "l1"] }
+      "logIds": [
+        "l1",
+        "l2",
+        "l3",
+        "l4",
+        "l5",
+        "l6"
       ],
-      "expect": { "accepted": 4, "hypothesis": true }
+      "antennaIds": [
+        "progress",
+        "values"
+      ],
+      "proposed": [
+        {
+          "antennaId": "progress",
+          "label": "積み上がったこと",
+          "text": "a",
+          "evidenceLogIds": [
+            "l1",
+            "l2"
+          ]
+        },
+        {
+          "antennaId": "progress",
+          "label": "続けやすい方法",
+          "text": "b",
+          "evidenceLogIds": [
+            "l2",
+            "l3"
+          ]
+        },
+        {
+          "antennaId": "values",
+          "label": "大切にしたいもの",
+          "text": "c",
+          "evidenceLogIds": [
+            "l3",
+            "l4"
+          ]
+        },
+        {
+          "antennaId": "values",
+          "label": "心が向く方向",
+          "text": "d",
+          "evidenceLogIds": [
+            "l4",
+            "l5"
+          ]
+        },
+        {
+          "antennaId": "progress",
+          "label": "力が出る条件",
+          "text": "e",
+          "evidenceLogIds": [
+            "l5",
+            "l6"
+          ]
+        },
+        {
+          "antennaId": "values",
+          "label": "自分に合う進み方",
+          "text": "f",
+          "evidenceLogIds": [
+            "l6",
+            "l1"
+          ]
+        }
+      ],
+      "expect": {
+        "accepted": 4,
+        "hypothesis": true
+      }
     },
     {
       "name": "a month with nothing worth saying",
-      "logIds": ["l1"],
-      "antennaIds": ["progress"],
+      "logIds": [
+        "l1"
+      ],
+      "antennaIds": [
+        "progress"
+      ],
       "proposed": [],
-      "expect": { "accepted": 0, "hypothesis": false }
+      "expect": {
+        "accepted": 0,
+        "hypothesis": false
+      }
     },
     {
       "name": "two 手がかり are not enough for a hypothesis",
-      "logIds": ["l1", "l2"],
-      "antennaIds": ["progress"],
-      "proposed": [
-        { "antennaId": "progress", "label": "手がかり", "text": "a", "evidenceLogIds": ["l1"] },
-        { "antennaId": "progress", "label": "手がかり", "text": "b", "evidenceLogIds": ["l2"] }
+      "logIds": [
+        "l1",
+        "l2"
       ],
-      "expect": { "accepted": 2, "hypothesis": false }
+      "antennaIds": [
+        "progress"
+      ],
+      "proposed": [
+        {
+          "antennaId": "progress",
+          "label": "手がかり",
+          "text": "a",
+          "evidenceLogIds": [
+            "l1"
+          ]
+        },
+        {
+          "antennaId": "progress",
+          "label": "手がかり",
+          "text": "b",
+          "evidenceLogIds": [
+            "l2"
+          ]
+        }
+      ],
+      "expect": {
+        "accepted": 2,
+        "hypothesis": false
+      }
     }
   ],
   "hypotheses": [
-    { "name": "hedged", "text": "気持ちが動いているのかもしれません。", "hedged": true },
-    { "name": "stated flatly", "text": "会社を離れたいと思っています。", "hedged": false },
-    { "name": "hedged word, asserting sentence", "text": "間違いなくそうかもしれません。", "hedged": false },
-    { "name": "no hedge at all", "text": "裁量を増やしたい。", "hedged": false }
+    {
+      "name": "hedged",
+      "text": "気持ちが動いているのかもしれません。",
+      "hedged": true
+    },
+    {
+      "name": "stated flatly",
+      "text": "会社を離れたいと思っています。",
+      "hedged": false
+    },
+    {
+      "name": "hedged word, asserting sentence",
+      "text": "間違いなくそうかもしれません。",
+      "hedged": false
+    },
+    {
+      "name": "no hedge at all",
+      "text": "裁量を増やしたい。",
+      "hedged": false
+    }
   ],
   "summaries": [
     {
       "name": "the shape it is meant to have",
-      "keywords": ["整理", "裁量", "継続"],
+      "keywords": [
+        "整理",
+        "裁量",
+        "継続"
+      ],
       "body": "ひとりで動く時間が増えて、決める前に一度書き出してから進めるやり方が、少しずつ自分の手に馴染んできたのが分かる。会社の中で試せる範囲を探りながら、外での活動も細い頻度のまま、途切れさせずに続けていた月。",
       "ok": true
     },
     {
       "name": "a bad month handed back as a lesson",
-      "keywords": ["停滞", "迷い", "再開"],
+      "keywords": [
+        "停滞",
+        "迷い",
+        "再開"
+      ],
       "body": "うまくいかないことが続いたけれど、そこから成長できたと言える出来事のほうが多く重なっていたのが分かる。振り返ってみれば、前に進むために必要だった時間だったと納得できる月。",
       "ok": false
     },
     {
       "name": "four words",
-      "keywords": ["整理", "裁量", "継続", "余白"],
+      "keywords": [
+        "整理",
+        "裁量",
+        "継続",
+        "余白"
+      ],
       "body": "ひとりで動く時間が増えて、決める前に一度書き出してから進めるやり方が、少しずつ自分の手に馴染んできたのが分かる。会社の中で試せる範囲を探りながら、外での活動も細い頻度のまま、途切れさせずに続けていた月。",
       "ok": false
     },
     {
       "name": "does not end 「〜月。」",
-      "keywords": ["整理", "裁量", "継続"],
+      "keywords": [
+        "整理",
+        "裁量",
+        "継続"
+      ],
       "body": "ひとりで動く時間が増えて、決める前に一度書き出してから進めるやり方が、少しずつ自分の手に馴染んできたのが分かる。会社の中で試せる範囲を探りながら、外での活動も細い頻度のまま、途切れさせずに続けていたこと。",
       "ok": false
     },
     {
       "name": "too short to be two sentences about a month",
-      "keywords": ["整理", "裁量", "継続"],
+      "keywords": [
+        "整理",
+        "裁量",
+        "継続"
+      ],
       "body": "書き出してから進めた。細く続けていた月。",
       "ok": false
     }
@@ -144,19 +336,293 @@
   "titles": [
     {
       "name": "three angles, none of them a verdict",
-      "titles": ["問いが変わった月", "速さを落として進んだ月", "手元に残ったものが分かった月"],
+      "titles": [
+        "問いが変わった月",
+        "速さを落として進んだ月",
+        "手元に残ったものが分かった月"
+      ],
       "ok": true
     },
     {
       "name": "grades the month",
-      "titles": ["目標を達成した月", "速さを落として進んだ月", "手元に残ったものが分かった月"],
+      "titles": [
+        "目標を達成した月",
+        "速さを落として進んだ月",
+        "手元に残ったものが分かった月"
+      ],
       "ok": false
     },
     {
       "name": "the same idea three times",
-      "titles": ["整理した月", "整理した月", "整理した月"],
+      "titles": [
+        "整理した月",
+        "整理した月",
+        "整理した月"
+      ],
       "ok": false
     },
-    { "name": "only one", "titles": ["整理した月"], "ok": false }
+    {
+      "name": "only one",
+      "titles": [
+        "整理した月"
+      ],
+      "ok": false
+    }
+  ],
+  "changes": [
+    {
+      "name": "one side simply has fewer records, told as a change",
+      "note": "The lie this reading invites most: a month with one record beside a month with five, and 「増えた」 writes itself. Nothing about the person changed — one of the two months is thinner on the page.",
+      "previousLogIds": [
+        "p1"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c5"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "動きが出てきた月",
+        "summary": "先月はほとんど動きがありませんでした。今月は記録が増え、いろいろな場面で動いています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c1",
+          "c2"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "both sides thin",
+      "previousLogIds": [
+        "p1"
+      ],
+      "currentLogIds": [
+        "c1"
+      ],
+      "proposed": {
+        "kind": "clarification",
+        "title": "問いがはっきりした",
+        "summary": "先月の迷いが、今月は形になっています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c1"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "three to one is the edge, and it holds",
+      "previousLogIds": [
+        "p1",
+        "p2"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c5",
+        "c6"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "続け方を決めるところへ動いた",
+        "summary": "先月は、活動を一つに絞って続け方を試していました。今月は、その形のまま次に試すことを決めています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c3"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "name": "one record past the edge",
+      "previousLogIds": [
+        "p1",
+        "p2"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c5",
+        "c6",
+        "c7"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "続け方を決めるところへ動いた",
+        "summary": "先月は、活動を一つに絞って続け方を試していました。今月は、その形のまま次に試すことを決めています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c3"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "counts, in words",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "外に出る頻度が上がった",
+        "summary": "先月は家での記録が中心でした。今月は外に出た場面の回数が増えています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c1"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "invents a record on the earlier side",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "proposed": {
+        "kind": "clarification",
+        "title": "同じ問いが形になった",
+        "summary": "先月は言葉になっていませんでした。今月は、その問いが自分の話として書かれています。",
+        "previousLogIds": [
+          "log-a"
+        ],
+        "currentLogIds": [
+          "c1"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "quotes only the later period",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "次の形が決まった",
+        "summary": "先月から考えていたことが、今月は形になっています。",
+        "previousLogIds": [],
+        "currentLogIds": [
+          "c1",
+          "c2"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "turns the earlier period into a lesson",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "proposed": {
+        "kind": "progression",
+        "title": "うまくいかなかった先月が成長につながった",
+        "summary": "先月は思うように進みませんでした。今月はその経験を次に活かせる形になっています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c1"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "a kind the reading does not have",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "proposed": {
+        "kind": "improvement",
+        "title": "進み方が変わった",
+        "summary": "先月と今月で、進め方が違っています。",
+        "previousLogIds": [
+          "p1"
+        ],
+        "currentLogIds": [
+          "c1"
+        ]
+      },
+      "ok": false
+    },
+    {
+      "name": "what is unchanged is also a comparison",
+      "previousLogIds": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "currentLogIds": [
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ],
+      "proposed": {
+        "kind": "continuity",
+        "title": "決まっていない段階を面白がるところは、変わっていない",
+        "summary": "先月も、まだ形になっていないものを考える場面で手が動いていました。今月も、同じところで長く書いています。",
+        "previousLogIds": [
+          "p2"
+        ],
+        "currentLogIds": [
+          "c4"
+        ],
+        "note": "この2つの期間から言える範囲です。"
+      },
+      "ok": true
+    }
   ]
 }

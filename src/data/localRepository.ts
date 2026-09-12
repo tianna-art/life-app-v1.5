@@ -12,6 +12,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
+  PeriodChange,
   PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
@@ -322,6 +323,15 @@ export class LocalRepository implements Repository {
   async getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null> {
     const store = await readStore();
     return store.monthHypotheses.find((h) => h.periodKey === periodKey) ?? null;
+  }
+
+  async getPeriodChange(periodType: PeriodType, periodKey: string): Promise<PeriodChange | null> {
+    const store = await readStore();
+    return (
+      store.periodChanges.find(
+        (c) => c.periodType === periodType && c.periodKey === periodKey
+      ) ?? null
+    );
   }
 
   // -- 足跡タイトル ---------------------------------------------------------

@@ -229,6 +229,30 @@ export interface MonthInsight {
 }
 
 /**
+ * 先月からの変化 / 去年との違い.
+ *
+ * Written only when both periods hold enough to be compared, and carrying the
+ * records from both sides so the comparison can be checked by the person it is
+ * about rather than taken on trust.
+ */
+export type ChangeKind = 'progression' | 'clarification' | 'continuity';
+
+export interface PeriodChange {
+  id: string;
+  periodType: PeriodType;
+  periodKey: string;
+  /** The period this one is held up against. */
+  compareKey: string;
+  kind: ChangeKind;
+  title: string;
+  summary: string;
+  previousLogIds: string[];
+  currentLogIds: string[];
+  /** What this comparison cannot see. Shown, not hidden. */
+  note: string;
+}
+
+/**
  * 今の仮説 — only when at least two cards each have two or more records
  * behind them. Always hedged; never stated as fact.
  */
