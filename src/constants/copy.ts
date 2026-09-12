@@ -11,6 +11,20 @@
 export { COPY } from './generated/preview';
 
 /**
+ * Strings the preview does not have.
+ *
+ * Everything the preview covers is generated from it. This is for the few
+ * places the app goes beyond it — here, because a summary the person rewrote
+ * has to be distinguishable from the one the reading produced, and the preview
+ * has no such distinction to copy. Keep this list short: a string that belongs
+ * in the preview should be added there instead.
+ */
+export const LOCAL_COPY = {
+  /** Marks a 要約 as the person's own words rather than the reading's. */
+  summaryIsYours: '自分の言葉',
+} as const;
+
+/**
  * None of these may appear in shipped copy.
  *
  * The first group is diagnosis — telling someone who they are. The second is

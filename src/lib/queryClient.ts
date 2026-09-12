@@ -11,7 +11,8 @@ export const queryKeys = {
   logs: (ids: string[]) => ['logs', 'by-id', ...ids] as const,
   futureMemos: () => ['future-memos'] as const,
   lastFlowSession: () => ['flow', 'last'] as const,
-  monthSummary: (periodKey: string) => ['reading', 'summary', periodKey] as const,
+  summary: (periodType: 'month' | 'year', periodKey: string) =>
+    ['reading', 'summary', periodType, periodKey] as const,
   monthInsights: (periodKey: string) => ['reading', 'insights', periodKey] as const,
   monthHypothesis: (periodKey: string) => ['reading', 'hypothesis', periodKey] as const,
   periodTitles: (periodType: 'month' | 'year') => ['period-titles', periodType] as const,

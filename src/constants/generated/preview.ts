@@ -3,6 +3,9 @@
  *
  * Lifted from the preview HTML by scripts/extract-from-preview.mjs. The
  * preview is the specification; edit it there and run the script again.
+ *
+ * source: 03467397-crincran-app-preview-v3.html
+ * sha256: 3cb3b9bdaf06deccd57013d6d9b994fad69089266292a8a9b49f27f7a698fc82
  */
 
 export const COPY = {

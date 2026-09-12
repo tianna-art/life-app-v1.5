@@ -14,8 +14,14 @@ import { monthKeyOf } from '@/utils/period';
  *
  * Two, not three. Three makes each one half-watched, and the month's reading
  * has to be able to say something about every direction it claims to follow.
- * Picking a third replaces the older choice rather than being refused, because
- * a control that simply stops responding reads as broken.
+ *
+ * A third tap does nothing, and the limit says so in a line that is always on
+ * screen. This was briefly built the other way — the oldest choice stepping
+ * aside for the new one — on the theory that an unresponsive control reads as
+ * broken. That was worse: it takes something the person deliberately chose and
+ * removes it without telling them, and the card that vanishes is the one they
+ * picked a moment ago. A tap that does not land is a smaller surprise than a
+ * choice that disappears, and the line explains it.
  *
  * These can be changed mid-month. A direction is what you are looking at, and
  * looking somewhere else in week three is allowed.
@@ -36,9 +42,9 @@ export default function MonthDirectionScreen() {
   const toggle = (id: AntennaId) => {
     setChosen((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length < MAX_ANTENNAS) return [...prev, id];
-      // Full: the oldest choice steps aside for the new one.
-      return [...prev.slice(1), id];
+      // Full. Nothing is dropped to make room; the person takes one off.
+      if (prev.length >= MAX_ANTENNAS) return prev;
+      return [...prev, id];
     });
   };
 
@@ -84,7 +90,12 @@ export default function MonthDirectionScreen() {
           );
         })}
 
-        <Text style={styles.limit}>{COPY.antennaLimit}</Text>
+        {/* Always present, and legible rather than faint: this is the rule,
+            not a footnote, and it is the only thing explaining a tap that
+            does not land. */}
+        <Text style={[styles.limit, chosen.length >= MAX_ANTENNAS && styles.limitReached]}>
+          {COPY.antennaLimit}
+        </Text>
 
         <Pressable
           testID="direction-save"
@@ -121,7 +132,8 @@ const styles = StyleSheet.create({
   wish: { fontFamily: fonts.serif, fontSize: 16, color: colors.brown },
   when: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 20, color: colors.brownDim },
   provides: { fontFamily: fonts.sans, fontSize: 11, lineHeight: 19, color: colors.brownFaint },
-  limit: { fontFamily: fonts.sans, fontSize: 11, color: colors.brownFaint, textAlign: 'center' },
+  limit: { fontFamily: fonts.sans, fontSize: 12, color: colors.brownDim, textAlign: 'center' },
+  limitReached: { color: colors.orange },
   save: {
     minHeight: MIN_TOUCH + 4,
     borderRadius: radii.pill,

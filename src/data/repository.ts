@@ -8,7 +8,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
-  MonthSummary,
+  PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
   PeriodTitle,
@@ -75,7 +75,16 @@ export interface Repository {
   saveFlowSession(entries: Partial<Record<FlowStage, string>>): Promise<FlowSession>;
 
   // 読み取り
-  getMonthSummary(periodKey: string): Promise<MonthSummary | null>;
+  getSummary(periodType: PeriodType, periodKey: string): Promise<PeriodSummary | null>;
+  /**
+   * Rewrite the summary in the person's own words. Only their half of it: the
+   * reading's body and keywords are not writable from here.
+   */
+  saveOwnSummary(input: {
+    periodType: PeriodType;
+    periodKey: string;
+    bodyUser: string;
+  }): Promise<PeriodSummary>;
   listMonthInsights(periodKey: string): Promise<MonthInsight[]>;
   getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null>;
 

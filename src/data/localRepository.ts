@@ -12,7 +12,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
-  MonthSummary,
+  PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
   PeriodTitle,
@@ -275,9 +275,43 @@ export class LocalRepository implements Repository {
 
   // -- 読み取り -------------------------------------------------------------
 
-  async getMonthSummary(periodKey: string): Promise<MonthSummary | null> {
+  async getSummary(periodType: PeriodType, periodKey: string): Promise<PeriodSummary | null> {
     const store = await readStore();
-    return store.monthSummaries.find((s) => s.periodKey === periodKey) ?? null;
+    return (
+      store.summaries.find((s) => s.periodType === periodType && s.periodKey === periodKey) ?? null
+    );
+  }
+
+  async saveOwnSummary(input: {
+    periodType: PeriodType;
+    periodKey: string;
+    bodyUser: string;
+  }): Promise<PeriodSummary> {
+    let saved: PeriodSummary | undefined;
+    await mutateStore((store) => {
+      const existing = store.summaries.find(
+        (s) => s.periodType === input.periodType && s.periodKey === input.periodKey
+      );
+      // Only the person's half changes. Whatever the reading wrote stays put.
+      saved = {
+        periodType: input.periodType,
+        periodKey: input.periodKey,
+        keywords: existing?.keywords ?? [],
+        body: existing?.body ?? '',
+        bodyUser: input.bodyUser.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      return {
+        ...store,
+        summaries: [
+          ...store.summaries.filter(
+            (s) => !(s.periodType === input.periodType && s.periodKey === input.periodKey)
+          ),
+          saved,
+        ],
+      };
+    });
+    return saved!;
   }
 
   async listMonthInsights(periodKey: string): Promise<MonthInsight[]> {

@@ -57,15 +57,18 @@ Deno.serve(async (request) => {
       return jsonResponse({ written: false, problems: verdict.problems }, 200);
     }
 
-    const { error } = await db.from('month_summaries').upsert(
+    // Only the reading's own fields. body_user is the person's and is never
+    // touched here — regenerating a summary must not discard what they wrote.
+    const { error } = await db.from('period_summaries').upsert(
       {
         user_id: user.id,
+        period_type: 'month',
         period_key: periodKey,
         keywords,
         body,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id,period_key' }
+      { onConflict: 'user_id,period_type,period_key' }
     );
     if (error) throw error;
 

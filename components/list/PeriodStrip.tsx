@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
-import { footprintState, periodLabel, type FootprintState } from '@/utils/footprint';
+import {
+  daysUntilNameable,
+  footprintState,
+  periodLabel,
+  type FootprintState,
+} from '@/utils/footprint';
 import type { PeriodTitle } from '@/types';
 
 /**
@@ -67,7 +72,7 @@ export function PeriodStrip({
           >
             <Text style={[styles.label, on && styles.labelOn]}>{periodLabel(key)}</Text>
             <Text style={[styles.title, on && styles.titleOn]} numberOfLines={3}>
-              {title?.title ?? placeholderFor(state)}
+              {title?.title ?? placeholderFor(state, daysUntilNameable(key, today))}
             </Text>
             <View style={[styles.rule, on && styles.ruleOn]} />
           </Pressable>
@@ -77,14 +82,16 @@ export function PeriodStrip({
   );
 }
 
-function placeholderFor(state: FootprintState): string {
+function placeholderFor(state: FootprintState, daysLeft: number): string {
   switch (state) {
     case 'hand':
       return COPY.handTitle;
     case 'ready':
       return COPY.reviewReady;
     case 'waiting':
-      return COPY.titlePending;
+      // The wait is shown, not hidden. Knowing what happens and when is what
+      // makes it bearable; an absent control teaches nothing.
+      return `${COPY.titlePending}\n（あと${daysLeft}日）`;
     default:
       return '';
   }

@@ -238,12 +238,26 @@ export interface MonthHypothesis {
   updatedAt: string;
 }
 
-/** 月次サマリー — exactly three words, and two sentences ending 「〜月。」 */
-export interface MonthSummary {
+/**
+ * 要約 — three words and two sentences, for a month or a year.
+ *
+ * Two bodies. `body` is what the reading produced; `bodyUser` is what the
+ * person wrote over it. They are kept apart so a summary can be regenerated
+ * without discarding someone's own words, and so it stays possible to tell
+ * which of the two you are reading.
+ */
+export interface PeriodSummary {
+  periodType: PeriodType;
   periodKey: string;
   keywords: string[];
   body: string;
+  bodyUser: string | null;
   updatedAt: string;
+}
+
+/** What the screen shows: the person's words when they wrote any. */
+export function summaryText(summary: PeriodSummary): string {
+  return summary.bodyUser?.trim() || summary.body;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
-import type { MonthHypothesis, MonthInsight, MonthSummary } from '@/types';
+import type { MonthHypothesis, MonthInsight, PeriodSummary, PeriodType } from '@/types';
 
 /**
  * What the records suggest. Read only — an Edge Function writes these, and
@@ -21,9 +21,28 @@ export function useMonthHypothesis(periodKey: string) {
   });
 }
 
-export function useMonthSummary(periodKey: string) {
-  return useQuery<MonthSummary | null>({
-    queryKey: queryKeys.monthSummary(periodKey),
-    queryFn: () => getRepository().getMonthSummary(periodKey),
+export function useSummary(periodType: PeriodType, periodKey: string) {
+  return useQuery<PeriodSummary | null>({
+    queryKey: queryKeys.summary(periodType, periodKey),
+    queryFn: () => getRepository().getSummary(periodType, periodKey),
+    enabled: periodKey.length > 0,
+  });
+}
+
+/**
+ * Rewriting a summary in your own words.
+ *
+ * This is the one thing in the reading a person may change, and it is a
+ * separate field rather than an edit of what the reading wrote — so
+ * regenerating the reading later does not silently discard it.
+ */
+export function useSaveOwnSummary() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { periodType: PeriodType; periodKey: string; bodyUser: string }) =>
+      getRepository().saveOwnSummary(input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['reading'] });
+    },
   });
 }

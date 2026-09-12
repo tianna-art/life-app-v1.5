@@ -259,14 +259,29 @@ create table if not exists public.flow_sessions (
 -- ---------------------------------------------------------------------------
 -- 読み取り — summary, cards, hypothesis
 -- ---------------------------------------------------------------------------
-create table if not exists public.month_summaries (
+/*
+ * 要約 — for a month or a year, and rewritable by the person it is about.
+ *
+ * Two bodies, not one. `body` is what the reading produced; `body_user` is
+ * what the person wrote. Keeping them apart is what lets a summary be
+ * regenerated without silently discarding someone's own words, and what makes
+ * it possible to tell later which of the two you are reading. The screen shows
+ * `body_user` when it exists.
+ */
+create table if not exists public.period_summaries (
   user_id uuid not null references auth.users(id) on delete cascade,
-  period_key text not null check (period_key ~ '^\d{4}-\d{2}$'),
+  period_type text not null default 'month' check (period_type in ('month', 'year')),
+  period_key text not null,
   keywords text[] not null default '{}',
   body text not null default '',
+  body_user text,
   updated_at timestamptz not null default now(),
-  primary key (user_id, period_key),
-  constraint month_summaries_three_words check (cardinality(keywords) <= 3)
+  primary key (user_id, period_type, period_key),
+  constraint period_summaries_three_words check (cardinality(keywords) <= 3),
+  constraint period_summaries_key_matches_type check (
+    (period_type = 'month' and period_key ~ '^\d{4}-\d{2}$')
+    or (period_type = 'year' and period_key ~ '^\d{4}$')
+  )
 );
 
 create table if not exists public.month_insights (
@@ -334,7 +349,9 @@ begin
       t || '_own', t);
   end loop;
 
-  foreach t in array array['month_summaries', 'month_insights', 'month_hypotheses']
+  -- 見立て and 仮説 are readings: they carry evidence, and a client that can
+  -- write one can write one with invented records behind it. Select only.
+  foreach t in array array['month_insights', 'month_hypotheses']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists %I on public.%I', t || '_own', t);
@@ -342,13 +359,50 @@ begin
     execute format(
       'create policy %I on public.%I for select to authenticated using (user_id = auth.uid())',
       t || '_read', t);
-    -- No insert, update or delete policy: the service role bypasses RLS, and
-    -- nothing else may write here.
     execute format('revoke insert, update, delete on public.%I from authenticated', t);
+    execute format('grant select on public.%I to authenticated', t);
   end loop;
 end
 $$;
 
+/*
+ * 要約 is different, and an earlier version of this migration got it wrong by
+ * treating it the same.
+ *
+ * A summary is a description of someone's own month, and they have to be able
+ * to rewrite it. What they must not be able to do is put words in the
+ * reading's mouth — so the write is narrowed by column rather than refused:
+ * body_user is theirs, keywords and body belong to the function.
+ */
+alter table public.period_summaries enable row level security;
+
+drop policy if exists period_summaries_read on public.period_summaries;
+create policy period_summaries_read on public.period_summaries
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists period_summaries_write_own_words on public.period_summaries;
+create policy period_summaries_write_own_words on public.period_summaries
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists period_summaries_start_own_words on public.period_summaries;
+create policy period_summaries_start_own_words on public.period_summaries
+  for insert to authenticated with check (user_id = auth.uid());
+
+revoke insert, update, delete on public.period_summaries from authenticated;
+-- An UPDATE needs to read the columns it filters by and the ones the policy
+-- checks, so the select grant is not optional here: without it the person
+-- cannot edit their own summary at all. (Supabase grants this by default; it
+-- is stated anyway so the migration stands on its own.)
+grant select on public.period_summaries to authenticated;
+-- Column-level, so the reading's own fields stay out of reach even though the
+-- row is writable. A summary the person writes before any reading exists has
+-- no keywords and no body, which is exactly what it should look like.
+grant update (body_user, updated_at) on public.period_summaries to authenticated;
+grant insert (user_id, period_type, period_key, body_user, updated_at)
+  on public.period_summaries to authenticated;
+
 create index if not exists logs_user_period_idx on public.logs (user_id, period_key);
 create index if not exists future_memos_user_status_idx on public.future_memos (user_id, status);
 create index if not exists month_insights_user_period_idx on public.month_insights (user_id, period_key);
+create index if not exists period_summaries_user_idx on public.period_summaries (user_id, period_type, period_key);

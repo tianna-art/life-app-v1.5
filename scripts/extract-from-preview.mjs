@@ -10,6 +10,8 @@
  *   node scripts/extract-from-preview.mjs <preview.html> [out-dir]
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { basename } from 'node:path';
 import { join } from 'node:path';
 import vm from 'node:vm';
 
@@ -116,11 +118,24 @@ function prune(name, value) {
 
 mkdirSync(outDir, { recursive: true });
 
+/**
+ * Which preview this came from.
+ *
+ * The copy in the preview moves, and a generated file that does not say what
+ * it was generated from makes the next regeneration unreadable: the diff shows
+ * every string that changed but nothing about which version changed them. The
+ * digest goes in the file, so it goes in the commit.
+ */
+const digest = createHash('sha256').update(readFileSync(previewPath)).digest('hex');
+
 const header = `/**
  * GENERATED — do not edit.
  *
  * Lifted from the preview HTML by scripts/extract-from-preview.mjs. The
  * preview is the specification; edit it there and run the script again.
+ *
+ * source: ${basename(previewPath)}
+ * sha256: ${digest}
  */
 `;
 
@@ -133,6 +148,7 @@ const outFile = join(outDir, 'preview.ts');
 writeFileSync(outFile, contents);
 
 console.log(`wrote ${outFile} — ${WANTED.length} exports, ${(Buffer.byteLength(contents) / 1024).toFixed(1)}KB`);
+console.log(`  source: ${basename(previewPath)} sha256:${digest}`);
 for (const name of WANTED) {
   const v = extracted[name];
   const size = Array.isArray(v)

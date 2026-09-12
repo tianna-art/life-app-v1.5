@@ -1,16 +1,23 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
-import { COPY } from '@/constants/copy';
+import { COPY, LOCAL_COPY } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { PeriodStrip } from '@components/list/PeriodStrip';
 import { RecordRow } from '@components/list/RecordRow';
 import { useFirstRecordedPeriod, usePeriodTitles, useSavePeriodTitle } from '@/hooks/usePeriodTitles';
+import { useSaveOwnSummary, useSummary } from '@/hooks/useReading';
 import { useMonthLogs, useYearLogs } from '@/hooks/useLogs';
-import { footprintState, monthStrip, periodLabel, yearStrip } from '@/utils/footprint';
+import {
+  daysUntilNameable,
+  footprintState,
+  monthStrip,
+  periodLabel,
+  yearStrip,
+} from '@/utils/footprint';
 import { monthKeyOf } from '@/utils/period';
-import type { PeriodType } from '@/types';
+import { summaryText, type PeriodType } from '@/types';
 
 /**
  * 足跡データ — the months and years already lived, each under the name it was
@@ -24,10 +31,13 @@ export default function ListScreen() {
   const [scope, setScope] = useState<PeriodType>('month');
   const [selected, setSelected] = useState(() => monthKeyOf(today));
   const [draft, setDraft] = useState<string | null>(null);
+  const [summaryDraft, setSummaryDraft] = useState<string | null>(null);
 
   const { data: titles } = usePeriodTitles(scope);
   const { data: firstUsed } = useFirstRecordedPeriod();
   const saveTitle = useSavePeriodTitle();
+  const { data: summary } = useSummary(scope, selected);
+  const saveOwnSummary = useSaveOwnSummary();
 
   const keys = useMemo(
     () => (scope === 'month' ? monthStrip(today) : yearStrip(today)),
@@ -52,6 +62,7 @@ export default function ListScreen() {
     setScope(next);
     setSelected(next === 'month' ? monthKeyOf(today) : String(today.getFullYear()));
     setDraft(null);
+    setSummaryDraft(null);
   };
 
   return (
@@ -87,6 +98,7 @@ export default function ListScreen() {
         onSelect={(key) => {
           setSelected(key);
           setDraft(null);
+          setSummaryDraft(null);
         }}
       />
 
@@ -105,7 +117,7 @@ export default function ListScreen() {
           >
             <Text style={styles.titleEyebrow}>{`${periodLabel(selected)}の足跡タイトル`}</Text>
             <Text style={title ? styles.title : styles.titleEmpty}>
-              {title?.title ?? placeholder(state)}
+              {title?.title ?? placeholder(state, daysUntilNameable(selected, today))}
             </Text>
           </Pressable>
         ) : (
@@ -139,6 +151,80 @@ export default function ListScreen() {
           </View>
         )}
 
+        {/* 要約. The reading writes one; the person may write over it, in a
+            field of their own — so regenerating the reading later does not
+            quietly discard what they wrote. */}
+        {summaryDraft === null ? (
+          <Pressable
+            testID="summary-open"
+            onPress={() => setSummaryDraft(summary?.bodyUser ?? summary?.body ?? '')}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.digestLabel}
+            style={styles.summaryBox}
+          >
+            <View style={styles.summaryHead}>
+              <Text style={styles.titleEyebrow}>{COPY.digestLabel}</Text>
+              {summary?.bodyUser ? (
+                <Text style={styles.ownMark}>{LOCAL_COPY.summaryIsYours}</Text>
+              ) : null}
+            </View>
+            {summary && summaryText(summary).length > 0 ? (
+              <>
+                {summary.keywords.length > 0 ? (
+                  <Text style={styles.keywords}>{summary.keywords.join(' / ')}</Text>
+                ) : null}
+                <Text style={styles.summaryBody}>{summaryText(summary)}</Text>
+              </>
+            ) : (
+              <Text style={styles.titleEmpty}>
+                {scope === 'month' ? COPY.digestPending : COPY.yearDigestPending}
+              </Text>
+            )}
+          </Pressable>
+        ) : (
+          <View style={styles.summaryEditor} testID="summary-editor">
+            <Text style={styles.titleEyebrow}>{COPY.digestLabel}</Text>
+            <TextInput
+              testID="summary-input"
+              value={summaryDraft}
+              onChangeText={setSummaryDraft}
+              multiline
+              style={styles.summaryInput}
+              accessibilityLabel={COPY.digestLabel}
+              textAlignVertical="top"
+              autoFocus
+            />
+            <View style={styles.summaryActions}>
+              <Pressable
+                testID="summary-cancel"
+                onPress={() => setSummaryDraft(null)}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel="やめる"
+              >
+                <Text style={styles.quiet}>やめる</Text>
+              </Pressable>
+              <Pressable
+                testID="summary-save"
+                onPress={() => {
+                  saveOwnSummary.mutate({
+                    periodType: scope,
+                    periodKey: selected,
+                    bodyUser: summaryDraft,
+                  });
+                  setSummaryDraft(null);
+                }}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="button"
+                accessibilityLabel="要約を保存"
+                style={styles.round}
+              >
+                <Text style={styles.check}>✓</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <Text style={styles.recordsLabel}>{`${periodLabel(selected)}の${COPY.logsLabel}`}</Text>
         {logs.length === 0 ? (
           <Text style={styles.none}>{COPY.pastNone}</Text>
@@ -150,8 +236,8 @@ export default function ListScreen() {
   );
 }
 
-function placeholder(state: ReturnType<typeof footprintState>): string {
-  if (state === 'waiting') return COPY.titlePending;
+function placeholder(state: ReturnType<typeof footprintState>, daysLeft: number): string {
+  if (state === 'waiting') return `${COPY.titlePending}（あと${daysLeft}日）`;
   if (state === 'hand' || state === 'ready') return COPY.handTitle;
   return COPY.monthTitleEmpty;
 }
@@ -212,4 +298,34 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   none: { fontFamily: fonts.sans, fontSize: 13, color: colors.brownFaint },
+  summaryBox: {
+    backgroundColor: colors.butter,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  summaryHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ownMark: { fontFamily: fonts.sans, fontSize: 10, color: colors.brownDim },
+  keywords: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 1.4, color: colors.brownDim },
+  summaryBody: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 24, color: colors.brown },
+  summaryEditor: {
+    backgroundColor: colors.butter,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  summaryInput: {
+    minHeight: 110,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.paper,
+    color: colors.brown,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 24,
+  },
+  summaryActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quiet: { fontFamily: fonts.sans, fontSize: 13, color: colors.brownDim },
 });

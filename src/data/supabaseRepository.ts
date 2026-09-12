@@ -13,7 +13,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
-  MonthSummary,
+  PeriodSummary,
   NewFutureMemoInput,
   NewLogInput,
   PeriodTitle,
@@ -32,9 +32,11 @@ import type { Repository } from './repository';
  * filters by user: the database does it, and a query that forgot to would
  * return nothing rather than someone else's month.
  *
- * The reading tables — month_summaries, month_insights, month_hypotheses — are
- * read here and never written: an Edge Function owns them, because a client
- * that can write its own reading can write one with nothing behind it.
+ * 見立て and 仮説 are read here and never written: an Edge Function owns them,
+ * because a client that can write its own reading can write one with nothing
+ * behind it, and a check constraint cannot tell a real log id from a made-up
+ * one. 要約 is the exception — it describes the person's own month, so they
+ * may rewrite it, in a column of their own that the reading never touches.
  */
 export class SupabaseRepository implements Repository {
   private get client(): SupabaseClient {
@@ -394,20 +396,47 @@ export class SupabaseRepository implements Repository {
 
   // -- 読み取り（read only） -------------------------------------------------
 
-  async getMonthSummary(periodKey: string): Promise<MonthSummary | null> {
+  private static readonly SUMMARY_COLUMNS =
+    'period_type, period_key, keywords, body, body_user, updated_at';
+
+  async getSummary(periodType: PeriodType, periodKey: string): Promise<PeriodSummary | null> {
     const { data, error } = await this.client
-      .from('month_summaries')
-      .select('period_key, keywords, body, updated_at')
+      .from('period_summaries')
+      .select(SupabaseRepository.SUMMARY_COLUMNS)
+      .eq('period_type', periodType)
       .eq('period_key', periodKey)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return null;
-    return {
-      periodKey: data.period_key,
-      keywords: data.keywords ?? [],
-      body: data.body,
-      updatedAt: data.updated_at,
-    };
+    return data ? mapSummary(data) : null;
+  }
+
+  /**
+   * The person's own words. The database only lets this column through — the
+   * reading's body and keywords are not writable from a client — so an upsert
+   * here cannot quietly become a forged reading.
+   */
+  async saveOwnSummary(input: {
+    periodType: PeriodType;
+    periodKey: string;
+    bodyUser: string;
+  }): Promise<PeriodSummary> {
+    const userId = await this.userId();
+    const { data, error } = await this.client
+      .from('period_summaries')
+      .upsert(
+        {
+          user_id: userId,
+          period_type: input.periodType,
+          period_key: input.periodKey,
+          body_user: input.bodyUser.trim(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,period_type,period_key' }
+      )
+      .select(SupabaseRepository.SUMMARY_COLUMNS)
+      .single();
+    if (error) throw error;
+    return mapSummary(data);
   }
 
   async listMonthInsights(periodKey: string): Promise<MonthInsight[]> {
@@ -517,6 +546,26 @@ function mapLog(row: LogRow): JournalLog {
     source: row.source,
     sourceId: row.source_id,
     createdAt: row.created_at,
+  };
+}
+
+interface SummaryRow {
+  period_type: PeriodType;
+  period_key: string;
+  keywords: string[] | null;
+  body: string | null;
+  body_user: string | null;
+  updated_at: string;
+}
+
+function mapSummary(row: SummaryRow): PeriodSummary {
+  return {
+    periodType: row.period_type,
+    periodKey: row.period_key,
+    keywords: row.keywords ?? [],
+    body: row.body ?? '',
+    bodyUser: row.body_user,
+    updatedAt: row.updated_at,
   };
 }
 

@@ -6,7 +6,7 @@ import type {
   MonthDirection,
   MonthHypothesis,
   MonthInsight,
-  MonthSummary,
+  PeriodSummary,
   PeriodTitle,
   VisionItem,
   VisionWord,
@@ -26,7 +26,7 @@ export interface LocalStoreShape {
   logs: JournalLog[];
   futureMemos: FutureMemo[];
   flowSessions: FlowSession[];
-  monthSummaries: MonthSummary[];
+  summaries: PeriodSummary[];
   monthInsights: MonthInsight[];
   monthHypotheses: MonthHypothesis[];
   periodTitles: PeriodTitle[];
@@ -41,7 +41,7 @@ export const EMPTY_STORE: LocalStoreShape = {
   logs: [],
   futureMemos: [],
   flowSessions: [],
-  monthSummaries: [],
+  summaries: [],
   monthInsights: [],
   monthHypotheses: [],
   periodTitles: [],
