@@ -5,6 +5,8 @@
  * are generated rather than retyped — see scripts/extract-from-preview.mjs.
  * What lives here is the guard: the register this product must never slip
  * into, checked by __tests__/copy.test.ts against every shipped file.
+ *
+ * @declares-forbidden-register — this is the guard list itself.
  */
 export { COPY } from './generated/preview';
 

@@ -1,0 +1,31 @@
+name: checks
+
+# Types, tests, and the eval suite that guards what a reading may be.
+# The eval runs on every push because the rules it protects are the kind that
+# loosen by accident: a prompt tweak, a relaxed threshold, a golden quietly
+# deleted. None of that shows up in a screenshot.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: The reading rules are in step with their copy
+        run: npm run sync:shared -- --check
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Tests and evals
+        run: npm test -- --ci

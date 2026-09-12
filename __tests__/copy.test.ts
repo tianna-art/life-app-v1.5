@@ -52,8 +52,7 @@ describe('the app does not diagnose, rescue or count', () => {
 
   it('keeps the forbidden register out of the source as well', () => {
     // A string typed straight into a component bypasses the copy module, so
-    // the files are scanned too. This file names the phrases, and the
-    // generated module is the preview's own words, so both are skipped.
+    // the files are scanned too.
     const offenders: string[] = [];
     for (const dir of SCANNED) {
       let files: string[] = [];
@@ -63,8 +62,13 @@ describe('the app does not diagnose, rescue or count', () => {
         continue;
       }
       for (const file of files) {
-        if (file.endsWith('src/constants/copy.ts')) continue;
         const text = readFileSync(file, 'utf8');
+        // A file is allowed to contain a forbidden phrase only by saying so:
+        // the guard list, the rules that reject it, and the prompt that tells
+        // the model not to write it all have to name it. The marker has to be
+        // typed deliberately, which a file drifting into the register will not
+        // do by accident.
+        if (text.includes('@declares-forbidden-register')) continue;
         for (const phrase of FORBIDDEN_PHRASES) {
           if (text.includes(phrase)) offenders.push(`${file}: ${phrase}`);
         }

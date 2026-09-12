@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "extract": "node scripts/extract-from-preview.mjs"
+    "extract": "node scripts/extract-from-preview.mjs",
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "eval": "jest __tests__/goldens.test.ts"
   },
   "jest": {
     "preset": "jest-expo",
