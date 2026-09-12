@@ -13,7 +13,8 @@
     "test:watch": "jest --watch",
     "extract": "node scripts/extract-from-preview.mjs",
     "sync:shared": "node scripts/sync-shared.mjs",
-    "eval": "jest __tests__/goldens.test.ts"
+    "eval": "jest __tests__/goldens.test.ts",
+    "orphans": "node scripts/find-orphans.mjs"
   },
   "jest": {
     "preset": "jest-expo",

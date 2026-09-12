@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { signInWithProvider } from '@/lib/oauth';
+import { signOutEverywhere } from '@/lib/session';
 import { useLocalStore } from '@/lib/env';
 import { getRepository } from '@/data';
 
@@ -87,11 +88,8 @@ export function useAuth() {
     }
   }, []);
 
-  const signOut = useCallback(async () => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    await supabase.auth.signOut();
-  }, []);
+  // One implementation, shared with マイページ.
+  const signOut = useCallback(() => signOutEverywhere(), []);
 
   return { ...state, signInWithGoogle, signOut, isLocalMode: useLocalStore };
 }

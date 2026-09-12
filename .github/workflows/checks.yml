@@ -24,6 +24,12 @@ jobs:
       - name: The reading rules are in step with their copy
         run: npm run sync:shared -- --check
 
+      - name: Nothing is written into the void
+        # A file put at a path nothing imports does not fail: the type checker
+        # and the tests both stay silent, because neither of them ever looks at
+        # it. That happened once, so the import graph is checked here.
+        run: npm run orphans
+
       - name: Types
         run: npm run typecheck
 

@@ -22,6 +22,14 @@ export { COPY } from './generated/preview';
 export const LOCAL_COPY = {
   /** Marks a 要約 as the person's own words rather than the reading's. */
   summaryIsYours: '自分の言葉',
+  /**
+   * マイページ. The preview's own note says 「今月の方向以外は、まだ中身が
+   * ありません」, which was true of the preview and is not true here: アカウント
+   * works. Saying so accurately is the point of the line.
+   */
+  settingsNote: '通知と記録の書き出しは、まだ中身がありません。何が入るかだけ置いています。',
+  /** The line above ログアウト, so nobody signs out of the wrong account. */
+  signedInAs: 'ログイン中',
 } as const;
 
 /**
