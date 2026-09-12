@@ -7,7 +7,7 @@
  */
 import { serviceClient, requireUser } from '../_shared/db.ts';
 import { extractJson, jsonResponse, preflight } from '../_shared/json.ts';
-import { getProvider } from '../_shared/llm.ts';
+import { createProvider } from '../_shared/llm.ts';
 import { MONTH_SUMMARY_SYSTEM, renderLogs } from '../_shared/prompts.ts';
 import { checkSummary } from '../_shared/reading.ts';
 
@@ -34,7 +34,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ written: false, reason: 'no records' });
     }
 
-    const provider = getProvider();
+    const provider = createProvider();
     const raw = await provider.complete({
       system: MONTH_SUMMARY_SYSTEM,
       user: [

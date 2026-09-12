@@ -16,7 +16,7 @@
  */
 import { serviceClient, requireUser } from '../_shared/db.ts';
 import { extractJson, jsonResponse, preflight } from '../_shared/json.ts';
-import { getProvider } from '../_shared/llm.ts';
+import { createProvider } from '../_shared/llm.ts';
 import { PERIOD_CHANGE_SYSTEM, renderLogs } from '../_shared/prompts.ts';
 import { acceptChange, sidesAreComparable, type ProposedChange } from '../_shared/reading.ts';
 
@@ -83,7 +83,7 @@ Deno.serve(async (request) => {
     const render = (rows: Row[]) =>
       renderLogs(rows.map((r) => ({ id: r.id, occurredOn: r.occurred_on, body: r.body ?? '' })));
 
-    const provider = getProvider();
+    const provider = createProvider();
     const raw = await provider.complete({
       system: PERIOD_CHANGE_SYSTEM,
       user: [

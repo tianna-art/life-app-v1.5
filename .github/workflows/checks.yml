@@ -30,6 +30,21 @@ jobs:
         # it. That happened once, so the import graph is checked here.
         run: npm run orphans
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: The Edge Functions type-check
+        # tsconfig.json excludes supabase/functions — the app's compiler cannot
+        # resolve Deno's URL imports — so until now nothing looked at them
+        # until deploy time. That is too late: the functions went a whole
+        # rewrite importing a name (`getProvider`) that _shared/llm.ts has
+        # never exported, and every test stayed green throughout.
+        run: |
+          set -o pipefail
+          echo '{"nodeModulesDir":"auto"}' > deno.check.json
+          deno check --no-lock --config deno.check.json supabase/functions/*/index.ts
+
       - name: Types
         run: npm run typecheck
 

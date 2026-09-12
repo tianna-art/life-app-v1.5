@@ -13,7 +13,7 @@
  */
 import { serviceClient, requireUser } from '../_shared/db.ts';
 import { extractJson, jsonResponse, preflight } from '../_shared/json.ts';
-import { getProvider } from '../_shared/llm.ts';
+import { createProvider } from '../_shared/llm.ts';
 import { MONTH_INSIGHTS_SYSTEM, renderLogs } from '../_shared/prompts.ts';
 import {
   acceptInsights,
@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
     }
 
     const antennaIds: string[] = direction?.antenna_ids ?? [];
-    const provider = getProvider();
+    const provider = createProvider();
     const raw = await provider.complete({
       system: MONTH_INSIGHTS_SYSTEM,
       user: [
