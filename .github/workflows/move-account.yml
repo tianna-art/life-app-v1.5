@@ -1,0 +1,88 @@
+# Moves the records to the account that is actually being used.
+#
+# A one-off, so it gets a workflow of its own rather than a path input on
+# "Run migration". That workflow takes a bare filename under
+# supabase/migrations/ on purpose — widening it to reach anywhere under
+# supabase/ would turn a deliberately narrow door into a general one, and the
+# narrowness is what makes replaying an old migration impossible.
+#
+# supabase/moveaccount.sql is written to be run more than once: it archives the
+# rows it is about to touch, moves them, and leaves a 足跡タイトル alone when
+# the destination already has one for that period. A second run finds nothing
+# to move and says so.
+#
+# Run it AFTER 20260912120000_direction_model.sql — the archive schema it
+# writes its backup into is created there.
+name: Move account
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MOVE to run it against the live database'
+        type: string
+        required: true
+        default: ''
+
+concurrency:
+  group: move-account
+  cancel-in-progress: false
+
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the request
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "${{ inputs.confirm }}" != "MOVE" ]; then
+            echo "::error::This moves live records between accounts. Type MOVE to proceed."
+            exit 1
+          fi
+
+          token=$(printf '%s' "$ACCESS_TOKEN" | tr -d '[:space:]')
+          ref=$(printf '%s' "$PROJECT_REF" | tr -d '[:space:]')
+          case "$token" in
+            sbp_*) ;;
+            *)
+              echo "::error::SUPABASE_ACCESS_TOKEN must start with sbp_."
+              echo "Generate one at https://supabase.com/dashboard/account/tokens"
+              exit 1
+              ;;
+          esac
+          if [ -z "$ref" ]; then
+            echo "::error::SUPABASE_PROJECT_REF is not set."
+            exit 1
+          fi
+
+          echo "SUPABASE_ACCESS_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+
+      - name: Move them
+        run: |
+          jq -Rs '{query: .}' supabase/moveaccount.sql > body.json
+
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @body.json)
+
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::The move failed (HTTP $status)."
+            head -c 4000 response.json
+            echo
+            exit 1
+          fi
+
+          # The script's last statement is a per-account count, so the response
+          # says where everything ended up without a second query.
+          echo "### Where the records are now" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          head -c 2000 response.json | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
