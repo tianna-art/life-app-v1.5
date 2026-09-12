@@ -62,8 +62,12 @@ export default function MonthDirectionScreen() {
       </Pressable>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* 「今月、どんな方向をみたい？」 the first time, 「今月の方向を変えて
+            みたい？」 once there is one. The screen is reached from both, and
+            asking somebody to choose a direction they already chose reads as
+            not having noticed. */}
         <Text style={styles.heading} accessibilityRole="header">
-          {`${today.getMonth() + 1}月の方向`}
+          {(current?.antennaIds ?? []).length > 0 ? COPY.antennaQChange : COPY.antennaQ}
         </Text>
         <Text style={styles.sub}>{COPY.antennaSub}</Text>
 

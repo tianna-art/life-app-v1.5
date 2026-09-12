@@ -38,6 +38,8 @@ export const colors = {
   /** Accent: the name of a kind, and the way into something not yet set. */
   orange: '#DA7443',
   orangeSoft: 'rgba(218, 116, 67, 0.14)',
+  /** A thin orange rule — an invitation's edge, never a warning's. */
+  orangeLine: 'rgba(218, 116, 67, 0.34)',
 
   /** Decoration only — never type, never a state. */
   moss: '#7C8A5F',

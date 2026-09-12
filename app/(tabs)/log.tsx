@@ -9,6 +9,7 @@ import { MonthDirectionBand } from '@components/log/MonthDirectionBand';
 import { Composer } from '@components/log/Composer';
 import { FutureMemoRoute } from '@components/future/FutureMemoRoute';
 import { FlowQuest } from '@components/flow/FlowQuest';
+import { VisionIntro } from '@components/vision/VisionIntro';
 import { useMonthDirection } from '@/hooks/useDirection';
 import { useCreateLog } from '@/hooks/useLogs';
 import { useLastFlowSession, useSaveFlowSession } from '@/hooks/useFlow';
@@ -47,6 +48,11 @@ export default function LogScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Above the 方向 band and below the tabs, on every route: the
+              invitation belongs to the screen, not to one way of writing. It
+              shows itself only while the board is empty. */}
+          <VisionIntro />
+
           {route === 'category' ? (
             <>
               <MonthDirectionBand month={today.getMonth() + 1} antennaIds={antennaIds} />

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HIT_SLOP, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
+import { VisionIntro } from './VisionIntro';
 import type { VisionItem, VisionWord } from '@/types';
 
 /**
@@ -9,44 +10,27 @@ import type { VisionItem, VisionWord } from '@/types';
  * It opens and closes on the map rather than living in settings, because it is
  * the thing the rest of the screen is measured against, not a preference.
  *
- * Before anything is in it, this is an invitation and says plainly that a
- * direction is not required first. Nothing here is a decision: the items may
- * contradict each other and the list may be short.
+ * Before anything is in it, the invitation is shown instead — the same card
+ * the input screen shows, from the same file. Nothing here is a decision: the
+ * items may contradict each other and the list may be short.
  */
 export function VisionBoard({
   items,
   words,
   open,
   onToggle,
-  onStart,
 }: {
   items: VisionItem[];
   words: VisionWord[];
   open: boolean;
   onToggle: () => void;
-  onStart: () => void;
 }) {
   const empty = items.length === 0 && words.length === 0;
 
-  if (empty) {
-    return (
-      <View style={styles.intro} testID="vision-intro">
-        <Text style={styles.eyebrow}>{COPY.visionEyebrow}</Text>
-        <Text style={styles.introTitle}>{COPY.visionTitle}</Text>
-        <Text style={styles.introBody}>{COPY.visionBody}</Text>
-        <Pressable
-          testID="vision-start"
-          onPress={onStart}
-          accessibilityRole="button"
-          accessibilityLabel={COPY.visionGo}
-          style={({ pressed }) => [styles.start, pressed && styles.pressed]}
-        >
-          <Text style={styles.startLabel}>{COPY.visionGo}</Text>
-        </Pressable>
-        <Text style={styles.later}>{COPY.visionLaterNote}</Text>
-      </View>
-    );
-  }
+  // One card, drawn in one place. 現在地 and 入力 show the same invitation, so
+  // it cannot drift into two that agree about the words and disagree about
+  // what pressing them does.
+  if (empty) return <VisionIntro />;
 
   return (
     <View style={styles.wrap} testID="vision-board">
@@ -120,32 +104,4 @@ const styles = StyleSheet.create({
   wordsLabel: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 2, color: colors.brownFaint },
   word: { fontFamily: fonts.serif, fontSize: 14, color: colors.brownDim },
 
-  intro: {
-    backgroundColor: colors.paper,
-    borderRadius: radii.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  eyebrow: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, color: colors.orange },
-  introTitle: { fontFamily: fonts.serif, fontSize: 17, color: colors.brown, textAlign: 'center' },
-  introBody: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 21,
-    color: colors.brownDim,
-    textAlign: 'center',
-  },
-  start: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radii.pill,
-    backgroundColor: colors.brown,
-  },
-  startLabel: { fontFamily: fonts.sans, fontSize: 14, color: colors.onBrown },
-  pressed: { opacity: 0.62 },
-  later: { fontFamily: fonts.sans, fontSize: 10, color: colors.brownFaint },
 });

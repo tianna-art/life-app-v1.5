@@ -104,7 +104,6 @@ export default function MapScreen() {
               words={vision?.words ?? []}
               open={visionOpen}
               onToggle={() => setVisionOpen((v) => !v)}
-              onStart={() => router.push('/vision/setup')}
             />
 
             <HairlineRule />

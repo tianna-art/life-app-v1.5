@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { HIT_SLOP, colors, fonts, radii, spacing } from '@/theme';
+import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
 import { antenna } from '@/constants/antennas';
+import { PencilMark } from '@components/ui/PencilMark';
 import type { AntennaId } from '@/types';
 
 /**
@@ -10,6 +11,13 @@ import type { AntennaId } from '@/types';
  * The nesting is the argument: a month is not a separate goal, it is a smaller
  * piece of the same direction. Both are shown in the words the person chose —
  * nothing here rewords them, on this screen or any other.
+ *
+ * A direction that has not been set yet is a row you press. It used to be flat
+ * text, with only the card's small header responding — so the one line a
+ * person actually wants to press, 「方向を置く」, was the one line that did
+ * nothing. The marks say which is which: 「›」 at the end of the header when
+ * something is there to go and look at, a pencil in the row itself when there
+ * is not.
  */
 export function DirectionPlates({
   year,
@@ -38,12 +46,24 @@ export function DirectionPlates({
         style={styles.yearRow}
       >
         <Text style={styles.eyebrow}>{`${year}年の方向`}</Text>
-        <Text style={styles.chevron}>›</Text>
+        {yearDirection ? <Text style={styles.chevron}>›</Text> : null}
       </Pressable>
 
-      <Text style={yearDirection ? styles.yearText : styles.unset}>
-        {yearDirection ?? COPY.placeYear}
-      </Text>
+      {yearDirection ? (
+        <Text style={styles.yearText}>{yearDirection}</Text>
+      ) : (
+        <Pressable
+          testID="year-direction-place"
+          onPress={onEditYear}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel={COPY.placeYear}
+          style={({ pressed }) => [styles.placeRow, pressed && styles.pressed]}
+        >
+          <Text style={styles.unset}>{COPY.placeYear}</Text>
+          <PencilMark />
+        </Pressable>
+      )}
 
       <Text style={styles.arrow}>↓</Text>
 
@@ -61,11 +81,21 @@ export function DirectionPlates({
           style={styles.monthRow}
         >
           <Text style={styles.eyebrow}>{`${month}月の方向`}</Text>
-          <Text style={styles.chevron}>›</Text>
+          {antennaIds.length > 0 ? <Text style={styles.chevron}>›</Text> : null}
         </Pressable>
 
         {antennaIds.length === 0 ? (
-          <Text style={styles.unset}>{COPY.placeMonth}</Text>
+          <Pressable
+            testID="month-direction-place"
+            onPress={onEditMonth}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.placeMonth}
+            style={({ pressed }) => [styles.placeRow, pressed && styles.pressed]}
+          >
+            <Text style={styles.unset}>{COPY.placeMonth}</Text>
+            <PencilMark />
+          </Pressable>
         ) : (
           antennaIds.map((id) => (
             <Text key={id} style={styles.monthText}>
@@ -100,6 +130,15 @@ const styles = StyleSheet.create({
   // An unset direction is a way in, not a warning: orange, and it reads as an
   // invitation rather than something missing.
   unset: { fontFamily: fonts.sans, fontSize: 14, color: colors.orange, textAlign: 'center' },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    alignSelf: 'stretch',
+    minHeight: MIN_TOUCH,
+  },
+  pressed: { opacity: 0.62 },
   arrow: { fontFamily: fonts.sans, fontSize: 13, color: colors.brownFaint },
   monthPlate: {
     alignSelf: 'stretch',
