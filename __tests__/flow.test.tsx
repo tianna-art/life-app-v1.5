@@ -9,21 +9,25 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { FlowQuest } from '@components/flow/FlowQuest';
 
+/** 完了する, then the way on — the order the screen now insists on. */
+function leave(id: 'rain' | 'river' | 'ocean' | 'cloud') {
+  fireEvent.press(screen.getByTestId(`flow-done-${id}`));
+  fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+}
+
 function walkTo(stage: 'rain' | 'river' | 'ocean' | 'cloud') {
   fireEvent.press(screen.getByTestId('flow-begin'));
   const order = ['rain', 'river', 'ocean', 'cloud'] as const;
   for (const id of order) {
     if (id === stage) return;
-    fireEvent.press(screen.getByTestId(`flow-next-${id}`));
+    leave(id);
   }
 }
 
 /** All four stages, and on to the 見返し. */
 function walkToReview() {
   walkTo('rain');
-  for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-    fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-  }
+  for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
 }
 
 describe('nothing is kept until the end', () => {
@@ -35,15 +39,16 @@ describe('nothing is kept until the end', () => {
     expect(screen.queryByTestId('flow-save')).toBeNull();
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '嫌だったこと');
 
-    fireEvent.press(screen.getByTestId('flow-next-rain'));
+    leave('rain');
     expect(screen.queryByTestId('flow-save')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('flow-next-river'));
+    leave('river');
     expect(screen.queryByTestId('flow-save')).toBeNull();
 
     // Not even on 雲: the last stage moves on like the others.
-    fireEvent.press(screen.getByTestId('flow-next-ocean'));
+    leave('ocean');
     expect(screen.queryByTestId('flow-save')).toBeNull();
+    fireEvent.press(screen.getByTestId('flow-done-cloud'));
     expect(screen.getByTestId('flow-next-cloud')).toBeTruthy();
 
     // The 見返し is where it is decided, and it carries both halves.
@@ -63,9 +68,7 @@ describe('nothing is kept until the end', () => {
 
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), 'いちばん言いにくいこと');
-    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-    }
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
 
     // Asked first, because this is the one step that cannot be walked back.
     fireEvent.press(screen.getByTestId('flow-discard'));
@@ -89,11 +92,11 @@ describe('what a finished run keeps', () => {
 
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '降らせたもの');
-    fireEvent.press(screen.getByTestId('flow-next-rain'));
-    fireEvent.press(screen.getByTestId('flow-next-river'));
-    fireEvent.press(screen.getByTestId('flow-next-ocean'));
+    leave('rain');
+    leave('river');
+    leave('ocean');
     fireEvent.changeText(screen.getByTestId('flow-input-cloud'), '持っていくもの');
-    fireEvent.press(screen.getByTestId('flow-next-cloud'));
+    leave('cloud');
 
     // Both are read back before anything is decided about them.
     expect(screen.getByTestId('flow-review-rain')).toBeTruthy();
@@ -110,9 +113,7 @@ describe('what a finished run keeps', () => {
     render(<FlowQuest last={null} onSave={onSave} onDiscard={jest.fn()} />);
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '   ');
-    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-    }
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
     expect(screen.queryByTestId('flow-review-rain')).toBeNull();
     fireEvent.press(screen.getByTestId('flow-save'));
     expect(onSave).toHaveBeenCalledWith({});
@@ -127,14 +128,64 @@ describe('what a finished run keeps', () => {
   });
 });
 
+describe('完了する', () => {
+  it('is what opens the way on — writing alone does not', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+
+    // Finishing writing and moving downstream are two different decisions.
+    expect(screen.queryByTestId('flow-next-rain')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '降らせたもの');
+    expect(screen.queryByTestId('flow-next-rain')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('flow-done-rain'));
+    expect(screen.getByTestId('flow-next-rain')).toBeTruthy();
+  });
+
+  it('asks nothing of the stage: a blank one can be closed too', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    fireEvent.press(screen.getByTestId('flow-done-rain'));
+    expect(screen.getByTestId('flow-next-rain')).toBeTruthy();
+  });
+
+  it('can be taken back, and the way on closes again with it', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '書いたもの');
+    fireEvent.press(screen.getByTestId('flow-done-rain'));
+    expect(screen.getByTestId('flow-input-rain').props.editable).toBe(false);
+
+    fireEvent.press(screen.getByTestId('flow-edit-rain'));
+    expect(screen.queryByTestId('flow-next-rain')).toBeNull();
+    expect(screen.getByTestId('flow-input-rain').props.editable).toBe(true);
+    expect(screen.getByTestId('flow-input-rain').props.value).toBe('書いたもの');
+  });
+
+  it('stays closed when a stage is walked back into', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    fireEvent.changeText(screen.getByTestId('flow-input-rain'), '降らせたもの');
+    leave('rain');
+    fireEvent.press(screen.getByTestId('flow-back-river'));
+    expect(screen.getByTestId('flow-rain')).toBeTruthy();
+    expect(screen.getByTestId('flow-next-rain')).toBeTruthy();
+    expect(screen.getByTestId('flow-input-rain').props.value).toBe('降らせたもの');
+  });
+
+  it('gives the first stage nowhere to go back to', () => {
+    render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
+    walkTo('rain');
+    expect(screen.queryByTestId('flow-back-rain')).toBeNull();
+  });
+});
+
 describe('the 見返し', () => {
   it('adds nothing to what was written', () => {
     render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '降らせたもの');
-    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-    }
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
     // No summary, no reading, no encouragement — the words and nothing else.
     expect(screen.getByText('降らせたもの')).toBeTruthy();
     expect(screen.queryByTestId('flow-input-rain')).toBeNull();
@@ -144,9 +195,7 @@ describe('the 見返し', () => {
     render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={jest.fn()} />);
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '書いたもの');
-    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-    }
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
     fireEvent.press(screen.getByTestId('flow-back'));
     expect(screen.getByTestId('flow-cloud')).toBeTruthy();
     fireEvent.press(screen.getByTestId('flow-next-cloud'));
@@ -158,9 +207,7 @@ describe('the 見返し', () => {
     render(<FlowQuest last={null} onSave={jest.fn()} onDiscard={onDiscard} />);
     walkTo('rain');
     fireEvent.changeText(screen.getByTestId('flow-input-rain'), '消したくないもの');
-    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) {
-      fireEvent.press(screen.getByTestId(`flow-next-${id}`));
-    }
+    for (const id of ['rain', 'river', 'ocean', 'cloud'] as const) leave(id);
     fireEvent.press(screen.getByTestId('flow-discard'));
     fireEvent.press(screen.getByTestId('flow-drop-no'));
     expect(onDiscard).not.toHaveBeenCalled();

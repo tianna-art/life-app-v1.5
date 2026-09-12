@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 import { COPY } from '@/constants/copy';
 import { FLOW_STEPS } from '@/constants/generated/preview';
@@ -44,6 +53,9 @@ export function FlowQuest({
   const [step, setStep] = useState(-1);
   const [texts, setTexts] = useState<Partial<Record<FlowStage, string>>>({});
   const [askingToDrop, setAskingToDrop] = useState(false);
+  // Which stages have been closed off with 完了する. Writing and moving on are
+  // two separate acts here — see the comment above the button.
+  const [done, setDone] = useState<Partial<Record<FlowStage, boolean>>>({});
 
   const stage = FLOW_STEPS[step];
 
@@ -55,6 +67,7 @@ export function FlowQuest({
 
   const reset = () => {
     setTexts({});
+    setDone({});
     setStep(-1);
     setAskingToDrop(false);
   };
@@ -187,6 +200,7 @@ export function FlowQuest({
   }
 
   if (!stage) return null;
+  const closed = done[stage.id as FlowStage] === true;
 
   return (
     <ImageBackground
@@ -220,30 +234,100 @@ export function FlowQuest({
           testID={`flow-input-${stage.id}`}
           value={texts[stage.id as FlowStage] ?? ''}
           onChangeText={(text) => setTexts((prev) => ({ ...prev, [stage.id]: text }))}
+          editable={!closed}
           multiline
-          style={styles.input}
+          style={[styles.input, closed && styles.inputClosed]}
           accessibilityLabel={stage.question}
           textAlignVertical="top"
         />
 
         <Text style={styles.footOnPhoto}>{stage.foot}</Text>
 
+        {/*
+          完了する, and only then the way on.
+          
+          Finishing writing and moving downstream are two different decisions,
+          and a screen that offers only 「川へ流す」 makes them one: you leave a
+          stage by agreeing to the metaphor, never by simply being done. So the
+          exit is withheld until the person says they have finished, and the
+          pencil beside it says the saying is reversible.
+        */}
+        <View style={styles.actions}>
+          <Pressable
+            testID={`flow-edit-${stage.id}`}
+            onPress={() => setDone((prev) => ({ ...prev, [stage.id]: false }))}
+            disabled={!closed}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="書き直す"
+            style={({ pressed }) => [
+              styles.pencil,
+              !closed && styles.pencilOff,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Svg width={16} height={16} viewBox="-9 -9 18 18">
+              <Path
+                d="M -6 6 L -5.4 2.6 L 2.6 -5.4 L 5.4 -2.6 L -2.6 5.4 Z M 2.6 -5.4 L 4.2 -7 C 5 -7.8 6.2 -7.8 7 -7 C 7.8 -6.2 7.8 -5 7 -4.2 L 5.4 -2.6"
+                fill="none"
+                stroke={colors.paper}
+                strokeWidth={1.1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+
+          <Pressable
+            testID={`flow-done-${stage.id}`}
+            onPress={() => setDone((prev) => ({ ...prev, [stage.id]: true }))}
+            disabled={closed}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.flowComplete}
+            style={({ pressed }) => [
+              styles.doneButton,
+              styles.grow,
+              closed && styles.doneButtonOff,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.doneLabel}>{COPY.flowComplete}</Text>
+          </Pressable>
+        </View>
+
         {/* Every stage moves forward, the last one included: 雲 leads to
             全ての流れを振り返る, not to a decision. What becomes of the run is
             settled on the 見返し, where all four can be read back. */}
-        <Pressable
-          testID={`flow-next-${stage.id}`}
-          onPress={() => setStep(step + 1)}
-          accessibilityRole="button"
-          accessibilityLabel={stage.next}
-          style={({ pressed }) => [
-            styles.primary,
-            { backgroundColor: stage.nextColor },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.primaryOnTint}>{stage.next}</Text>
-        </Pressable>
+        {closed ? (
+          <Pressable
+            testID={`flow-next-${stage.id}`}
+            onPress={() => setStep(step + 1)}
+            accessibilityRole="button"
+            accessibilityLabel={stage.next}
+            style={({ pressed }) => [
+              styles.primary,
+              { backgroundColor: stage.nextColor },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.primaryOnTint}>{stage.next}</Text>
+          </Pressable>
+        ) : null}
+
+        {/* Walking back is small and off to the side, and nothing written is
+            lost by it. The first stage has nowhere to go back to. */}
+        {step > 0 ? (
+          <Pressable
+            testID={`flow-back-${stage.id}`}
+            onPress={() => setStep(step - 1)}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.flowBack}
+            style={({ pressed }) => [styles.backOnPhoto, pressed && styles.pressed]}
+          >
+            <Text style={styles.backLabelOnPhoto}>{COPY.flowBack}</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </ImageBackground>
   );
@@ -358,4 +442,29 @@ const styles = StyleSheet.create({
     color: 'rgba(250, 246, 236, 0.72)',
     textAlign: 'center',
   },
+  inputClosed: { backgroundColor: 'rgba(255, 253, 246, 0.72)' },
+  actions: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  pencil: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(250, 246, 236, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pencilOff: { opacity: 0.3 },
+  doneButton: {
+    minHeight: MIN_TOUCH,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(250, 246, 236, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  doneButtonOff: { opacity: 0.36 },
+  doneLabel: { fontFamily: fonts.sans, fontSize: 14, color: colors.onBrown },
+  backOnPhoto: { alignSelf: 'flex-end', paddingVertical: spacing.sm },
+  backLabelOnPhoto: { fontFamily: fonts.sans, fontSize: 12, color: 'rgba(250, 246, 236, 0.7)' },
 });
