@@ -83,15 +83,6 @@ export function useCreateLog() {
   });
 }
 
-export function useDeleteLog() {
-  const client = useQueryClient();
-  return useMutation<void, Error, string>({
-    mutationFn: (id) => getRepository().deleteLog(id),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['logs'] });
-    },
-  });
-}
 
 /** Drains the outbox whenever the connection comes back. */
 export function useOutboxSync(): void {

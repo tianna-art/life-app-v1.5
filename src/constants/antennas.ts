@@ -57,8 +57,5 @@ export function categoryById(id: string): AntennaCategory | undefined {
   return BY_ID.get(id);
 }
 
-export function detailsFor(categoryId: string) {
-  return BY_ID.get(categoryId)?.details ?? [];
-}
 
 export { ANTENNA_ORDER };

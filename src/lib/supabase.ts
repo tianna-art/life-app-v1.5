@@ -31,12 +31,3 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-export function requireSupabase(): SupabaseClient {
-  const supabase = getSupabase();
-  if (!supabase) {
-    throw new Error(
-      'Supabase is not configured. Copy .env.example to .env and set EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY.'
-    );
-  }
-  return supabase;
-}

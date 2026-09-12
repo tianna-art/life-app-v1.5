@@ -102,9 +102,6 @@ export function yearStrip(today: Date, yearsBack = 2): string[] {
   return years;
 }
 
-export function titleOf(titles: PeriodTitle[], periodKey: string): PeriodTitle | undefined {
-  return titles.find((t) => t.periodKey === periodKey);
-}
 
 /** `2026-09` → `9月`, `2026` → `2026`. */
 export function periodLabel(periodKey: string): string {

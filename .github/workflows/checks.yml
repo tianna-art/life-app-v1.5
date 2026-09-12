@@ -30,6 +30,12 @@ jobs:
         # it. That happened once, so the import graph is checked here.
         run: npm run orphans
 
+      - name: Nothing inside a module is written into the void either
+        # The orphan check asks whether a module is reached. This asks whether
+        # the things inside a reached module are — the gap that let a deployed
+        # Edge Function sit for a whole rewrite with no caller.
+        run: npm run unused
+
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

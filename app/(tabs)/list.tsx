@@ -9,7 +9,7 @@ import { PeriodChange } from '@components/scope/PeriodChange';
 import { ScopeTabs, namingTabs, type ScopeTab } from '@components/scope/ScopeTabs';
 import { RecordRow } from '@components/list/RecordRow';
 import { useFirstRecordedPeriod, usePeriodTitles, useSavePeriodTitle } from '@/hooks/usePeriodTitles';
-import { useSaveOwnSummary, useSummary } from '@/hooks/useReading';
+import { useProposeTitles, useSaveOwnSummary, useSummary } from '@/hooks/useReading';
 import { useMonthLogs, useYearLogs } from '@/hooks/useLogs';
 import {
   daysUntilNameable,
@@ -44,6 +44,7 @@ export default function ListScreen() {
   const saveTitle = useSavePeriodTitle();
   const { data: summary } = useSummary(scope, selected);
   const saveOwnSummary = useSaveOwnSummary();
+  const titleIdeas = useProposeTitles();
 
   const keys = useMemo(
     () => (scope === 'month' ? monthStrip(today) : yearStrip(today)),
@@ -74,6 +75,7 @@ export default function ListScreen() {
     setDraft(null);
     setSummaryDraft(null);
     setReviewTab('summary');
+    titleIdeas.reset();
   };
 
   return (
@@ -111,6 +113,7 @@ export default function ListScreen() {
           setDraft(null);
           setSummaryDraft(null);
           setReviewTab('summary');
+          titleIdeas.reset();
         }}
       />
 
@@ -136,6 +139,61 @@ export default function ListScreen() {
             </Text>
           </Pressable>
         ) : (
+          <View style={styles.namer}>
+            {/*
+              候補を出す — three names, from three angles, and none of them
+              saved. A reading may suggest what a period was called; it may not
+              name it. So the candidates live here until one is pressed, and
+              pressing one only fills the field, which stays editable.
+
+              The note comes before them, because 「最初に思っていた通りじゃ
+              なくても大丈夫」 has to be read before the candidates are, not
+              after a name has already been chosen.
+            */}
+            <Text style={styles.namerNote}>
+              {scope === 'month' ? COPY.monthEndNote : COPY.yearEndNote}
+            </Text>
+
+            {titleIdeas.data && titleIdeas.data.length > 0 ? (
+              <View style={styles.candidates} testID="title-candidates">
+                {titleIdeas.data.map((candidate) => (
+                  <Pressable
+                    key={candidate}
+                    testID={`title-candidate-${candidate}`}
+                    onPress={() => setDraft(candidate)}
+                    accessibilityRole="button"
+                    accessibilityLabel={candidate}
+                    style={({ pressed }) => [
+                      styles.candidate,
+                      draft === candidate && styles.candidateOn,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.candidateText}>{candidate}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
+            {titleIdeas.isSuccess && titleIdeas.data.length === 0 ? (
+              // Nothing usable came back, which is an answer. The field below
+              // is how a period gets named either way.
+              <Text style={styles.namerNote}>{LOCAL_COPY.titleIdeasNone}</Text>
+            ) : null}
+
+            <Pressable
+              testID="title-ideas"
+              onPress={() => titleIdeas.mutate({ periodType: scope, periodKey: selected })}
+              disabled={titleIdeas.isPending}
+              accessibilityRole="button"
+              accessibilityLabel={LOCAL_COPY.titleIdeas}
+              style={({ pressed }) => [styles.ideas, pressed && styles.pressed]}
+            >
+              <Text style={styles.ideasLabel}>
+                {titleIdeas.isPending ? LOCAL_COPY.titleIdeasWait : LOCAL_COPY.titleIdeas}
+              </Text>
+            </Pressable>
+
           <View style={styles.editor}>
             <TextInput
               testID="title-input"
@@ -163,6 +221,7 @@ export default function ListScreen() {
             >
               <Text style={styles.check}>✓</Text>
             </Pressable>
+            </View>
           </View>
         )}
 
@@ -288,6 +347,31 @@ const styles = StyleSheet.create({
   scopeLabelOn: { color: colors.brown },
   pressed: { opacity: 0.6 },
   scroll: { paddingTop: spacing.md, paddingBottom: spacing.xxl, gap: spacing.sm },
+  namer: { gap: spacing.sm },
+  namerNote: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 21, color: colors.brownFaint },
+  candidates: { gap: spacing.xs },
+  candidate: {
+    minHeight: MIN_TOUCH,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+    backgroundColor: colors.paper,
+  },
+  candidateOn: { borderColor: colors.orange, backgroundColor: colors.orangeSoft },
+  candidateText: { fontFamily: fonts.serif, fontSize: 15, lineHeight: 25, color: colors.brown },
+  ideas: {
+    alignSelf: 'flex-start',
+    minHeight: MIN_TOUCH - 8,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+  },
+  ideasLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.brownDim },
   titleBox: {
     backgroundColor: colors.paper,
     borderRadius: radii.lg,

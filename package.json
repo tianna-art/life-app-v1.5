@@ -14,7 +14,8 @@
     "extract": "node scripts/extract-from-preview.mjs",
     "sync:shared": "node scripts/sync-shared.mjs",
     "eval": "jest __tests__/goldens.test.ts",
-    "orphans": "node scripts/find-orphans.mjs"
+    "orphans": "node scripts/find-orphans.mjs",
+    "unused": "node scripts/find-unused-exports.mjs"
   },
   "jest": {
     "preset": "jest-expo",

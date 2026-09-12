@@ -211,8 +211,11 @@ export function checkSummary(keywords: string[], body: string): Verdict {
   return { ok: problems.length === 0, problems };
 }
 
-/** 足跡タイトル candidates: three, each from a different angle, none a verdict. */
-export const TITLE_ANGLES = ['問いの変化', '進み方', '残ったもの'] as const;
+/**
+ * 足跡タイトル candidates: three, each from a different angle, none a verdict.
+ * The three angles themselves are named in PERIOD_TITLE_SYSTEM and stated
+ * once, there — a second list here would be a second place to change them.
+ */
 export const TITLE_COUNT = 3;
 const JUDGEMENTS = ['達成', 'ゴール', '目標を', '成功', '失敗した'] as const;
 

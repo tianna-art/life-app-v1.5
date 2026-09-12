@@ -24,6 +24,13 @@ export const LOCAL_COPY = {
   summaryIsYours: '自分の言葉',
   /** The line above ログアウト, so nobody signs out of the wrong account. */
   signedInAs: 'ログイン中',
+  /**
+   * 足跡タイトルの候補. The preview has no button for these — it shows three
+   * that are already there — so the words for asking are ours.
+   */
+  titleIdeas: '候補を出す',
+  titleIdeasWait: '読んでいます…',
+  titleIdeasNone: '候補は出ませんでした。自分で書いてみてください。',
   /** 通知. Two moments, and the reason there are only two. */
   notifyWhen: '知らせる時刻',
   notifyOn: '月初と月末に知らせる',

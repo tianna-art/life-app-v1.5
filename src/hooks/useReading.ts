@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { readMonthInsights, readMonthSummary, readPeriodChange } from '@/ai/client';
+import {
+  proposeTitles,
+  readMonthInsights,
+  readMonthSummary,
+  readPeriodChange,
+} from '@/ai/client';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
 import type {
@@ -63,6 +68,28 @@ export function useSaveOwnSummary() {
       getRepository().saveOwnSummary(input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['reading'] });
+    },
+  });
+}
+
+/**
+ * Asking for 足跡タイトル candidates.
+ *
+ * Three of them, from three different angles, and none of them is saved. The
+ * reading may suggest a name for a period; it may not give a period its name.
+ * So these live in the screen's own state until the person picks one or writes
+ * over it, and a run that produces nothing usable — the gate rejects a
+ * candidate that grades the month — simply returns an empty list.
+ *
+ * This is the last thing in the product that had a reader deployed and no
+ * caller: the Edge Function was written, tested and live, and nothing could
+ * ask it for anything.
+ */
+export function useProposeTitles() {
+  return useMutation({
+    mutationFn: async (input: { periodType: PeriodType; periodKey: string }) => {
+      const result = await proposeTitles(input.periodType, input.periodKey);
+      return result?.titles ?? [];
     },
   });
 }

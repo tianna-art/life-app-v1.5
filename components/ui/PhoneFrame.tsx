@@ -48,23 +48,6 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * The same plate, for anything drawn in a Modal. On web a Modal is fixed to
- * the browser viewport, so without this a sheet would slide up from the
- * bottom of a 1600px window while the app it belongs to sits in the middle.
- */
-export function PhoneOverlay({ children }: { children: ReactNode }) {
-  const { width, height } = useWindowDimensions();
-
-  const plate = platePlan(width, height);
-  if (Platform.OS !== 'web' || !plate) return <>{children}</>;
-
-  return (
-    <View style={styles.overlayWall}>
-      <View style={[styles.overlayPlate, plate]}>{children}</View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   bare: { flex: 1, backgroundColor: colors.cream },

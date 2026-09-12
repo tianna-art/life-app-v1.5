@@ -16,10 +16,3 @@ export function getRepository(): Repository {
   return instance;
 }
 
-/** Test seam. */
-export function setRepository(repository: Repository | null): void {
-  instance = repository;
-}
-
-export { LocalRepository, SupabaseRepository };
-export type { Repository };

@@ -47,13 +47,6 @@ export type AntennaId =
   | 'sustainable'
   | 'values';
 
-export const ANTENNA_IDS: readonly AntennaId[] = [
-  'progress',
-  'self_understanding',
-  'spark',
-  'sustainable',
-  'values',
-];
 
 /**
  * Two at a time. Three makes every one of them look half-watched, and the
@@ -175,7 +168,6 @@ export interface FutureMemo {
 
 export type FlowStage = 'rain' | 'river' | 'ocean' | 'cloud';
 
-export const FLOW_STAGES: readonly FlowStage[] = ['rain', 'river', 'ocean', 'cloud'];
 
 /**
  * One run through the four stages.
