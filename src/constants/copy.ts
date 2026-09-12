@@ -1,161 +1,59 @@
 /**
- * Every user-facing string the spec pins down lives here, so the forbidden
- * register — praise, diagnosis, forced meaning — cannot creep back in through
- * a component someone edits in a hurry.
+ * User-facing strings.
+ *
+ * The words themselves come from the preview, which is the specification, and
+ * are generated rather than retyped — see scripts/extract-from-preview.mjs.
+ * What lives here is the guard: the register this product must never slip
+ * into, checked by __tests__/copy.test.ts against every shipped file.
+ *
+ * @declares-forbidden-register — this is the guard list itself.
  */
-export const HOME = {
-  // There is no heading. §8 wants the app to open one tap from recording, and
-  // a line naming the screen you are already looking at is one more thing to
-  // read before the first tap. The two labels below are the whole prompt.
-  date: 'いつのこと？',
-  level1: '出来事のカテゴリ',
-  level2: '感情のカテゴリ',
-  /** Placeholder for the optional answer. Says plainly that it is optional. */
-  answerPlaceholder: '答えなくても保存できます',
-  save: '保存',
-  reset: '入力内容を消す',
-} as const;
+export { COPY } from './generated/preview';
 
-export const ONBOARDING = {
-  directionHeading: '今年、どんな方向を育てたい？',
-  directionHint: 'いくつでも。あとから変えられます。',
-  desiredHeading: 'どんな自分になれたら嬉しい？',
-  desiredHint: '選んだものが、AIが見ていく変化になります。',
-  lensHeading: '今年は、こんな変化を見ていきます',
-  themeHeading: '今年のテーマ',
-  themeHint: '目標ではありません。年末にもう一度決めます。',
-  writeMyOwn: '自分で書く',
-  next: '次へ',
-  done: 'はじめる',
-} as const;
-
-export const MONTH = {
-  themeHeading: '今月のテーマ',
-  skip: '今月は決めない',
-  startedWith: 'YOU STARTED WITH',
-  actuallyHappened: 'WHAT ACTUALLY HAPPENED',
-  /** §25 names this section, and it is not 'Progression Summary' (§2). */
-  changed: '今月見えた変化',
-  gained: 'WHAT YOU GAINED',
-  chooseTitle: 'この月の名前',
+/**
+ * Strings the preview does not have.
+ *
+ * Everything the preview covers is generated from it. This is for the few
+ * places the app goes beyond it — here, because a summary the person rewrote
+ * has to be distinguishable from the one the reading produced, and the preview
+ * has no such distinction to copy. Keep this list short: a string that belongs
+ * in the preview should be added there instead.
+ */
+export const LOCAL_COPY = {
+  /** Marks a 要約 as the person's own words rather than the reading's. */
+  summaryIsYours: '自分の言葉',
+  /** The line above ログアウト, so nobody signs out of the wrong account. */
+  signedInAs: 'ログイン中',
+  /** 通知. Two moments, and the reason there are only two. */
+  notifyWhen: '知らせる時刻',
+  notifyOn: '月初と月末に知らせる',
+  notifyWhy: '知らせるのは月初と月末だけです。書けていない日のことは言いません。',
+  notifyRefused: '端末の設定で通知が許可されていません。',
+  notifyWebOnly: '通知はアプリでだけ受け取れます。',
+  /** 記録の書き出し. */
+  exportDo: 'いま書き出す',
+  exportWhat: '記録と、方向・足跡タイトル・要約を1つのファイルにします。読みは入りません。',
+  exportDone: '書き出しました。',
+  exportFailed: '書き出せませんでした。',
 } as const;
 
 /**
- * The summary card (§26).
+ * None of these may appear in shipped copy.
  *
- * Four labels in one place, because their order is the argument: the person's
- * own records, then what those show, then what that has to do with what they
- * put down at the start. Nothing here may read as a verdict on the month.
- */
-export const CHANGE = {
-  heading: '今月見えた変化',
-  fromRecords: '記録から',
-  before: '以前の記録では',
-  observation: '見えてきたこと',
-  targetConnection: 'ありたい姿とのつながり',
-  allEvidence: 'この変化のもとになった記録',
-  /** §31: nothing yet is a real answer, and is said without apology. */
-  none: '今月はまだ、過去との差がはっきり見える変化はありません。',
-} as const;
-
-/**
- * What a change answers to (§14), in two lengths.
- *
- * The short one is for the sky, where a label sits on the rim between the
- * points and has room for a word. The long one heads the group of cards, where
- * it is followed by the person's own wording for the thing itself.
- *
- * None of them says whether answering to one is better than another. §34 is
- * explicit that growing outside the stated direction is a discovery, so
- * 「宣言の外」 is named plainly and sits beside the rest.
- */
-export const TARGET_SHORT: Record<string, string> = {
-  month_declaration: '今月のテーマ',
-  year_direction: '今年の方向',
-  desired_self: 'ありたい姿',
-  emerging_direction: '宣言の外',
-};
-
-export const TARGET_HEADING: Record<string, string> = {
-  month_declaration: '今月のテーマに対して',
-  year_direction: '今年の方向に対して',
-  desired_self: 'ありたい姿に対して',
-  emerging_direction: '宣言の外で育っているもの',
-};
-
-export const YEAR = {
-  thought: 'YOU THOUGHT THIS YEAR WOULD BE ABOUT',
-  became: 'IT ACTUALLY BECAME',
-} as const;
-
-export const EMPTY_STATE = {
-  map: 'まだ、中心だけがあります。',
-  list: 'この月には、まだ記録がありません。',
-  progressionDetail: 'この変化を支える記録は、まだ集まっていません。',
-} as const;
-
-export const LABELS = {
-  mirror: 'TODAY',
-  path: 'PATH',
-  before: 'BEFORE',
-  current: 'CURRENT',
-  whatYouGained: "WHAT YOU'VE GAINED",
-  relatedProgressions: 'このログが立っている変化',
-  me: 'ME',
-  monthComplete: 'THIS MONTH IS COMPLETE.',
-  direction: 'この一年の方向',
-  thisMonth: '今月にもどる',
-  openMonth: 'この月を見る',
-  pastMonthNotice: '記録は今日に残ります。',
-  accepted: '納得した',
-  adjusted: '少し違う',
-  saveEdit: 'この言い方にする',
-  allCategories: 'すべて',
-  allMoments: 'すべての瞬間',
-  generateMap: 'MAPを生成する',
-  tryAgain: 'もう一度試す',
-  openMap: 'MAPを見にいく',
-  regenerateMap: 'MAPを再生成する',
-  /** Every record is read; only the month's own reading runs again. */
-  rereadMonth: '読み直す',
-  /** Read, but nothing came out of it. Going to look would show an empty sky. */
-  readAgain: 'MAPを読み直す',
-  new: 'NEW',
-  evidence: 'この気づきの根拠',
-  evidenceNote: 'この見方のもとになった記録です。書いたままを出しています。',
-  close: '閉じる',
-  back: '戻る',
-} as const;
-
-/** Shown when an entry lands on a trail that already existed (§31). */
-export const JOINED_LINE = '「{title}」に、新しい点が加わりました。';
-
-/**
- * The one line the emergence moment gets (§32).
- *
- * Quiet on purpose: §32 rules out celebration, so this is a statement of what
- * happened and nothing else.
- */
-export const EMERGED_LINE = '{count}つの記録が、ひとつの変化としてつながりました。';
-
-/**
- * Guard used in tests: none of these may appear in shipped copy.
- *
- * The first group is diagnosis (§30), the second is praise, the third is the
- * gamification §29 rules out, and the last is the reflective questioning §12
- * takes off the person's plate.
+ * The first group is diagnosis — telling someone who they are. The second is
+ * rescue — turning what happened into a lesson on their behalf. The third is
+ * measurement: a direction is not a destination, so nothing counts progress
+ * toward it, and an empty month is not a shortfall.
  */
 export const FORBIDDEN_PHRASES = [
   'あなたは',
   '本当のあなた',
-  '天職',
   '意味がありました',
-  '素晴らしい',
   '成長しました',
-  '成長しています',
-  '強くなりました',
-  '連続',
-  'ポイント',
+  '記録が足りません',
+  '足りません',
   '達成率',
-  '何を学び',
+  '一致率',
+  '進捗',
+  '未達',
 ] as const;

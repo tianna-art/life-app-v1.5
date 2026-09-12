@@ -1,245 +1,158 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
-import { colors, fonts, spacing } from '@/theme';
-import { CHANGE, LABELS, TARGET_HEADING } from '@/constants/copy';
-import { GAIN_CATEGORY_JA } from '@/constants/progression';
-import { groupChanges } from '@/map/changeGroups';
+import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
+import { COPY } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
-import { TopBar } from '@components/ui/TopBar';
 import { HairlineRule } from '@components/ui/HairlineRule';
-import { MonthStrip } from '@components/map/MonthStrip';
-import { RadialChangeMap } from '@components/map/RadialChangeMap';
-import { ChangeCard } from '@components/map/ChangeCard';
-import { useChangeVerdict, useMonthChanges } from '@/hooks/useChanges';
-import { useYearLogs } from '@/hooks/useLogs';
-import { useMonthReview } from '@/hooks/useMonthReview';
-import { useUiStore } from '@/state/uiStore';
-import {
-  formatMonthEyebrow,
-  isMonthEndReached,
-  monthKeyOf,
-  monthKeyOfDate,
-  monthKeysBetween,
-  shiftMonthKey,
-} from '@/utils/period';
+import { VisionBoard } from '@components/vision/VisionBoard';
+import { SectionHeading } from '@components/map/SectionHeading';
+import { DirectionPlates } from '@components/map/DirectionPlates';
+import { InsightCards } from '@components/map/InsightCards';
+import { StarredMemos } from '@components/map/StarredMemos';
+import { PeriodScope } from '@components/scope/PeriodScope';
+import { useVision } from '@/hooks/useVision';
+import { useMonthDirection, useYearDirection } from '@/hooks/useDirection';
+import { useMonthHypothesis, useMonthInsights } from '@/hooks/useReading';
+import { useFutureMemos } from '@/hooks/useFutureMemos';
+import { usePeriodTitles } from '@/hooks/usePeriodTitles';
+import { monthKeyOf } from '@/utils/period';
+
+type Scope = 'now' | 'month' | 'year';
 
 /**
- * MAP (§18–§24).
+ * 方向性マップ — home, opening on 現在地.
  *
- * One screen and one object. The sky at the top is the index; the cards below
- * are what each point means, in the order §27 fixes — the person's own records
- * first, then what those show, then what that has to do with what they put
- * down at the start.
- *
- * They are not two readings that have to be kept in step. Every point above is
- * a card below, drawn from the same row, so a point with nothing explaining it
- * cannot exist and a card with no point above it cannot either.
- *
- * A month with nothing to show draws ME alone and says so plainly (§31). That
- * is the common state early on and it is not apologised for.
+ * Three bands, in this order and no other: 方向を定める (what you are looking
+ * at), 今を見つめる (what the records and what is on your mind say about now),
+ * 足跡がつく (the name that will be given afterwards). Reading downward is the
+ * argument — a direction, then the present, then the record of having lived
+ * it. Never a score in between.
  */
 export default function MapScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
+  const today = useMemo(() => new Date(), []);
+  const periodKey = useMemo(() => monthKeyOf(today), [today]);
+  const year = today.getFullYear();
 
-  const monthKey = useUiStore((s) => s.mapMonthKey);
-  const setMonthKey = useUiStore((s) => s.setMapMonthKey);
+  const [scope, setScope] = useState<Scope>('now');
+  // Which month 月次 is looking at. Opening a month from the year's list has
+  // to land on that month, not on the one you happen to be living in.
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [visionOpen, setVisionOpen] = useState(true);
 
-  const [canvasBox, setCanvasBox] = useState<{ width: number; height: number } | null>(null);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const { data: vision } = useVision();
+  const { data: yearDirection } = useYearDirection(year);
+  const { data: monthDirection } = useMonthDirection(periodKey);
+  const { data: insights } = useMonthInsights(periodKey);
+  const { data: hypothesis } = useMonthHypothesis(periodKey);
+  const { data: memos } = useFutureMemos();
+  const { data: monthTitles } = usePeriodTitles('month');
 
-  const scrollRef = useRef<ScrollView>(null);
-  // Where each card sits, so a tap on its point can go there. Measured rather
-  // than estimated: the cards are different heights and always will be.
-  const cardTops = useRef<Record<string, number>>({});
-  // Cards sit inside a group, so a card's own offset is relative to its block.
-  const groupTops = useRef<Record<string, number>>({});
-
-  const onCanvasLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width: w, height: h } = event.nativeEvent.layout;
-    setCanvasBox((current) =>
-      current && Math.abs(current.width - w) < 1 && Math.abs(current.height - h) < 1
-        ? current
-        : { width: w, height: h }
-    );
-  }, []);
-
-  const { data: changes } = useMonthChanges(monthKey);
-  const { data: review } = useMonthReview(monthKey, { enabled: isMonthEndReached(monthKey) });
-  const verdict = useChangeVerdict(monthKey);
-
-  // The strip spans from the first month that holds anything to this one, so
-  // it never offers a month the person has no records in.
-  const thisMonth = useMemo(() => monthKeyOf(new Date()), []);
-  const { data: yearEntries } = useYearLogs(monthKey.slice(0, 4));
-  const months = useMemo(() => {
-    const keys = new Set<string>([thisMonth, monthKey]);
-    for (const entry of yearEntries ?? []) keys.add(monthKeyOfDate(entry.occurredOn));
-    const sorted = [...keys].sort();
-    const first = sorted[0] ?? thisMonth;
-    const last = sorted[sorted.length - 1] ?? thisMonth;
-    return monthKeysBetween(first, last > thisMonth ? last : thisMonth);
-  }, [yearEntries, monthKey, thisMonth]);
-
-  const step = useCallback(
-    (delta: number) => {
-      const next = shiftMonthKey(monthKey, delta);
-      if (delta > 0 && next > thisMonth) return;
-      setMonthKey(next);
-      setFocusedId(null);
-      cardTops.current = {};
-      groupTops.current = {};
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-    },
-    [monthKey, thisMonth, setMonthKey]
-  );
-
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-24, 24])
-        .failOffsetY([-18, 18])
-        .onEnd((event) => {
-          'worklet';
-          if (event.translationX > 48) runOnJS(step)(-1);
-          else if (event.translationX < -48) runOnJS(step)(1);
-        }),
-    [step]
-  );
-
-  /**
-   * §24. A point is a question, and the card is where it is answered.
-   *
-   * Tapping moves the page rather than opening a sheet over the sky, so the
-   * point stays visible beside its explanation and the person can look from
-   * one to the other.
-   */
-  const handleSelect = useCallback((changeId: string) => {
-    setFocusedId(changeId);
-    const top = cardTops.current[changeId];
-    if (top === undefined) return;
-    scrollRef.current?.scrollTo({ y: Math.max(0, top - 12), animated: true });
-  }, []);
-
-  const canvasWidth = Math.max(260, canvasBox?.width ?? width - spacing.gallery * 2);
-  const canvasHeight = Math.max(300, Math.min(420, height * 0.44));
-
-  const list = useMemo(() => changes ?? [], [changes]);
-  // The same grouping the sky is laid out from, so a sector and the block of
-  // cards under that heading are the same set (§23).
-  const groups = useMemo(() => groupChanges(list), [list]);
+  const title = (monthTitles ?? []).find((t) => t.periodKey === periodKey);
 
   return (
     <Screen>
-      <TopBar>
-        <View style={styles.strip}>
-          <MonthStrip months={months} value={monthKey} onChange={setMonthKey} />
-        </View>
-        <View style={styles.plateRow}>
-          <Text style={styles.plate}>{formatMonthEyebrow(monthKey)}</Text>
-          {review?.title ? <Text style={styles.reviewTitle}>{review.title}</Text> : null}
-        </View>
-      </TopBar>
-
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        <GestureDetector gesture={pan}>
-          <View
-            style={[styles.canvas, { height: canvasHeight }]}
-            testID="map-canvas"
-            onLayout={onCanvasLayout}
+      <View style={styles.scopes}>
+        {(
+          [
+            ['now', '現在地'],
+            ['month', '月次'],
+            ['year', '年次'],
+          ] as [Scope, string][]
+        ).map(([id, label]) => (
+          <Pressable
+            key={id}
+            testID={`map-scope-${id}`}
+            onPress={() => {
+              setScope(id);
+              // Switching scope by hand always means "now".
+              if (id !== 'month') setSelectedMonth(null);
+            }}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: scope === id }}
+            style={({ pressed }) => [
+              styles.scope,
+              scope === id && styles.scopeOn,
+              pressed && styles.pressed,
+            ]}
           >
-            <RadialChangeMap
-              monthKey={monthKey}
-              changes={list}
-              selectedId={focusedId}
-              width={canvasWidth}
-              height={canvasHeight}
-              onSelect={handleSelect}
-            />
-          </View>
-        </GestureDetector>
+            <Text style={[styles.scopeLabel, scope === id && styles.scopeLabelOn]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-        <HairlineRule />
-
-        <Text style={styles.heading}>{CHANGE.heading}</Text>
-
-        {list.length === 0 ? (
-          // §31: nothing yet, said without apology and without a consoling
-          // sentence after it.
-          <Text testID="no-changes" style={styles.none}>
-            {CHANGE.none}
-          </Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {scope !== 'now' ? (
+          <PeriodScope
+            periodType={scope}
+            periodKey={scope === 'month' ? (selectedMonth ?? periodKey) : String(year)}
+            today={today}
+            onOpenInsight={(insight) =>
+              router.push(`/records/${insight.evidenceLogIds.join(',')}`)
+            }
+            onOpenMonth={(key) => {
+              setScope('month');
+              setSelectedMonth(key);
+            }}
+          />
         ) : (
-          groups.map((group) => (
-            <View
-              key={group.key}
-              style={styles.group}
-              onLayout={(event) => {
-                groupTops.current[group.key] = event.nativeEvent.layout.y;
-              }}
+          <>
+            <VisionBoard
+              items={vision?.items ?? []}
+              words={vision?.words ?? []}
+              open={visionOpen}
+              onToggle={() => setVisionOpen((v) => !v)}
+              onStart={() => router.push('/vision/setup')}
+            />
+
+            <HairlineRule />
+
+            <SectionHeading number={1} title={COPY.secDirection} sub={COPY.secDirectionSub} />
+            <DirectionPlates
+              year={year}
+              month={today.getMonth() + 1}
+              yearDirection={yearDirection?.direction ?? null}
+              antennaIds={monthDirection?.antennaIds ?? []}
+              onEditYear={() => router.push('/direction/year')}
+              onEditMonth={() => router.push('/direction/month')}
+            />
+
+            <SectionHeading number={2} title={COPY.seenNow} sub={COPY.seenSub} />
+
+            <Text style={styles.subHead}>{COPY.subOccurred}</Text>
+            <Text style={styles.subSub}>{COPY.subOccurredSub}</Text>
+            <InsightCards
+              insights={insights ?? []}
+              hypothesis={hypothesis ?? null}
+              onOpen={(insight) => router.push(`/records/${insight.evidenceLogIds.join(',')}`)}
+            />
+            <Pressable
+              testID="map-write"
+              onPress={() => router.push('/log')}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.addPoint}
+              style={({ pressed }) => [styles.write, pressed && styles.pressed]}
             >
-              {/* What this block answers to: the kind, then the person's own
-                  words for the thing itself. The sky carries the kind alone,
-                  because a rim label has room for a word and not a sentence. */}
-              <View style={styles.groupHead}>
-                <Text style={styles.groupKind}>{TARGET_HEADING[group.targetType]}</Text>
-                {group.targetLabel ? (
-                  <Text style={styles.groupTarget}>「{group.targetLabel}」</Text>
-                ) : null}
-              </View>
+              <Text style={styles.writeLabel}>{COPY.addPoint}</Text>
+            </Pressable>
 
-              {group.changes.map((change) => (
-                <View
-                  key={change.id}
-                  onLayout={(event) => {
-                    // Measured against the page: the card sits inside a group,
-                    // so its own offset is relative to that block and would
-                    // scroll to the wrong place.
-                    cardTops.current[change.id] =
-                      groupTops.current[group.key] === undefined
-                        ? event.nativeEvent.layout.y
-                        : groupTops.current[group.key]! + event.nativeEvent.layout.y;
-                  }}
-                >
-                  <ChangeCard
-                    change={change}
-                    focused={focusedId === change.id}
-                    onOpenLog={(logId) => router.push(`/log/${logId}`)}
-                    onOpenAllEvidence={(logIds) => router.push(`/records/${logIds.join(',')}`)}
-                    onVerdict={(value) =>
-                      verdict.mutate({ changeId: change.id, verdict: value })
-                    }
-                  />
-                </View>
-              ))}
+            <Text style={styles.subHead}>{COPY.subInMind}</Text>
+            <Text style={styles.subSub}>{COPY.subInMindSub}</Text>
+            <StarredMemos
+              memos={memos ?? []}
+              onSeeAll={() => router.push('/log')}
+              onAdd={() => router.push('/log')}
+            />
 
-              {/* §32: what the changes under this heading left the person
-                  holding. Gathered per group rather than per change, because
-                  the question it answers is about the thing they wanted, not
-                  about one month's reading of it. */}
-              {group.gains.length > 0 ? (
-                <View style={styles.groupGains}>
-                  <Text style={styles.groupGainsLabel}>{LABELS.whatYouGained}</Text>
-                  {group.gains.map((gain) => (
-                    <View key={gain.id} style={styles.groupGain}>
-                      <Text style={styles.groupGainCategory}>
-                        {GAIN_CATEGORY_JA[gain.category]}
-                      </Text>
-                      <Text style={styles.groupGainLabel}>{gain.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+            <SectionHeading number={3} title={COPY.secFootprint} sub={COPY.secFootprintSub} />
+            <View style={styles.footprint}>
+              <Text style={title ? styles.footprintTitle : styles.footprintWait}>
+                {title?.title ?? COPY.footprintWait}
+              </Text>
             </View>
-          ))
+          </>
         )}
       </ScrollView>
     </Screen>
@@ -247,72 +160,44 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  strip: { alignSelf: 'stretch' },
-  plateRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+  scopes: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md, justifyContent: 'center' },
+  scope: {
+    minHeight: MIN_TOUCH - 12,
+    paddingHorizontal: spacing.lg,
     justifyContent: 'center',
-    gap: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
   },
-  plate: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3.2, color: colors.brassDim },
-  reviewTitle: {
-    fontFamily: fonts.serif,
-    fontSize: 13,
-    letterSpacing: 1.4,
-    color: colors.ivoryFaint,
+  scopeOn: { borderColor: colors.hairline, backgroundColor: colors.paper },
+  scopeLabel: { fontFamily: fonts.sans, fontSize: 13, color: colors.brownFaint },
+  scopeLabelOn: { color: colors.brown },
+  pressed: { opacity: 0.62 },
+  scroll: { paddingTop: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
+  subHead: { fontFamily: fonts.serif, fontSize: 15, color: colors.brown, paddingTop: spacing.sm },
+  subSub: { fontFamily: fonts.sans, fontSize: 11, color: colors.brownFaint },
+  write: {
+    minHeight: MIN_TOUCH + 6,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brown,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
   },
-  scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
-  canvas: { alignItems: 'center', justifyContent: 'center' },
-  // The section §25 names. Set as a heading rather than an eyebrow: it is
-  // Japanese, and the tracking that suits small caps turns kana into texture.
-  heading: {
-    fontFamily: fonts.serif,
-    fontSize: 15,
-    letterSpacing: 2,
-    lineHeight: 24,
-    color: colors.ivoryDim,
+  writeLabel: { fontFamily: fonts.sans, fontSize: 15, color: colors.onBrown },
+  footprint: {
+    borderRadius: radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  footprintTitle: { fontFamily: fonts.serif, fontSize: 16, lineHeight: 26, color: colors.brown, textAlign: 'center' },
+  footprintWait: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 21,
+    color: colors.brownFaint,
     textAlign: 'center',
-  },
-  group: { gap: spacing.md },
-  groupHead: { gap: 2, paddingTop: spacing.sm },
-  groupKind: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    letterSpacing: 2.2,
-    color: colors.brassDim,
-  },
-  groupTarget: {
-    fontFamily: fonts.serif,
-    fontSize: 17,
-    lineHeight: 27,
-    color: colors.ivory,
-  },
-  groupGains: { gap: spacing.xs, paddingLeft: spacing.sm },
-  groupGainsLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 9,
-    letterSpacing: 3,
-    color: colors.ivoryFaint,
-  },
-  groupGain: { gap: 1 },
-  groupGainCategory: {
-    fontFamily: fonts.sans,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: colors.brassDim,
-  },
-  groupGainLabel: {
-    fontFamily: fonts.serif,
-    fontSize: 15,
-    lineHeight: 25,
-    color: colors.ivoryDim,
-  },
-  none: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 24,
-    textAlign: 'center',
-    color: colors.ivoryFaint,
-    paddingVertical: spacing.xl,
   },
 });

@@ -9,7 +9,7 @@ interface ScreenProps {
   edges?: readonly Edge[];
 }
 
-/** The gallery ground every screen sits on. */
+/** The cream ground every screen sits on, with the 24px side margin. */
 export function Screen({ children, style, edges = ['top'] }: ScreenProps) {
   return (
     <View style={styles.root}>
@@ -21,7 +21,7 @@ export function Screen({ children, style, edges = ['top'] }: ScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.ink },
+  root: { flex: 1, backgroundColor: colors.cream },
   safe: { flex: 1 },
   inner: { flex: 1, paddingHorizontal: spacing.gallery },
 });

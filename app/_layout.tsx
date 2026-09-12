@@ -9,6 +9,7 @@ import { createQueryClient } from '@/lib/queryClient';
 import { colors } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useOutboxSync } from '@/hooks/useLogs';
+import { useNotifySchedule } from '@/hooks/useNotify';
 import { AuthGate } from '@components/ui/AuthGate';
 import { PhoneFrame } from '@components/ui/PhoneFrame';
 
@@ -32,11 +33,12 @@ export default function RootLayout() {
 function AppShell() {
   const auth = useAuth();
   useOutboxSync();
+  useNotifySchedule();
 
   if (auth.loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.brass} />
+        <ActivityIndicator color={colors.orange} />
       </View>
     );
   }
@@ -47,29 +49,20 @@ function AppShell() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.ink },
+        contentStyle: { backgroundColor: colors.cream },
         animation: 'fade',
       }}
     >
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="log/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="vision/setup" options={{ presentation: 'card' }} />
+      <Stack.Screen name="direction/year" options={{ presentation: 'card' }} />
+      <Stack.Screen name="direction/month" options={{ presentation: 'card' }} />
       <Stack.Screen name="records/[ids]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="month/[key]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="progression/[id]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="month/theme" options={{ presentation: 'card' }} />
-      <Stack.Screen name="year/[year]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="year/direction" options={{ presentation: 'card' }} />
-      {/* The opening screens replace the tabs rather than sitting over them:
-          there is nothing behind them yet to go back to. */}
-      <Stack.Screen name="onboarding/direction" options={{ presentation: 'card' }} />
-      <Stack.Screen name="onboarding/desired" options={{ presentation: 'card' }} />
-      <Stack.Screen name="onboarding/lens" options={{ presentation: 'card' }} />
-      <Stack.Screen name="onboarding/theme" options={{ presentation: 'card' }} />
     </Stack>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.ink },
-  loading: { flex: 1, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  root: { flex: 1, backgroundColor: colors.cream },
+  loading: { flex: 1, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
 });

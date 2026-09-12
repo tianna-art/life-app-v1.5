@@ -1,45 +1,53 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  DailyLog,
-  Gain,
-  LogAnalysis,
-  MonthReview,
-  MonthTheme,
-  Progression,
-  ProgressionEvidence,
+  FlowSession,
+  FutureMemo,
+  JournalLog,
+  MonthDirection,
+  MonthHypothesis,
+  MonthInsight,
+  PeriodChange,
+  PeriodSummary,
+  PeriodTitle,
+  VisionItem,
+  VisionWord,
   YearDirection,
-  YearReview,
+  YearDirectionChange,
 } from '@/types';
 
-/**
- * v4 key: the daily record changed shape (a body became optional, tags became
- * required), so a half-read v3 store would be worse than an empty one. The
- * older keys are left in place — nothing on a device is destroyed by this.
- */
-export const LOCAL_STORE_KEY = 'crincran:store:v4';
+/** Bumped because the shape changed completely; v2 data cannot be read. */
+export const LOCAL_STORE_KEY = 'crincran:store:v3';
 
 export interface LocalStoreShape {
-  logs: DailyLog[];
-  analyses: Record<string, LogAnalysis>;
-  progressions: Progression[];
-  evidence: ProgressionEvidence[];
-  gains: Gain[];
+  visionItems: VisionItem[];
+  visionWords: VisionWord[];
   yearDirections: YearDirection[];
-  monthThemes: MonthTheme[];
-  reviews: MonthReview[];
-  yearReviews: YearReview[];
+  yearDirectionHistory: YearDirectionChange[];
+  monthDirections: MonthDirection[];
+  logs: JournalLog[];
+  futureMemos: FutureMemo[];
+  flowSessions: FlowSession[];
+  summaries: PeriodSummary[];
+  monthInsights: MonthInsight[];
+  monthHypotheses: MonthHypothesis[];
+  periodChanges: PeriodChange[];
+  periodTitles: PeriodTitle[];
 }
 
 export const EMPTY_STORE: LocalStoreShape = {
-  logs: [],
-  analyses: {},
-  progressions: [],
-  evidence: [],
-  gains: [],
+  visionItems: [],
+  visionWords: [],
   yearDirections: [],
-  monthThemes: [],
-  reviews: [],
-  yearReviews: [],
+  yearDirectionHistory: [],
+  monthDirections: [],
+  logs: [],
+  futureMemos: [],
+  flowSessions: [],
+  summaries: [],
+  monthInsights: [],
+  monthHypotheses: [],
+  periodChanges: [],
+  periodTitles: [],
 };
 
 export async function readStore(): Promise<LocalStoreShape> {

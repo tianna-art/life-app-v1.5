@@ -3,147 +3,102 @@ import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRepository } from '@/data';
 import { queryKeys } from '@/lib/queryClient';
-import { analyzeLog } from '@/ai/client';
-import { buildMirror } from '@/ai/mirror';
 import { enqueueLog, flushQueue, queuedToLogs, readQueue } from '@/offline/queue';
-import { monthKeyOfDate, yearKeyOfDate } from '@/utils/period';
-import type { DailyLog, LogWithAnalysis, Mirror, NewLogInput } from '@/types';
+import type { JournalLog, NewLogInput } from '@/types';
 
-function mergeQueued(server: LogWithAnalysis[], queued: LogWithAnalysis[]): LogWithAnalysis[] {
+/**
+ * Queued records first, then what the server has. A record written a moment
+ * ago should be at the top of the month whether or not it has been sent.
+ */
+function merge(server: JournalLog[], queued: JournalLog[]): JournalLog[] {
   const seen = new Set(server.map((l) => l.id));
-  return [...queued.filter((l) => !seen.has(l.id)), ...server].sort(
-    (a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt)
+  return [...queued.filter((l) => !seen.has(l.id)), ...server].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt)
   );
 }
 
-async function readQueuedFor(predicate: (occurredOn: string) => boolean) {
+async function queuedFor(matches: (periodKey: string) => boolean): Promise<JournalLog[]> {
   const queue = await readQueue();
   return queuedToLogs(
-    queue.filter((q) => predicate(q.occurredAt.slice(0, 10))),
+    queue.filter((q) => matches(q.periodKey)),
     'pending'
-  ) as LogWithAnalysis[];
+  );
 }
 
-export function useMonthLogs(monthKey: string) {
-  return useQuery<LogWithAnalysis[]>({
-    queryKey: queryKeys.monthLogs(monthKey),
+export function useMonthLogs(periodKey: string) {
+  return useQuery<JournalLog[]>({
+    queryKey: queryKeys.monthLogs(periodKey),
     queryFn: async () => {
-      const [server, queued] = await Promise.all([
-        getRepository().listLogsByMonth(monthKey),
-        readQueuedFor((d) => monthKeyOfDate(d) === monthKey),
-      ]);
-      return mergeQueued(server, queued);
+      const server = await getRepository().listLogs(periodKey);
+      return merge(server, await queuedFor((key) => key === periodKey));
     },
   });
 }
 
-export function useYearLogs(yearKey: string) {
-  return useQuery<LogWithAnalysis[]>({
-    queryKey: queryKeys.yearLogs(yearKey),
+export function useYearLogs(year: number) {
+  return useQuery<JournalLog[]>({
+    queryKey: queryKeys.yearLogs(year),
     queryFn: async () => {
-      const [server, queued] = await Promise.all([
-        getRepository().listLogsByYear(yearKey),
-        readQueuedFor((d) => yearKeyOfDate(d) === yearKey),
-      ]);
-      return mergeQueued(server, queued);
+      const server = await getRepository().listLogsInYear(year);
+      return merge(server, await queuedFor((key) => key.startsWith(String(year))));
     },
   });
 }
 
-export function useLog(id: string) {
-  return useQuery<LogWithAnalysis | null>({
-    queryKey: queryKeys.log(id),
-    queryFn: () => getRepository().getLog(id),
-    enabled: id.length > 0,
+export function useLogsById(ids: string[]) {
+  return useQuery<JournalLog[]>({
+    queryKey: queryKeys.logs(ids),
+    queryFn: () => getRepository().getLogs(ids),
+    enabled: ids.length > 0,
   });
 }
 
 export interface CreateLogResult {
-  log: DailyLog;
+  log: JournalLog | null;
   queued: boolean;
-  mirror: Mirror | null;
 }
 
 /**
- * Save a record.
+ * Writing a record.
  *
- * Contract: the write succeeds or is queued, so the person always keeps what
- * they tapped; the reading runs afterwards and its failure never rolls the
- * record back.
+ * The contract is that the write either lands or is queued — never lost, and
+ * never rolled back by something that happens afterwards. Nothing else runs
+ * inside this mutation, so there is nothing else that can fail it.
  */
 export function useCreateLog() {
   const client = useQueryClient();
-
   return useMutation<CreateLogResult, Error, NewLogInput>({
     mutationFn: async (input) => {
-      const repository = getRepository();
-      let log: DailyLog;
-
       try {
-        log = await repository.createLog(input);
-      } catch (error) {
-        // Network or server failure: keep it in the durable outbox.
-        const item = await enqueueLog(input);
-        if (!isNetworkError(error)) {
-          console.warn('[crincran] log save deferred to outbox:', error);
-        }
-        return {
-          log: {
-            id: item.clientId,
-            userId: 'pending',
-            occurredAt: item.occurredAt,
-            occurredOn: item.occurredAt.slice(0, 10),
-            logType: item.logType,
-            momentTags: item.momentTags,
-            aiQuestion: item.aiQuestion,
-            optionalAnswer: item.optionalAnswer,
-            createdAt: item.queuedAt,
-          },
-          queued: true,
-          mirror: null,
-        };
-      }
-
-      try {
-        const outcome = await analyzeLog(log);
-        return { log, queued: false, mirror: outcome.mirror };
+        const log = await getRepository().createLog(input);
+        return { log, queued: false };
       } catch {
-        // The record stays saved; the day simply goes unread for now. The
-        // mirror still works, because it only needs the tags.
-        return {
-          log,
-          queued: false,
-          mirror: buildMirror({ logId: log.id, momentTags: log.momentTags, joined: [] }),
-        };
+        await enqueueLog(input);
+        return { log: null, queued: true };
       }
     },
-    onSuccess: (result) => {
-      const month = monthKeyOfDate(result.log.occurredOn);
-      const year = yearKeyOfDate(result.log.occurredOn);
-      void client.invalidateQueries({ queryKey: queryKeys.monthLogs(month) });
-      void client.invalidateQueries({ queryKey: queryKeys.yearLogs(year) });
-      void client.invalidateQueries({ queryKey: queryKeys.progressions() });
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['logs'] });
     },
   });
 }
 
-function isNetworkError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /network|fetch|timeout|offline|Failed to fetch/i.test(message);
+export function useDeleteLog() {
+  const client = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => getRepository().deleteLog(id),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['logs'] });
+    },
+  });
 }
 
-/** Drains the outbox whenever connectivity returns. */
-export function useOutboxSync() {
+/** Drains the outbox whenever the connection comes back. */
+export function useOutboxSync(): void {
   const client = useQueryClient();
-
   const flush = useCallback(async () => {
-    const repository = getRepository();
-    const result = await flushQueue((input) => repository.createLog(input));
-    if (result.sent > 0) {
-      void client.invalidateQueries({ queryKey: ['logs'] });
-      void client.invalidateQueries({ queryKey: queryKeys.progressions() });
-    }
-    return result;
+    const result = await flushQueue((input) => getRepository().createLog(input));
+    if (result.sent > 0) void client.invalidateQueries({ queryKey: ['logs'] });
   }, [client]);
 
   useEffect(() => {
@@ -153,6 +108,4 @@ export function useOutboxSync() {
     });
     return () => unsubscribe();
   }, [flush]);
-
-  return { flush };
 }

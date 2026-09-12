@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { signInWithProvider } from '@/lib/oauth';
+import { signOutEverywhere } from '@/lib/session';
 import { useLocalStore } from '@/lib/env';
 import { getRepository } from '@/data';
 
@@ -13,7 +14,7 @@ export interface AuthState {
   error: string | null;
 }
 
-/** Supabase email auth. In local-store mode auth is bypassed entirely. */
+/** Supabase auth, Google only. In local-store mode auth is bypassed entirely. */
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     loading: true,
@@ -73,23 +74,6 @@ export function useAuth() {
     };
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setState((s) => ({ ...s, loading: false, error: error.message }));
-  }, []);
-
-  const signUp = useCallback(async (email: string, password: string) => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) setState((s) => ({ ...s, loading: false, error: error.message }));
-    else setState((s) => ({ ...s, loading: false }));
-  }, []);
-
   /** Google sign-in. The session arrives through onAuthStateChange. */
   const signInWithGoogle = useCallback(async () => {
     const supabase = getSupabase();
@@ -104,11 +88,8 @@ export function useAuth() {
     }
   }, []);
 
-  const signOut = useCallback(async () => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    await supabase.auth.signOut();
-  }, []);
+  // One implementation, shared with マイページ.
+  const signOut = useCallback(() => signOutEverywhere(), []);
 
-  return { ...state, signIn, signUp, signInWithGoogle, signOut, isLocalMode: useLocalStore };
+  return { ...state, signInWithGoogle, signOut, isLocalMode: useLocalStore };
 }
