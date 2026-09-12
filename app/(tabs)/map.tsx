@@ -10,6 +10,7 @@ import { SectionHeading } from '@components/map/SectionHeading';
 import { DirectionPlates } from '@components/map/DirectionPlates';
 import { InsightCards } from '@components/map/InsightCards';
 import { StarredMemos } from '@components/map/StarredMemos';
+import { PeriodScope } from '@components/scope/PeriodScope';
 import { useVision } from '@/hooks/useVision';
 import { useMonthDirection, useYearDirection } from '@/hooks/useDirection';
 import { useMonthHypothesis, useMonthInsights } from '@/hooks/useReading';
@@ -35,6 +36,9 @@ export default function MapScreen() {
   const year = today.getFullYear();
 
   const [scope, setScope] = useState<Scope>('now');
+  // Which month 月次 is looking at. Opening a month from the year's list has
+  // to land on that month, not on the one you happen to be living in.
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [visionOpen, setVisionOpen] = useState(true);
 
   const { data: vision } = useVision();
@@ -60,7 +64,11 @@ export default function MapScreen() {
           <Pressable
             key={id}
             testID={`map-scope-${id}`}
-            onPress={() => setScope(id)}
+            onPress={() => {
+              setScope(id);
+              // Switching scope by hand always means "now".
+              if (id !== 'month') setSelectedMonth(null);
+            }}
             hitSlop={HIT_SLOP}
             accessibilityRole="tab"
             accessibilityState={{ selected: scope === id }}
@@ -77,11 +85,18 @@ export default function MapScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {scope !== 'now' ? (
-          <View style={styles.pending}>
-            <Text style={styles.pendingText}>
-              {scope === 'month' ? COPY.digestPending : COPY.yearDigestPending}
-            </Text>
-          </View>
+          <PeriodScope
+            periodType={scope}
+            periodKey={scope === 'month' ? (selectedMonth ?? periodKey) : String(year)}
+            today={today}
+            onOpenInsight={(insight) =>
+              router.push(`/records/${insight.evidenceLogIds.join(',')}`)
+            }
+            onOpenMonth={(key) => {
+              setScope('month');
+              setSelectedMonth(key);
+            }}
+          />
         ) : (
           <>
             <VisionBoard
@@ -159,15 +174,6 @@ const styles = StyleSheet.create({
   scopeLabelOn: { color: colors.brown },
   pressed: { opacity: 0.62 },
   scroll: { paddingTop: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
-  // 月次 and 年次 are built in Phase 4, once there is a reading to show. They
-  // say what they are waiting for rather than showing an empty frame.
-  pending: {
-    backgroundColor: colors.butter,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  pendingText: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 22, color: colors.brownDim },
   subHead: { fontFamily: fonts.serif, fontSize: 15, color: colors.brown, paddingTop: spacing.sm },
   subSub: { fontFamily: fonts.sans, fontSize: 11, color: colors.brownFaint },
   write: {
