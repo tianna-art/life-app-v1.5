@@ -5,6 +5,8 @@ import { COPY, LOCAL_COPY } from '@/constants/copy';
 import { Screen } from '@components/ui/Screen';
 import { HairlineRule } from '@components/ui/HairlineRule';
 import { PeriodStrip } from '@components/list/PeriodStrip';
+import { PeriodChange } from '@components/scope/PeriodChange';
+import { ScopeTabs, namingTabs, type ScopeTab } from '@components/scope/ScopeTabs';
 import { RecordRow } from '@components/list/RecordRow';
 import { useFirstRecordedPeriod, usePeriodTitles, useSavePeriodTitle } from '@/hooks/usePeriodTitles';
 import { useSaveOwnSummary, useSummary } from '@/hooks/useReading';
@@ -32,6 +34,10 @@ export default function ListScreen() {
   const [selected, setSelected] = useState(() => monthKeyOf(today));
   const [draft, setDraft] = useState<string | null>(null);
   const [summaryDraft, setSummaryDraft] = useState<string | null>(null);
+  // While a name is being decided the screen stops stacking and starts
+  // switching, which is how the preview behaves: naming is a comparing job,
+  // so the material is put side by side rather than end to end.
+  const [reviewTab, setReviewTab] = useState<ScopeTab>('summary');
 
   const { data: titles } = usePeriodTitles(scope);
   const { data: firstUsed } = useFirstRecordedPeriod();
@@ -58,11 +64,16 @@ export default function ListScreen() {
     firstUsedKey,
   });
 
+  const naming = draft !== null;
+  /** Everything is on screen at once, unless a name is being decided. */
+  const showing = (tab: ScopeTab) => !naming || reviewTab === tab;
+
   const switchScope = (next: PeriodType) => {
     setScope(next);
     setSelected(next === 'month' ? monthKeyOf(today) : String(today.getFullYear()));
     setDraft(null);
     setSummaryDraft(null);
+    setReviewTab('summary');
   };
 
   return (
@@ -99,6 +110,7 @@ export default function ListScreen() {
           setSelected(key);
           setDraft(null);
           setSummaryDraft(null);
+          setReviewTab('summary');
         }}
       />
 
@@ -108,7 +120,10 @@ export default function ListScreen() {
         {draft === null ? (
           <Pressable
             testID="title-open"
-            onPress={() => setDraft(title?.title ?? '')}
+            onPress={() => {
+              setDraft(title?.title ?? '');
+              setReviewTab('summary');
+            }}
             // A month still being lived has not finished being what it was.
             disabled={state === 'waiting' || state === 'future'}
             accessibilityRole="button"
@@ -151,10 +166,20 @@ export default function ListScreen() {
           </View>
         )}
 
+        {/* 4つ目（先月からの変化 / 去年との違い）は、名前を決めている時だけ。
+            The row itself only appears while naming, because the rest of the
+            time there is nothing to switch between: 要約 and 出来事 simply
+            follow one another down the screen. */}
+        {naming ? (
+          <ScopeTabs tabs={namingTabs(scope)} value={reviewTab} onChange={setReviewTab} />
+        ) : null}
+
+        {showing('change') ? <PeriodChange periodType={scope} /> : null}
+
         {/* 要約. The reading writes one; the person may write over it, in a
             field of their own — so regenerating the reading later does not
             quietly discard what they wrote. */}
-        {summaryDraft === null ? (
+        {!showing('summary') ? null : summaryDraft === null ? (
           <Pressable
             testID="summary-open"
             onPress={() => setSummaryDraft(summary?.bodyUser ?? summary?.body ?? '')}
@@ -225,12 +250,18 @@ export default function ListScreen() {
           </View>
         )}
 
-        <Text style={styles.recordsLabel}>{`${periodLabel(selected)}の${COPY.logsLabel}`}</Text>
-        {logs.length === 0 ? (
-          <Text style={styles.none}>{COPY.pastNone}</Text>
-        ) : (
-          logs.map((log) => <RecordRow key={log.id} log={log} />)
-        )}
+        {showing('records') ? (
+          <>
+            <Text style={styles.recordsLabel}>
+              {`${periodLabel(selected)}の${COPY.logsLabel}`}
+            </Text>
+            {logs.length === 0 ? (
+              <Text style={styles.none}>{COPY.pastNone}</Text>
+            ) : (
+              logs.map((log) => <RecordRow key={log.id} log={log} />)
+            )}
+          </>
+        ) : null}
       </ScrollView>
     </Screen>
   );

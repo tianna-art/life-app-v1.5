@@ -1481,3 +1481,41 @@ export const TOPIC_EXAMPLES = [
   "発見",
   "ふと思ったこと"
 ] as const;
+
+export const REVIEW_TABS = [
+  [
+    "map",
+    "マップ"
+  ],
+  [
+    "summary",
+    "要約"
+  ],
+  [
+    "logs",
+    "出来事"
+  ],
+  [
+    "change",
+    "先月からの変化"
+  ]
+] as const;
+
+export const YEAR_REVIEW_TABS = [
+  [
+    "map",
+    "マップ"
+  ],
+  [
+    "summary",
+    "要約"
+  ],
+  [
+    "footprints",
+    "出来事"
+  ],
+  [
+    "change",
+    "去年との違い"
+  ]
+] as const;

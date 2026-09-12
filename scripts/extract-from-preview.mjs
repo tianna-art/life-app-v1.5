@@ -48,6 +48,8 @@ const WANTED = [
   'MONTHS_EN',
   'WEEKDAYS',
   'TOPIC_EXAMPLES',
+  'REVIEW_TABS',
+  'YEAR_REVIEW_TABS',
 ];
 
 /**

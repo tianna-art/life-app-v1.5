@@ -6,8 +6,7 @@ import { ScopeTabs, type ScopeTab } from './ScopeTabs';
 import { PeriodMap } from './PeriodMap';
 import { RecordRow } from '@components/list/RecordRow';
 import { useMonthDirection, useYearDirection } from '@/hooks/useDirection';
-import { useMonthInsights } from '@/hooks/useReading';
-import { useSummary } from '@/hooks/useReading';
+import { useGenerateReading, useMonthInsights, useSummary } from '@/hooks/useReading';
 import { useMonthLogs, useYearLogs } from '@/hooks/useLogs';
 import { daysUntilNameable, footprintState } from '@/utils/footprint';
 import { summaryText, type JournalLog, type MonthInsight, type PeriodType } from '@/types';
@@ -46,6 +45,7 @@ export function PeriodScope({
   const { data: yearDirection } = useYearDirection(monthly ? 0 : Number(periodKey));
   const { data: insights } = useMonthInsights(monthly ? periodKey : '');
   const { data: summary } = useSummary(periodType, periodKey);
+  const generate = useGenerateReading();
 
   // The map is a look back at a period, so it opens when the period does —
   // the same moment its 足跡タイトル can be made.
@@ -64,12 +64,29 @@ export function PeriodScope({
 
       {tab === 'map' ? (
         open ? (
-          <PeriodMap
-            month={month}
-            antennaIds={monthDirection?.antennaIds ?? []}
-            insights={insights ?? []}
-            onOpen={onOpenInsight}
-          />
+          <>
+            <PeriodMap
+              month={month}
+              antennaIds={monthDirection?.antennaIds ?? []}
+              insights={insights ?? []}
+              onOpen={onOpenInsight}
+            />
+            {/* The reading is asked for, never volunteered. A period that has
+                ended can be read; whether it is read is the person's call, and
+                until they make it the map simply stays empty. */}
+            {(insights ?? []).length === 0 ? (
+              <Pressable
+                testID="scope-generate"
+                onPress={() => generate.mutate({ periodType, periodKey })}
+                disabled={generate.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={COPY.mapReady}
+                style={({ pressed }) => [styles.generate, pressed && styles.pressed]}
+              >
+                <Text style={styles.generateLabel}>{COPY.mapReady}</Text>
+              </Pressable>
+            ) : null}
+          </>
         ) : (
           <View style={styles.waiting} testID="scope-map-waiting">
             <Text style={styles.waitingText}>
@@ -190,4 +207,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   days: { fontFamily: fonts.serif, fontSize: 18, color: colors.brown },
+  generate: {
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignSelf: 'center',
+  },
+  generateLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.brownDim },
+  pressed: { opacity: 0.62 },
 });

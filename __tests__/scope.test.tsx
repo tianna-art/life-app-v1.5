@@ -3,11 +3,13 @@
  *
  * The rule under test is what an empty period looks like: all three tabs
  * present, each saying plainly that there is nothing there yet, and none of
- * them filled with something that reads like content.
+ * them filled with something that reads like content. The fourth tab — the
+ * comparison — is a naming-time tab and is not on offer the rest of the time.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PeriodMap } from '@components/scope/PeriodMap';
-import { ScopeTabs } from '@components/scope/ScopeTabs';
+import { PeriodChange } from '@components/scope/PeriodChange';
+import { ScopeTabs, namingTabs } from '@components/scope/ScopeTabs';
 import type { MonthInsight } from '@/types';
 
 function insight(id: string, over: Partial<MonthInsight> = {}): MonthInsight {
@@ -74,5 +76,39 @@ describe('the period map', () => {
   it('still draws the centre for a period with no direction set', () => {
     render(<PeriodMap month={9} antennaIds={[]} insights={[]} onOpen={jest.fn()} />);
     expect(screen.getByTestId('period-map')).toBeTruthy();
+  });
+});
+
+describe('the fourth tab', () => {
+  it('is absent from the tabs a period offers at any time', () => {
+    render(<ScopeTabs value="map" onChange={jest.fn()} />);
+    expect(screen.queryByTestId('scope-tab-change')).toBeNull();
+  });
+
+  it('appears while a name is being decided, labelled by the period', () => {
+    render(
+      <ScopeTabs value="summary" onChange={jest.fn()} tabs={namingTabs('month')} />
+    );
+    expect(screen.getByText('先月からの変化')).toBeTruthy();
+    // The map is not repeated here: the same figure under two tabs would read
+    // as two different analyses.
+    expect(screen.queryByTestId('scope-tab-map')).toBeNull();
+  });
+
+  it('says 去年との違い for a year', () => {
+    render(<ScopeTabs value="summary" onChange={jest.fn()} tabs={namingTabs('year')} />);
+    expect(screen.getByText('去年との違い')).toBeTruthy();
+  });
+});
+
+describe('the comparison, before there is one', () => {
+  it('says the records are not many yet, and claims no difference', () => {
+    render(<PeriodChange periodType="month" />);
+    expect(screen.getByText('先月と比べられる記録は、まだ多くありません。')).toBeTruthy();
+  });
+
+  it('uses the year wording for a year', () => {
+    render(<PeriodChange periodType="year" />);
+    expect(screen.getByText('比べられる記録は、まだ多くありません。')).toBeTruthy();
   });
 });
