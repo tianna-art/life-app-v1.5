@@ -8,8 +8,10 @@ import { RouteTabs, type LogRoute } from '@components/log/RouteTabs';
 import { MonthDirectionBand } from '@components/log/MonthDirectionBand';
 import { Composer } from '@components/log/Composer';
 import { FutureMemoRoute } from '@components/future/FutureMemoRoute';
+import { FlowQuest } from '@components/flow/FlowQuest';
 import { useMonthDirection } from '@/hooks/useDirection';
 import { useCreateLog } from '@/hooks/useLogs';
+import { useLastFlowSession, useSaveFlowSession } from '@/hooks/useFlow';
 import { monthKeyOf } from '@/utils/period';
 
 /**
@@ -26,6 +28,8 @@ export default function LogScreen() {
 
   const { data: direction } = useMonthDirection(periodKey);
   const createLog = useCreateLog();
+  const { data: lastFlow } = useLastFlowSession();
+  const saveFlow = useSaveFlowSession();
   const antennaIds = direction?.antennaIds ?? [];
 
   return (
@@ -74,9 +78,14 @@ export default function LogScreen() {
           {route === 'future' ? <FutureMemoRoute /> : null}
 
           {route === 'flow' ? (
-            <View style={styles.pending}>
-              <Text style={styles.pendingText}>{COPY.questWhatBody}</Text>
-            </View>
+            <FlowQuest
+              last={lastFlow ?? null}
+              onSave={(entries) => {
+                saveFlow.mutate(entries);
+                setToast(COPY.visionSaved);
+              }}
+              onDiscard={() => undefined}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
