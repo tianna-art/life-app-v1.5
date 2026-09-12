@@ -43,8 +43,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brassFaint,
-    backgroundColor: colors.surface,
+    borderColor: colors.orangeSoft,
+    backgroundColor: colors.paper,
   },
-  text: { fontFamily: fonts.sans, fontSize: 13, letterSpacing: 0.8, color: colors.ivory },
+  text: { fontFamily: fonts.sans, fontSize: 13, letterSpacing: 0.8, color: colors.brown },
 });

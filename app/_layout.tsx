@@ -36,7 +36,7 @@ function AppShell() {
   if (auth.loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.brass} />
+        <ActivityIndicator color={colors.orange} />
       </View>
     );
   }
@@ -47,7 +47,7 @@ function AppShell() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.ink },
+        contentStyle: { backgroundColor: colors.cream },
         animation: 'fade',
       }}
     >
@@ -70,6 +70,6 @@ function AppShell() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.ink },
-  loading: { flex: 1, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  root: { flex: 1, backgroundColor: colors.cream },
+  loading: { flex: 1, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
 });

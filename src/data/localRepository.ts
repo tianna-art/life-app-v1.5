@@ -1,191 +1,204 @@
+import { ANTENNAS, ANTENNA_ORDER } from '@/constants/generated/preview';
 import { uuid } from '@/utils/id';
-import { monthKeyOfDate, yearKeyOfDate } from '@/utils/period';
-import { maturityCeiling, minMaturity, summariseEvidencePath } from '@/ai/progressionRules';
-import { mutateStore, readStore } from './localStore';
-import type { Repository } from './repository';
+import { monthKeyOf } from '@/utils/period';
 import type {
-  DailyLog,
-  Gain,
-  LogAnalysis,
-  LogWithAnalysis,
-  MonthProgression,
-  MonthReview,
-  MonthTheme,
+  AntennaId,
+  Category,
+  CategoryDetail,
+  FlowSession,
+  FlowStage,
+  FutureMemo,
+  JournalLog,
+  MonthDirection,
+  MonthHypothesis,
+  MonthInsight,
+  MonthSummary,
+  NewFutureMemoInput,
   NewLogInput,
-  Progression,
-  ProgressionDetail,
-  ProgressionEvidence,
-  ProgressionMaturity,
-  ProgressionRef,
-  ProgressionStep,
-  ProgressionVerdict,
+  PeriodTitle,
+  PeriodType,
+  VisionItem,
+  VisionWord,
   YearDirection,
-  YearReview,
+  YearDirectionChange,
 } from '@/types';
-
-const LOCAL_USER = 'local';
-
-function byNewestFirst(a: DailyLog, b: DailyLog): number {
-  return b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt);
-}
-
-/** Merged progressions resolve to whatever now stands for them. */
-function resolveMerged(progression: Progression, byId: Map<string, Progression>): Progression {
-  const seen = new Set<string>();
-  let current = progression;
-  while (current.mergedIntoId && !seen.has(current.id)) {
-    seen.add(current.id);
-    const next = byId.get(current.mergedIntoId);
-    if (!next) break;
-    current = next;
-  }
-  return current;
-}
+import type { Repository } from './repository';
+import { mutateStore, readStore } from './localStore';
 
 /**
- * On-device store.
+ * The local store. Used when no Supabase configuration is present, so the app
+ * can be opened and written in before anything is connected.
  *
- * Used when the project has no Supabase configuration, and as the place the
- * offline reading writes to so the map keeps working with no backend at all.
- * Every method the Edge Functions would normally own is present here too, in a
- * model-free form.
+ * The アンテナ tree is not stored: it is the same for everyone and comes from
+ * the preview, so it is read straight out of the generated module rather than
+ * seeded into rows that could drift from it.
  */
 export class LocalRepository implements Repository {
-  readonly name = 'local' as const;
-
   async ensureBootstrapped(): Promise<void> {
     await readStore();
   }
 
-  // -------------------------------------------------------------------------
-  // The lens
-  // -------------------------------------------------------------------------
+  // -- ビジョンボード -------------------------------------------------------
+
+  async listVisionItems(): Promise<VisionItem[]> {
+    const store = await readStore();
+    return [...store.visionItems].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  async listVisionWords(): Promise<VisionWord[]> {
+    const store = await readStore();
+    return [...store.visionWords].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  async addVisionItem(text: string): Promise<VisionItem> {
+    const item: VisionItem = { id: uuid(), text: text.trim(), sortOrder: 0 };
+    await mutateStore((store) => {
+      item.sortOrder = store.visionItems.length;
+      return { ...store, visionItems: [...store.visionItems, item] };
+    });
+    return item;
+  }
+
+  async addVisionWord(text: string): Promise<VisionWord> {
+    const word: VisionWord = { id: uuid(), text: text.trim(), sortOrder: 0 };
+    await mutateStore((store) => {
+      word.sortOrder = store.visionWords.length;
+      return { ...store, visionWords: [...store.visionWords, word] };
+    });
+    return word;
+  }
+
+  async removeVisionItem(id: string): Promise<void> {
+    await mutateStore((store) => ({
+      ...store,
+      visionItems: store.visionItems.filter((v) => v.id !== id),
+    }));
+  }
+
+  async removeVisionWord(id: string): Promise<void> {
+    await mutateStore((store) => ({
+      ...store,
+      visionWords: store.visionWords.filter((v) => v.id !== id),
+    }));
+  }
+
+  // -- 方向 -----------------------------------------------------------------
 
   async getYearDirection(year: number): Promise<YearDirection | null> {
     const store = await readStore();
     return store.yearDirections.find((d) => d.year === year) ?? null;
   }
 
+  /**
+   * Replacing a direction keeps the old one. Changing your mind mid-year is
+   * part of the year, and a history that quietly overwrites itself cannot show
+   * that it happened.
+   */
   async saveYearDirection(input: {
     year: number;
-    selectedAreas: string[];
-    desiredSelfCards: string[];
-    progressionLenses: string[];
-    initialTheme?: string;
-    finalTheme?: string;
+    direction: string;
+    keywords?: string[];
+    answers?: string[];
   }): Promise<YearDirection> {
-    const store = await readStore();
-    const existing = store.yearDirections.find((d) => d.year === input.year);
     const next: YearDirection = {
-      id: existing?.id ?? uuid(),
-      userId: LOCAL_USER,
       year: input.year,
-      selectedAreas: input.selectedAreas,
-      desiredSelfCards: input.desiredSelfCards,
-      progressionLenses: input.progressionLenses,
-      // A year's opening theme is written once; a later save must not quietly
-      // erase it, because the year-end reading compares against it (§26).
-      initialTheme: input.initialTheme ?? existing?.initialTheme,
-      finalTheme: input.finalTheme ?? existing?.finalTheme,
+      direction: input.direction.trim(),
+      keywords: input.keywords ?? [],
+      answers: input.answers ?? [],
+      updatedAt: new Date().toISOString(),
     };
-    await mutateStore((current) => ({
-      ...current,
-      yearDirections: [...current.yearDirections.filter((d) => d.year !== input.year), next],
-    }));
+    await mutateStore((store) => {
+      const previous = store.yearDirections.find((d) => d.year === input.year);
+      const history =
+        previous && previous.direction !== next.direction
+          ? [
+              ...store.yearDirectionHistory,
+              {
+                id: uuid(),
+                year: previous.year,
+                direction: previous.direction,
+                replacedAt: next.updatedAt,
+              },
+            ]
+          : store.yearDirectionHistory;
+      return {
+        ...store,
+        yearDirectionHistory: history,
+        yearDirections: [...store.yearDirections.filter((d) => d.year !== input.year), next],
+      };
+    });
     return next;
   }
 
-  async getMonthTheme(year: number, month: number): Promise<MonthTheme | null> {
+  async listYearDirectionHistory(year: number): Promise<YearDirectionChange[]> {
     const store = await readStore();
-    return store.monthThemes.find((t) => t.year === year && t.month === month) ?? null;
+    return store.yearDirectionHistory
+      .filter((h) => h.year === year)
+      .sort((a, b) => b.replacedAt.localeCompare(a.replacedAt));
   }
 
-  async listMonthThemes(year: number): Promise<MonthTheme[]> {
+  async getMonthDirection(periodKey: string): Promise<MonthDirection | null> {
     const store = await readStore();
-    return store.monthThemes.filter((t) => t.year === year).sort((a, b) => a.month - b.month);
+    return store.monthDirections.find((d) => d.periodKey === periodKey) ?? null;
   }
 
-  async saveMonthTheme(input: {
-    year: number;
-    month: number;
-    initialTheme?: string;
-    finalTheme?: string;
-    source: MonthTheme['source'];
-    candidates?: MonthTheme['candidates'];
-  }): Promise<MonthTheme> {
-    const store = await readStore();
-    const existing = store.monthThemes.find(
-      (t) => t.year === input.year && t.month === input.month
-    );
-    const next: MonthTheme = {
-      id: existing?.id ?? uuid(),
-      userId: LOCAL_USER,
-      year: input.year,
-      month: input.month,
-      initialTheme: input.initialTheme ?? existing?.initialTheme,
-      finalTheme: input.finalTheme ?? existing?.finalTheme,
-      source: input.source,
-      candidates: input.candidates ?? existing?.candidates ?? [],
+  async saveMonthDirection(periodKey: string, antennaIds: string[]): Promise<MonthDirection> {
+    const next: MonthDirection = {
+      periodKey,
+      antennaIds: antennaIds.filter(isAntennaId).slice(0, 2),
+      updatedAt: new Date().toISOString(),
     };
-    await mutateStore((current) => ({
-      ...current,
-      monthThemes: [
-        ...current.monthThemes.filter((t) => !(t.year === input.year && t.month === input.month)),
+    await mutateStore((store) => ({
+      ...store,
+      monthDirections: [
+        ...store.monthDirections.filter((d) => d.periodKey !== periodKey),
         next,
       ],
     }));
     return next;
   }
 
-  // -------------------------------------------------------------------------
-  // Daily evidence
-  // -------------------------------------------------------------------------
+  // -- カテゴリー -----------------------------------------------------------
 
-  async listLogsByMonth(monthKey: string): Promise<LogWithAnalysis[]> {
-    const store = await readStore();
-    return store.logs
-      .filter((l) => monthKeyOfDate(l.occurredOn) === monthKey)
-      .sort(byNewestFirst)
-      .map((l) => ({ ...l, analysis: store.analyses[l.id] }));
+  async listCategories(): Promise<Category[]> {
+    return CATEGORIES;
   }
 
-  async listLogsByYear(yearKey: string): Promise<LogWithAnalysis[]> {
-    const store = await readStore();
-    return store.logs
-      .filter((l) => yearKeyOfDate(l.occurredOn) === yearKey)
-      .sort(byNewestFirst)
-      .map((l) => ({ ...l, analysis: store.analyses[l.id] }));
+  async listCategoryDetails(categoryId: string): Promise<CategoryDetail[]> {
+    return DETAILS.filter((d) => d.categoryId === categoryId);
   }
 
-  async getLog(id: string): Promise<LogWithAnalysis | null> {
+  // -- 記録 -----------------------------------------------------------------
+
+  async listLogs(periodKey: string): Promise<JournalLog[]> {
     const store = await readStore();
-    const log = store.logs.find((l) => l.id === id);
-    if (!log) return null;
-
-    const byId = new Map(store.progressions.map((p) => [p.id, p]));
-    const refs: ProgressionRef[] = [];
-    for (const row of store.evidence.filter((e) => e.logId === id)) {
-      const progression = byId.get(row.progressionId);
-      if (!progression) continue;
-      const resolved = resolveMerged(progression, byId);
-      if (refs.some((r) => r.id === resolved.id)) continue;
-      refs.push({ id: resolved.id, title: resolved.title, role: row.role });
-    }
-
-    return { ...log, analysis: store.analyses[id], progressions: refs };
+    return store.logs.filter((l) => l.periodKey === periodKey).sort(byNewest);
   }
 
-  async createLog(input: NewLogInput): Promise<DailyLog> {
-    const occurredAt = input.occurredAt ?? new Date().toISOString();
-    const log: DailyLog = {
+  async listLogsInYear(year: number): Promise<JournalLog[]> {
+    const store = await readStore();
+    const prefix = String(year);
+    return store.logs.filter((l) => l.periodKey.startsWith(prefix)).sort(byNewest);
+  }
+
+  async getLogs(ids: string[]): Promise<JournalLog[]> {
+    const store = await readStore();
+    const wanted = new Set(ids);
+    return store.logs.filter((l) => wanted.has(l.id)).sort(byNewest);
+  }
+
+  async createLog(input: NewLogInput): Promise<JournalLog> {
+    const log: JournalLog = {
       id: uuid(),
-      userId: LOCAL_USER,
-      occurredAt,
-      occurredOn: occurredAt.slice(0, 10),
-      logType: input.logType,
-      momentTags: input.momentTags,
-      aiQuestion: input.aiQuestion,
-      optionalAnswer: input.optionalAnswer,
+      userId: 'local',
+      occurredOn: input.occurredOn ?? null,
+      periodKey: input.periodKey || monthKeyOf(new Date()),
+      body: input.body.trim(),
+      categoryId: input.categoryId ?? null,
+      detailId: input.detailId ?? null,
+      inputMethod: input.inputMethod ?? 'typed',
+      source: input.source ?? 'manual',
+      sourceId: input.sourceId ?? null,
       createdAt: new Date().toISOString(),
     };
     await mutateStore((store) => ({ ...store, logs: [log, ...store.logs] }));
@@ -193,309 +206,146 @@ export class LocalRepository implements Repository {
   }
 
   async deleteLog(id: string): Promise<void> {
-    await mutateStore((store) => {
-      const { [id]: _removed, ...analyses } = store.analyses;
-      return {
-        ...store,
-        logs: store.logs.filter((l) => l.id !== id),
-        analyses,
-        evidence: store.evidence.filter((e) => e.logId !== id),
-      };
-    });
+    await mutateStore((store) => ({ ...store, logs: store.logs.filter((l) => l.id !== id) }));
   }
 
-  // -------------------------------------------------------------------------
-  // Progression
-  // -------------------------------------------------------------------------
+  // -- 未来メモ -------------------------------------------------------------
 
-  async listProgressions(): Promise<Progression[]> {
+  async listFutureMemos(): Promise<FutureMemo[]> {
     const store = await readStore();
-    const byId = new Map(store.progressions.map((p) => [p.id, p]));
-    const out = new Map<string, Progression>();
-    for (const p of store.progressions) {
-      const resolved = resolveMerged(p, byId);
-      out.set(resolved.id, resolved);
-    }
-    return [...out.values()].sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt));
+    return [...store.futureMemos]
+      .filter((m) => m.status !== 'trashed')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  async listMonthProgressions(monthKey: string): Promise<MonthProgression[]> {
-    const store = await readStore();
-    const byId = new Map(store.progressions.map((p) => [p.id, p]));
-
-    const monthLogIds = new Set(
-      store.logs.filter((l) => monthKeyOfDate(l.occurredOn) === monthKey).map((l) => l.id)
-    );
-    const monthEnd = `${monthKey}-32`;
-
-    const grouped = new Map<string, { evidenceLogIds: string[]; progression: Progression }>();
-    for (const row of store.evidence) {
-      if (!monthLogIds.has(row.logId)) continue;
-      const raw = byId.get(row.progressionId);
-      if (!raw) continue;
-      const progression = resolveMerged(raw, byId);
-      const bucket = grouped.get(progression.id) ?? { evidenceLogIds: [], progression };
-      if (!bucket.evidenceLogIds.includes(row.logId)) bucket.evidenceLogIds.push(row.logId);
-      grouped.set(progression.id, bucket);
-    }
-
-    return [...grouped.values()]
-      .map(({ progression, evidenceLogIds }) => {
-        // Where it had got to by the end of that month, not today.
-        const pathSoFar = store.evidence
-          .filter((e) => e.progressionId === progression.id && e.occurredAt.slice(0, 10) < monthEnd)
-          .map((e) => ({ logId: e.logId, role: e.role, occurredAt: e.occurredAt }));
-        const maturityThen: ProgressionMaturity = minMaturity(
-          progression.maturity,
-          maturityCeiling(summariseEvidencePath(pathSoFar))
-        );
-
-        return {
-          progression,
-          evidenceLogIds,
-          isNew: monthKeyOfDate(progression.firstDetectedAt.slice(0, 10)) === monthKey,
-          maturityThen,
-        };
-      })
-      .sort((a, b) => b.progression.confidence - a.progression.confidence);
-  }
-
-  async getProgressionDetail(id: string): Promise<ProgressionDetail | null> {
-    const store = await readStore();
-    const byId = new Map(store.progressions.map((p) => [p.id, p]));
-    const raw = byId.get(id);
-    if (!raw) return null;
-    const progression = resolveMerged(raw, byId);
-
-    const absorbed = new Set(
-      store.progressions.filter((p) => resolveMerged(p, byId).id === progression.id).map((p) => p.id)
-    );
-
-    const logsById = new Map(store.logs.map((l) => [l.id, l]));
-    const steps: ProgressionStep[] = store.evidence
-      .filter((e) => absorbed.has(e.progressionId))
-      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
-      .flatMap((row) => {
-        const log = logsById.get(row.logId);
-        if (!log) return [];
-        return [
-          {
-            logId: log.id,
-            occurredOn: log.occurredOn,
-            role: row.role,
-            eventSummary: store.analyses[log.id]?.eventSummary ?? fallbackSummary(log),
-            logType: log.logType,
-            momentTags: log.momentTags,
-          },
-        ];
-      });
-
-    return {
-      progression,
-      steps,
-      gains: store.gains.filter((g) => g.progressionId != null && absorbed.has(g.progressionId)),
+  async createFutureMemo(input: NewFutureMemoInput): Promise<FutureMemo> {
+    const dateKind = input.dateKind ?? 'none';
+    const memo: FutureMemo = {
+      id: uuid(),
+      type: input.type,
+      title: input.title.trim(),
+      memo: input.memo?.trim() ?? '',
+      // 'いつでも' carries no date; keeping one would show a deadline nobody set.
+      targetDate: dateKind === 'none' ? null : (input.targetDate ?? null),
+      dateKind,
+      favorite: input.favorite ?? false,
+      status: 'future',
+      completedAt: null,
+      heartTags: [],
+      createdAt: new Date().toISOString(),
     };
+    await mutateStore((store) => ({ ...store, futureMemos: [memo, ...store.futureMemos] }));
+    return memo;
   }
 
-  async setProgressionVerdict(input: {
-    progressionId: string;
-    verdict: ProgressionVerdict;
-    title?: string;
-    summary?: string;
-  }): Promise<Progression> {
-    const rewrote = input.verdict === 'adjusted' && Boolean(input.title || input.summary);
-    const store = await mutateStore((current) => ({
-      ...current,
-      progressions: current.progressions.map((p) =>
-        p.id === input.progressionId
-          ? {
-              ...p,
-              verdict: input.verdict,
-              ...(input.title ? { title: input.title } : {}),
-              ...(input.summary ? { summary: input.summary } : {}),
-              userEdited: p.userEdited || rewrote,
-              lastUpdatedAt: new Date().toISOString(),
-            }
-          : p
-      ),
+  async updateFutureMemo(id: string, patch: Partial<FutureMemo>): Promise<FutureMemo> {
+    let updated: FutureMemo | undefined;
+    await mutateStore((store) => ({
+      ...store,
+      futureMemos: store.futureMemos.map((m) => {
+        if (m.id !== id) return m;
+        updated = { ...m, ...patch, id: m.id };
+        return updated;
+      }),
     }));
-    const updated = store.progressions.find((p) => p.id === input.progressionId);
-    if (!updated) throw new Error('progression not found');
+    if (!updated) throw new Error(`Future memo not found: ${id}`);
     return updated;
   }
 
-  async listGains(): Promise<Gain[]> {
+  // -- 感情クエスト ---------------------------------------------------------
+
+  async lastFlowSession(): Promise<FlowSession | null> {
     const store = await readStore();
-    return store.gains;
-  }
-
-  // -------------------------------------------------------------------------
-  // Month & year
-  // -------------------------------------------------------------------------
-
-  /** No model on this path, so a month has no brief and says so by absence. */
-  /**
-   * The local store never publishes changes.
-   *
-   * Reading a month into changes needs the whole archive and a model; the
-   * offline path has neither. An empty month is the honest answer and is the
-   * same one a month nothing has read yet gives — so the screen has one state
-   * to handle rather than two.
-   */
-  async listMonthChanges(): Promise<never[]> {
-    return [];
-  }
-
-  async countMonthChanges(): Promise<Map<string, number>> {
-    return new Map();
-  }
-
-  async setChangeVerdict(): Promise<never> {
-    throw new Error('この端末では、変化に返事を書けません。');
-  }
-
-  async getMonthMap(): Promise<null> {
-    return null;
-  }
-
-  async getMonthReview(periodKey: string): Promise<MonthReview | null> {
-    const store = await readStore();
-    return store.reviews.find((r) => r.periodKey === periodKey) ?? null;
-  }
-
-  async listMonthReviews(yearKey: string): Promise<MonthReview[]> {
-    const store = await readStore();
-    return store.reviews.filter((r) => r.periodKey.startsWith(`${yearKey}-`));
-  }
-
-  async saveMonthReview(review: MonthReview): Promise<MonthReview> {
-    await mutateStore((store) => ({
-      ...store,
-      reviews: [...store.reviews.filter((r) => r.periodKey !== review.periodKey), review],
-    }));
-    return review;
-  }
-
-  async getYearReview(year: number): Promise<YearReview | null> {
-    const store = await readStore();
-    return store.yearReviews.find((r) => r.year === year) ?? null;
-  }
-
-  async saveYearReview(review: YearReview): Promise<YearReview> {
-    await mutateStore((store) => ({
-      ...store,
-      yearReviews: [...store.yearReviews.filter((r) => r.year !== review.year), review],
-    }));
-    return review;
-  }
-
-  // -------------------------------------------------------------------------
-  // Written by the offline reading only (src/ai/localAnalysis.ts).
-  // -------------------------------------------------------------------------
-
-  async saveAnalysis(analysis: LogAnalysis): Promise<void> {
-    await mutateStore((store) => ({
-      ...store,
-      analyses: { ...store.analyses, [analysis.logId]: analysis },
-    }));
-  }
-
-  async upsertProgression(draft: {
-    type: Progression['type'];
-    pattern?: Progression['pattern'];
-    title: string;
-    summary: string;
-    confidence: number;
-    goalExternal: boolean;
-    occurredAt: string;
-  }): Promise<Progression> {
-    const store = await readStore();
-    const existing = store.progressions.find(
-      (p) => p.type === draft.type && p.title === draft.title && !p.mergedIntoId
+    return (
+      [...store.flowSessions].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
     );
+  }
 
-    if (existing) {
-      const next: Progression = {
-        ...existing,
-        ...(existing.userEdited ? {} : { summary: draft.summary || existing.summary }),
-        pattern: existing.pattern ?? draft.pattern,
-        confidence: Math.max(existing.confidence, draft.confidence),
-        lastUpdatedAt: draft.occurredAt,
-      };
-      await mutateStore((current) => ({
-        ...current,
-        progressions: current.progressions.map((p) => (p.id === next.id ? next : p)),
-      }));
-      return next;
-    }
+  async saveFlowSession(entries: Partial<Record<FlowStage, string>>): Promise<FlowSession> {
+    const session: FlowSession = { id: uuid(), entries, createdAt: new Date().toISOString() };
+    await mutateStore((store) => ({ ...store, flowSessions: [session, ...store.flowSessions] }));
+    return session;
+  }
 
-    const created: Progression = {
-      id: uuid(),
-      userId: LOCAL_USER,
-      type: draft.type,
-      pattern: draft.pattern,
-      title: draft.title,
-      summary: draft.summary,
-      maturity: 'signal',
-      confidence: draft.confidence,
-      goalExternal: draft.goalExternal,
-      firstDetectedAt: draft.occurredAt,
-      lastUpdatedAt: draft.occurredAt,
-      userEdited: false,
-      evidenceCount: 0,
+  // -- 読み取り -------------------------------------------------------------
+
+  async getMonthSummary(periodKey: string): Promise<MonthSummary | null> {
+    const store = await readStore();
+    return store.monthSummaries.find((s) => s.periodKey === periodKey) ?? null;
+  }
+
+  async listMonthInsights(periodKey: string): Promise<MonthInsight[]> {
+    const store = await readStore();
+    return store.monthInsights.filter((i) => i.periodKey === periodKey);
+  }
+
+  async getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null> {
+    const store = await readStore();
+    return store.monthHypotheses.find((h) => h.periodKey === periodKey) ?? null;
+  }
+
+  // -- 足跡タイトル ---------------------------------------------------------
+
+  async listPeriodTitles(periodType: PeriodType): Promise<PeriodTitle[]> {
+    const store = await readStore();
+    return store.periodTitles
+      .filter((t) => t.periodType === periodType)
+      .sort((a, b) => b.periodKey.localeCompare(a.periodKey));
+  }
+
+  async savePeriodTitle(input: {
+    periodType: PeriodType;
+    periodKey: string;
+    title: string;
+    source?: 'manual' | 'ai';
+  }): Promise<PeriodTitle> {
+    const next: PeriodTitle = {
+      periodType: input.periodType,
+      periodKey: input.periodKey,
+      title: input.title.trim(),
+      source: input.source ?? 'manual',
+      updatedAt: new Date().toISOString(),
     };
-    await mutateStore((current) => ({
-      ...current,
-      progressions: [...current.progressions, created],
-    }));
-    return created;
-  }
-
-  async addEvidence(rows: readonly Omit<ProgressionEvidence, 'id'>[]): Promise<void> {
-    if (rows.length === 0) return;
-    await mutateStore((store) => {
-      const evidence = [...store.evidence];
-      for (const row of rows) {
-        const already = evidence.some(
-          (e) => e.progressionId === row.progressionId && e.logId === row.logId
-        );
-        if (already) continue;
-        evidence.push({ id: uuid(), ...row });
-      }
-      return { ...store, evidence };
-    });
-    await this.recountEvidence();
-  }
-
-  /**
-   * Recomputes evidenceCount and re-clamps maturity from what is stored. The
-   * ceiling is the same function the Edge Function uses, so the offline path
-   * can never make a louder claim than the online one.
-   */
-  async recountEvidence(): Promise<void> {
     await mutateStore((store) => ({
       ...store,
-      progressions: store.progressions.map((p) => {
-        const path = store.evidence
-          .filter((e) => e.progressionId === p.id)
-          .map((e) => ({ logId: e.logId, role: e.role, occurredAt: e.occurredAt }));
-        const summary = summariseEvidencePath(path);
-        return {
-          ...p,
-          evidenceCount: summary.distinctLogCount,
-          maturity: minMaturity(p.maturity, maturityCeiling(summary)),
-        };
-      }),
+      periodTitles: [
+        ...store.periodTitles.filter(
+          (t) => !(t.periodType === next.periodType && t.periodKey === next.periodKey)
+        ),
+        next,
+      ],
     }));
+    return next;
   }
 }
 
-/**
- * What to show for a record the reading never got to.
- *
- * A v4 record may have no free text at all, so the tags are the only thing
- * there is to name it by; the caller turns the ids into words.
- */
-function fallbackSummary(log: DailyLog): string {
-  return log.optionalAnswer?.slice(0, 80) ?? log.body?.slice(0, 80) ?? '';
+function byNewest(a: JournalLog, b: JournalLog): number {
+  return b.createdAt.localeCompare(a.createdAt);
 }
+
+function isAntennaId(value: string): value is AntennaId {
+  return (ANTENNA_ORDER as readonly string[]).includes(value);
+}
+
+/** The アンテナ tree, flattened once at module load. */
+const CATEGORIES: Category[] = ANTENNA_ORDER.flatMap((antennaId, antennaIndex) =>
+  ANTENNAS[antennaId].categories.map((category, index) => ({
+    id: category.id,
+    antennaId,
+    label: category.label,
+    detailQuestion: category.detailQuestion,
+    sortOrder: antennaIndex * 100 + index,
+    isActive: true,
+  }))
+);
+
+const DETAILS: CategoryDetail[] = ANTENNA_ORDER.flatMap((antennaId) =>
+  ANTENNAS[antennaId].categories.flatMap((category) =>
+    category.details.map((detail, index) => ({
+      id: detail.id,
+      categoryId: category.id,
+      label: detail.label,
+      sortOrder: index,
+    }))
+  )
+);

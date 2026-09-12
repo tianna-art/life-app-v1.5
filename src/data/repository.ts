@@ -1,106 +1,85 @@
 import type {
-  DailyLog,
-  Gain,
-  LogWithAnalysis,
-  Change,
-  MonthProgression,
-  MonthReview,
-  MonthTheme,
+  Category,
+  CategoryDetail,
+  FlowSession,
+  FlowStage,
+  FutureMemo,
+  JournalLog,
+  MonthDirection,
+  MonthHypothesis,
+  MonthInsight,
+  MonthSummary,
+  NewFutureMemoInput,
   NewLogInput,
-  Progression,
-  ProgressionDetail,
-  ProgressionVerdict,
+  PeriodTitle,
+  PeriodType,
+  VisionItem,
+  VisionWord,
   YearDirection,
-  YearReview,
+  YearDirectionChange,
 } from '@/types';
 
 /**
- * Storage contract. Implemented twice: against Supabase (shipped) and against
- * on-device AsyncStorage (development fallback / offline mirror).
+ * Everything the app can ask of storage.
  *
- * The split that matters: the lens is the person's — they pick the areas, the
- * cards and the themes, so those are written from here. Progressions, evidence
- * and gains are produced by the Edge Functions and are read-only, with one
- * exception the person owns: their verdict on a progression.
+ * Two implementations stand behind it: Supabase, and a local store used when
+ * no Supabase credentials are configured. The screens never learn which one
+ * they are talking to.
  */
 export interface Repository {
-  readonly name: 'supabase' | 'local';
-
   ensureBootstrapped(): Promise<void>;
 
-  // -- The lens (§2-§7) ------------------------------------------------------
+  // ビジョンボード
+  listVisionItems(): Promise<VisionItem[]>;
+  listVisionWords(): Promise<VisionWord[]>;
+  addVisionItem(text: string): Promise<VisionItem>;
+  addVisionWord(text: string): Promise<VisionWord>;
+  removeVisionItem(id: string): Promise<void>;
+  removeVisionWord(id: string): Promise<void>;
 
+  // 方向
   getYearDirection(year: number): Promise<YearDirection | null>;
   saveYearDirection(input: {
     year: number;
-    selectedAreas: string[];
-    desiredSelfCards: string[];
-    progressionLenses: string[];
-    initialTheme?: string;
-    finalTheme?: string;
+    direction: string;
+    keywords?: string[];
+    answers?: string[];
   }): Promise<YearDirection>;
+  listYearDirectionHistory(year: number): Promise<YearDirectionChange[]>;
+  getMonthDirection(periodKey: string): Promise<MonthDirection | null>;
+  saveMonthDirection(periodKey: string, antennaIds: string[]): Promise<MonthDirection>;
 
-  getMonthTheme(year: number, month: number): Promise<MonthTheme | null>;
-  listMonthThemes(year: number): Promise<MonthTheme[]>;
-  saveMonthTheme(input: {
-    year: number;
-    month: number;
-    initialTheme?: string;
-    finalTheme?: string;
-    source: MonthTheme['source'];
-    candidates?: MonthTheme['candidates'];
-  }): Promise<MonthTheme>;
+  // カテゴリー（アンテナの下）
+  listCategories(): Promise<Category[]>;
+  listCategoryDetails(categoryId: string): Promise<CategoryDetail[]>;
 
-  // -- Daily evidence (§8-§14) ----------------------------------------------
-
-  listLogsByMonth(monthKey: string): Promise<LogWithAnalysis[]>;
-  listLogsByYear(yearKey: string): Promise<LogWithAnalysis[]>;
-  getLog(id: string): Promise<LogWithAnalysis | null>;
-  createLog(input: NewLogInput): Promise<DailyLog>;
+  // 記録
+  listLogs(periodKey: string): Promise<JournalLog[]>;
+  listLogsInYear(year: number): Promise<JournalLog[]>;
+  getLogs(ids: string[]): Promise<JournalLog[]>;
+  createLog(input: NewLogInput): Promise<JournalLog>;
   deleteLog(id: string): Promise<void>;
 
-  // -- Progression (§17-§23) ------------------------------------------------
+  // 未来メモ
+  listFutureMemos(): Promise<FutureMemo[]>;
+  createFutureMemo(input: NewFutureMemoInput): Promise<FutureMemo>;
+  updateFutureMemo(id: string, patch: Partial<FutureMemo>): Promise<FutureMemo>;
 
-  listProgressions(): Promise<Progression[]>;
-  /** The month's sky: how far each progression stood at that month's end. */
-  listMonthProgressions(monthKey: string): Promise<MonthProgression[]>;
-  getProgressionDetail(id: string): Promise<ProgressionDetail | null>;
-  setProgressionVerdict(input: {
-    progressionId: string;
-    verdict: ProgressionVerdict;
-    title?: string;
-    summary?: string;
-  }): Promise<Progression>;
+  // 感情クエスト
+  lastFlowSession(): Promise<FlowSession | null>;
+  saveFlowSession(entries: Partial<Record<FlowStage, string>>): Promise<FlowSession>;
 
-  /** Everything that has settled, for the year's reading. */
-  listGains(): Promise<Gain[]>;
+  // 読み取り
+  getMonthSummary(periodKey: string): Promise<MonthSummary | null>;
+  listMonthInsights(periodKey: string): Promise<MonthInsight[]>;
+  getMonthHypothesis(periodKey: string): Promise<MonthHypothesis | null>;
 
-  // -- Change: what the map draws and the cards print (§22) -----------------
-
-  /**
-   * One month's published changes, in the order the map and the cards share.
-   *
-   * The same rows answer both questions on that screen. There is no separate
-   * read for "what the map shows" — that split is what let a point exist with
-   * no card under it.
-   */
-  listMonthChanges(monthKey: string): Promise<Change[]>;
-  /**
-   * How many changes each month of a year has published.
-   *
-   * The archive needs this to say what a month offers. A month whose records
-   * are all read but which published nothing has a map with nothing on it, and
-   * sending someone to look at it is worse than offering to read it again.
-   */
-  countMonthChanges(yearKey: string): Promise<Map<string, number>>;
-  setChangeVerdict(input: { changeId: string; verdict: ProgressionVerdict }): Promise<Change>;
-
-  // -- Month & year (§25, §26) ----------------------------------------------
-
-  getMonthReview(periodKey: string): Promise<MonthReview | null>;
-  listMonthReviews(yearKey: string): Promise<MonthReview[]>;
-  saveMonthReview(review: MonthReview): Promise<MonthReview>;
-
-  getYearReview(year: number): Promise<YearReview | null>;
-  saveYearReview(review: YearReview): Promise<YearReview>;
+  // 足跡タイトル
+  listPeriodTitles(periodType: PeriodType): Promise<PeriodTitle[]>;
+  savePeriodTitle(input: {
+    periodType: PeriodType;
+    periodKey: string;
+    title: string;
+    source?: 'manual' | 'ai';
+  }): Promise<PeriodTitle>;
 }

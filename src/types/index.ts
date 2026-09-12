@@ -1,480 +1,293 @@
 /**
  * Domain types for crincran.
  *
- * Four layers (§1), and the order between them is the product:
+ * The product is a direction and the footprints left while walking it, and the
+ * order between those two is the whole point:
  *
- *   GAP / DIRECTION   what kind of person they want to become
- *   DAILY EVIDENCE    what actually happened
- *   PROGRESSION       what changed between those records
- *   GAIN              what is left over from that change
+ *   ビジョンボード   the scenery, with no period attached
+ *   年の方向         one sentence for the year
+ *   月の方向         up to two アンテナ — what to watch this month
+ *   記録             what actually happened
+ *   見えてきたこと   what the records suggest, with the records attached
+ *   足跡タイトル     the name given afterwards to time already lived
  *
- * The first layer is a lens, never a target. Nothing in this file records how
- * close anyone is to anything (§1, §19): a direction decides what the reading
- * looks for, and that is all it does.
+ * A direction is not a destination. Nothing in this file records how close
+ * anyone is to anything: no progress, no achievement, no match rate. 足跡
+ * タイトル in particular is a name for the road walked, never a verdict on
+ * whether the direction was reached.
  */
 
 // ---------------------------------------------------------------------------
-// Level 1 & 2 — what the person taps (§9, §10)
+// ビジョンボード — the top layer, with no period
 // ---------------------------------------------------------------------------
 
-/** The door the record is left through. Not an exclusive classification. */
-export type LogType = 'self_action' | 'relationship' | 'thought';
+/** One piece of scenery the person wants to live toward. */
+export interface VisionItem {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+/** A word they want to keep. Their own, or a common phrase — never a quote. */
+export interface VisionWord {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------
+// 方向 — year and month
+// ---------------------------------------------------------------------------
+
+/** The five アンテナ. Frozen ids: rows point at these. */
+export type AntennaId =
+  | 'progress'
+  | 'self_understanding'
+  | 'spark'
+  | 'sustainable'
+  | 'values';
+
+export const ANTENNA_IDS: readonly AntennaId[] = [
+  'progress',
+  'self_understanding',
+  'spark',
+  'sustainable',
+  'values',
+];
 
 /**
- * What kind of moment it was. More than one may be true at once — "first time"
- * and "enjoyed" and "friction" can all describe the same afternoon.
- *
- * None of these is a verdict. `friction` in particular is not a failure and is
- * never read as one (§10).
+ * Two at a time. Three makes every one of them look half-watched, and the
+ * month's reading has to say something about each one it claims to follow.
  */
-export type MomentTag =
-  | 'enjoyed'
-  | 'tried'
-  | 'first_time'
-  | 'friction'
-  | 'changed'
-  | 'discovered'
-  | 'self_decided';
+export const MAX_ANTENNAS = 2;
 
-// ---------------------------------------------------------------------------
-// The lens (§2-§5)
-// ---------------------------------------------------------------------------
-
-/** Which of the ten directions they want to grow this year. Ids, not prose. */
-export type DirectionAreaId = string;
-
-/** Which "I'd be glad to become this" cards they picked. Ids, not prose. */
-export type DesiredSelfCardId = string;
-
+/** 年の方向 — one sentence, arrived at by answering or by writing it straight. */
 export interface YearDirection {
-  id: string;
-  userId: string;
   year: number;
-  selectedAreas: DirectionAreaId[];
-  desiredSelfCards: DesiredSelfCardId[];
-  /**
-   * What the model decided to watch for, in the person's own vocabulary.
-   * Read by STAGE 2 as detection priority; never written back to as a result.
-   */
-  progressionLenses: string[];
-  /** Set at the start of the year, and left alone afterwards. */
-  initialTheme?: string | undefined;
-  /** Written at year end, next to — not over — the initial one (§26). */
-  finalTheme?: string | undefined;
-}
-
-export type ThemeSource = 'continue' | 'deepen' | 'follow_spark' | 'custom' | 'none';
-
-export interface MonthTheme {
-  id: string;
-  userId: string;
-  year: number;
-  month: number;
-  initialTheme?: string | undefined;
-  finalTheme?: string | undefined;
-  source: ThemeSource;
-  /** The three offered, kept so the month screen can show what was passed over. */
-  candidates: MonthThemeCandidate[];
-}
-
-export interface MonthThemeCandidate {
-  source: Exclude<ThemeSource, 'custom' | 'none'>;
-  theme: string;
-  /** One line saying which records it came from. Never a reason to comply. */
-  because: string;
-}
-
-// ---------------------------------------------------------------------------
-// Daily evidence
-// ---------------------------------------------------------------------------
-
-export interface DailyLog {
-  id: string;
-  userId: string;
-  occurredAt: string;
-  /** `YYYY-MM-DD`, derived from occurredAt. Every period query joins on this. */
-  occurredOn: string;
-  logType: LogType;
-  momentTags: MomentTag[];
-  /** The one-line question the model asked, kept beside its answer. */
-  aiQuestion?: string | undefined;
-  /** Optional by design (§14). Most records will not have one. */
-  optionalAnswer?: string | undefined;
-  /** v3 free text. Read-only: nothing new is written here. */
-  body?: string | undefined;
-  createdAt: string;
-}
-
-export interface NewLogInput {
-  logType: LogType;
-  momentTags: MomentTag[];
-  aiQuestion?: string;
-  optionalAnswer?: string;
-  /** Defaults to now. */
-  occurredAt?: string;
-}
-
-/**
- * What STAGE 1 read out of a single record (§16).
- *
- * Level 1 and Level 2 are the person's own evidence and are not in here: the
- * model does not get to revise them. Everything below is inference, and each
- * field is allowed to be absent rather than guessed.
- */
-export interface LogAnalysis {
-  logId: string;
-  eventSummary: string;
-  themes: string[];
-  people: string[];
-  action?: string | undefined;
-  outcome?: string | undefined;
-  friction?: string | undefined;
-  discovery?: string | undefined;
-  adaptation?: string | undefined;
-  choice?: string | undefined;
-  environment?: string | undefined;
-  interestSignal?: string | undefined;
-  journeyRole?: JourneyRole | undefined;
-  confidence: number;
-  analyzedAt?: string | undefined;
-}
-
-/** What one record is on its own. `neutral` whenever confidence is low. */
-export type JourneyRole =
-  | 'attempt'
-  | 'friction'
-  | 'breakthrough'
-  | 'adaptation'
-  | 'learning'
-  | 'turning_point'
-  | 'exploration'
-  | 'continuation'
-  | 'neutral';
-
-export interface LogWithAnalysis extends DailyLog {
-  analysis?: LogAnalysis | undefined;
-  /** Progressions this record stands inside. Present on detail reads. */
-  progressions?: ProgressionRef[] | undefined;
-}
-
-export interface ProgressionRef {
-  id: string;
-  title: string;
-  role: ProgressionEvidenceRole;
-}
-
-// ---------------------------------------------------------------------------
-// Progression (§17-§19)
-// ---------------------------------------------------------------------------
-
-/** The ten shapes a change can take. Internal; never shown as a label (§22). */
-export type ProgressionPattern =
-  | 'naming'
-  | 'first_act'
-  | 'repeat'
-  | 'solo'
-  | 'pivot'
-  | 'expose'
-  | 'own_call'
-  | 'transfer'
-  | 'reframe'
-  | 'boundary';
-
-export type ProgressionType =
-  | 'capability'
-  | 'strategy'
-  | 'interest'
-  | 'direction'
-  | 'relationship'
-  | 'perspective';
-
-export type ProgressionMaturity = 'signal' | 'emerging' | 'evidenced' | 'established';
-
-export type ProgressionEvidenceRole =
-  | 'origin'
-  | 'attempt'
-  | 'friction'
-  | 'adaptation'
-  | 'evidence'
-  | 'turning_point'
-  | 'current';
-
-export type ProgressionVerdict = 'accepted' | 'adjusted';
-
-export interface Progression {
-  id: string;
-  userId: string;
-  type: ProgressionType;
-  /** Which of the ten it is. Decides what evidence it needs (§18). */
-  pattern?: ProgressionPattern | undefined;
-  /** The person's own words (§22), never a pattern or type name. */
-  title: string;
-  fromState?: string | undefined;
-  currentState?: string | undefined;
-  summary: string;
-  maturity: ProgressionMaturity;
-  /** Internal ordering signal. Never rendered as a number (§29). */
-  confidence: number;
-  /**
-   * True when this grew outside the year's direction. Kept and marked rather
-   * than discarded — repeated "enjoyed" is what this exists for (§19).
-   */
-  goalExternal: boolean;
-  firstDetectedAt: string;
-  lastUpdatedAt: string;
-  verdict?: ProgressionVerdict | undefined;
-  userEdited: boolean;
-  mergedIntoId?: string | undefined;
-  evidenceCount: number;
-}
-
-export interface ProgressionEvidence {
-  id: string;
-  progressionId: string;
-  logId: string;
-  role: ProgressionEvidenceRole;
-  occurredAt: string;
-}
-
-/** One step on the PATH (§23), resolved for display. */
-export interface ProgressionStep {
-  logId: string;
-  occurredOn: string;
-  role: ProgressionEvidenceRole;
-  /** The model's one-line reading of that record. */
-  eventSummary: string;
-  logType: LogType;
-  momentTags: MomentTag[];
-}
-
-// ---------------------------------------------------------------------------
-// Gain (§20, §21)
-// ---------------------------------------------------------------------------
-
-/**
- * The seven kinds of gain (§32), and confidence is not among them.
- *
- * §20 is explicit about why: confidence is what a person feels after seeing
- * this evidence, not a thing the app can hand them.
- *
- * A gain is never read off a single record (§33). It is what is left over
- * once a change has been established, so it hangs off the change and not off
- * the log.
- */
-export type GainCategory =
-  | 'clarity'
-  | 'capability'
-  | 'method'
-  | 'choice'
-  | 'evidence'
-  | 'connection'
-  | 'recovery';
-
-export interface Gain {
-  id: string;
-  /** The change it came out of. Never read straight off a record (§33). */
-  changeId?: string | undefined;
-  /** The detection behind it. Kept for gains written before changes existed. */
-  progressionId?: string | undefined;
-  category: GainCategory;
-  label: string;
-  description?: string | undefined;
-  /** Internal ordering only. Never shown (§20). */
-  confidence: number;
-  firstDetectedAt: string;
-  lastDetectedAt: string;
-}
-
-export interface ProgressionDetail {
-  progression: Progression;
-  /** Oldest first. */
-  steps: ProgressionStep[];
-  /** Empty when nothing has settled — the honest common case. */
-  gains: Gain[];
-}
-
-// ---------------------------------------------------------------------------
-// Change — the published reading (§22, §40)
-// ---------------------------------------------------------------------------
-
-/**
- * Which of the things the person put down at the start this answers to (§14).
- *
- * Priority when more than one fits: the month's declaration, then the year's
- * direction, then a desired-self card. `emerging_direction` is the one that
- * points outward — what repeated enjoyment outside the stated direction turns
- * into (§34). It is a discovery, not a miss, and is never marked as one.
- */
-export type ChangeTargetType =
-  | 'month_declaration'
-  | 'year_direction'
-  | 'desired_self'
-  | 'emerging_direction';
-
-/**
- * How much the records will carry (§17).
- *
- * It decides the wording and nothing else. `signal` says a record points that
- * way; `supported` says it is visible across several; `strong` is the only one
- * allowed to say "以前の〜から、最近は〜へ", and it is the only one that needs
- * a record from before this month to stand on.
- */
-export type ChangeConfidence = 'signal' | 'supported' | 'strong';
-
-/** What one record does inside a change. */
-export type ChangeEvidenceRole =
-  | 'before'
-  | 'attempt'
-  | 'friction'
-  | 'change'
-  | 'evidence'
-  | 'current';
-
-/**
- * One published change (§22).
- *
- * The map point and the card under it are this, not two things generated
- * separately and hoped to agree. `title` is printed in both places, `position`
- * is the order both use, and `evidence` is what the card prints before it says
- * anything of its own (§27).
- *
- * A progression is how the reading found this; a change is what it decided to
- * show for this month. They have different lifetimes, which is why they are
- * different objects.
- */
-export interface Change {
-  id: string;
-  userId: string;
-  periodType: PeriodType;
-  year: number;
-  month?: number | undefined;
-  /** What changed, in the person's words. Never a topic name (§19). */
-  title: string;
-  linkedTargetType: ChangeTargetType;
-  linkedTargetId?: string | undefined;
-  linkedTargetLabel: string;
-  /** Only ever set when a record from before says so (§16). */
-  beforeState?: string | undefined;
-  currentState: string;
-  /** 見えてきたこと — what the records show. */
-  observation: string;
-  /** ありたい姿とのつながり — what that has to do with what they wanted. */
-  targetConnection: string;
-  confidence: ChangeConfidence;
-  /** The order the map and the card list share. */
-  position: number;
-  /** The detection this was read from. Kept so a reading is never orphaned. */
-  progressionId?: string | undefined;
-  verdict?: ProgressionVerdict | undefined;
-  userEdited: boolean;
-  /** Oldest first. Two or more, always (§20, §36). */
-  evidence: ChangeEvidenceEntry[];
-  /** What is left over, if anything has settled (§32). Usually empty. */
-  gains: Gain[];
-  createdAt: string;
+  /** The sentence itself. Shown verbatim everywhere; AI never rephrases it. */
+  direction: string;
+  keywords: string[];
+  /** The answers to the five questions, when that route was taken. */
+  answers: string[];
   updatedAt: string;
 }
 
-/** One record the card prints, resolved for display. */
-export interface ChangeEvidenceEntry {
-  logId: string;
-  occurredOn: string;
-  role: ChangeEvidenceRole;
-  /** The record as it was written. Not a paraphrase (§26). */
-  text: string;
-  logType: LogType;
-  momentTags: MomentTag[];
-}
-
-export type PeriodType = 'month' | 'year' | 'long_term';
-
-// ---------------------------------------------------------------------------
-// Month & year (§25, §26)
-// ---------------------------------------------------------------------------
-
-export interface MonthProgression {
-  progression: Progression;
-  /** Ids of that month's records that moved it. */
-  evidenceLogIds: string[];
-  isNew: boolean;
-  /** Where it stood at the end of that month, not where it is now. */
-  maturityThen: ProgressionMaturity;
-}
-
-/**
- * The working-out behind one month, kept and never rendered.
- *
- * Markdown notes the reading wrote for itself while deciding which changes to
- * publish: the candidates, what each stood on, and what it could not yet say.
- * It is stored so a later pass can see what an earlier one thought, and so a
- * reading on screen has something behind it other than the model's memory.
- *
- * What the map draws comes from `Change`, not from here (§22). This used to
- * carry the points and their branches too, which made it a second opinion
- * about the month that nothing reconciled with the first.
- */
-export interface MonthBrief {
-  periodKey: string;
-  briefMarkdown: string;
-  generatedAt: string;
-}
-
-export interface MonthReview {
-  periodKey: string;
-  /** What they set out with, copied at reading time so it cannot be rewritten. */
-  initialTheme: string;
-  /** `人に見せながら、伝え方を変え始めた月` */
-  whatActuallyHappened: string;
-  /** At most three, and never padded to three. */
-  changed: MonthReviewChange[];
-  /** At most three. */
-  gained: MonthReviewGain[];
-  /** Three offered; the person picks or writes their own. */
-  titleCandidates: string[];
-  /** The one they settled on, if they have. */
-  title: string;
-  subtitle: string;
-  createdAt: string;
-}
-
-export interface MonthReviewChange {
-  title: string;
-  /** `「自分の中だけで考える」から「人に見せながら考える」へ。` */
-  line: string;
-}
-
-export interface MonthReviewGain {
-  category: GainCategory;
-  label: string;
-}
-
-export interface YearReview {
+/** A direction that was replaced. Kept so the change itself stays visible. */
+export interface YearDirectionChange {
+  id: string;
   year: number;
-  /** `自分の感性を仕事にする` */
-  initialTheme: string;
-  /** `人に見せながら、自分のやり方をつくった一年` */
-  actualStory: string;
-  progressions: MonthReviewChange[];
-  gained: MonthReviewGain[];
-  titleCandidates: string[];
+  direction: string;
+  replacedAt: string;
+}
+
+/** 月の方向 — which アンテナ are up this month. Changeable mid-month. */
+export interface MonthDirection {
+  /** `YYYY-MM`. */
+  periodKey: string;
+  antennaIds: AntennaId[];
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 記録
+// ---------------------------------------------------------------------------
+
+export type InputMethod = 'typed' | 'voice';
+
+/** Where a record came from. A record is a record however it arrived. */
+export type LogSource = 'manual' | 'future_memo' | 'flow';
+
+/**
+ * ひとこと記録.
+ *
+ * `occurredOn` is nullable: a record entered for a past month carries the
+ * month but not a day, and inventing one would put it on a day that did not
+ * happen. Tags are optional — a record with no tag is still a record.
+ */
+export interface JournalLog {
+  id: string;
+  userId: string;
+  /** ISO date, or null when only the month is known. */
+  occurredOn: string | null;
+  /** `YYYY-MM`. Always present, including for day-less records. */
+  periodKey: string;
+  body: string;
+  /** The category tapped, when one was. Belongs to an アンテナ. */
+  categoryId: string | null;
+  /** The narrowing under that category, when one was tapped. */
+  detailId: string | null;
+  inputMethod: InputMethod;
+  source: LogSource;
+  /** The 未来メモ or 感情クエスト session this came from, when it did. */
+  sourceId: string | null;
+  createdAt: string;
+}
+
+/** A category belongs to an アンテナ and narrows into details. */
+export interface Category {
+  id: string;
+  antennaId: AntennaId;
+  label: string;
+  /** The question shown once this category is tapped. */
+  detailQuestion: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface CategoryDetail {
+  id: string;
+  categoryId: string;
+  label: string;
+  sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------
+// 未来メモ
+// ---------------------------------------------------------------------------
+
+export type FutureType = 'interest' | 'place' | 'movie' | 'book' | 'other';
+
+/** How firm the date is. `none` carries no date at all. */
+export type DateKind = 'none' | 'by' | 'after';
+
+export type FutureStatus = 'future' | 'completed' | 'trashed';
+
+export interface FutureMemo {
+  id: string;
+  type: FutureType;
+  title: string;
+  memo: string;
+  /** Null whenever `dateKind` is `none`. */
+  targetDate: string | null;
+  dateKind: DateKind;
+  /** ★ — starred memos are the ones the map shows. At most three are drawn. */
+  favorite: boolean;
+  status: FutureStatus;
+  completedAt: string | null;
+  /** What stayed with them, once it is done. Vocabulary varies by type. */
+  heartTags: string[];
   createdAt: string;
 }
 
 // ---------------------------------------------------------------------------
-// Immediate response (§31)
+// 感情クエスト
+// ---------------------------------------------------------------------------
+
+export type FlowStage = 'rain' | 'river' | 'ocean' | 'cloud';
+
+export const FLOW_STAGES: readonly FlowStage[] = ['rain', 'river', 'ocean', 'cloud'];
+
+/**
+ * One run through the four stages.
+ *
+ * Nothing here is written until the person presses 記録する at the end. A
+ * half-finished session that was abandoned was not a record they chose to
+ * keep.
+ */
+export interface FlowSession {
+  id: string;
+  /** Keyed by stage; a stage left blank is simply absent. */
+  entries: Partial<Record<FlowStage, string>>;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 見えてきたこと — what the records suggest
 // ---------------------------------------------------------------------------
 
 /**
- * The short line shown right after a save.
- *
- * One record never produces a progression, so this is deliberately small: what
- * was just left, named back plainly. No advice, no lesson, no trajectory.
+ * The kinds of 見立て. These are the labels the reading may use; it does not
+ * have to use all of them, and an empty one is left out rather than filled.
  */
-export interface Mirror {
-  logId: string;
-  line: string;
-  /** Set when this record joined a progression that already existed. */
-  joinedProgression?: { id: string; title: string } | undefined;
-  /** Set when this save is what turned separate points into a line (§32). */
-  emergedProgression?: { id: string; title: string; count: number } | undefined;
+export type InsightLabel =
+  | '積み上がったこと'
+  | '力が出る条件'
+  | '大切にしたいもの'
+  | '自分に合う進み方'
+  | '続けやすい方法'
+  | '心が向く方向'
+  | '思っていたこととの違い'
+  | '手がかり';
+
+/**
+ * One 見立てカード.
+ *
+ * `evidence` is not decoration: a card with one record behind it stays a
+ * 手がかり and says so, and a card with none is never produced at all.
+ */
+export interface MonthInsight {
+  id: string;
+  periodKey: string;
+  antennaId: AntennaId;
+  label: InsightLabel;
+  text: string;
+  /** What this changes about the next decision. */
+  why: string;
+  /** What has not been confirmed yet. Not a task, and never a shortfall. */
+  note: string;
+  evidenceLogIds: string[];
+}
+
+/**
+ * 今の仮説 — only when at least two cards each have two or more records
+ * behind them. Always hedged; never stated as fact.
+ */
+export interface MonthHypothesis {
+  periodKey: string;
+  text: string;
+  updatedAt: string;
+}
+
+/** 月次サマリー — exactly three words, and two sentences ending 「〜月。」 */
+export interface MonthSummary {
+  periodKey: string;
+  keywords: string[];
+  body: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 足跡タイトル
+// ---------------------------------------------------------------------------
+
+export type PeriodType = 'month' | 'year';
+export type TitleSource = 'manual' | 'ai';
+
+/**
+ * The name given to a period after living it.
+ *
+ * Periods that predate the app can be titled by hand, which is why this is not
+ * gated on there being records.
+ */
+export interface PeriodTitle {
+  periodType: PeriodType;
+  /** `YYYY-MM` or `YYYY`. */
+  periodKey: string;
+  title: string;
+  source: TitleSource;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Input payloads
+// ---------------------------------------------------------------------------
+
+export interface NewLogInput {
+  body: string;
+  occurredOn: string | null;
+  periodKey: string;
+  categoryId?: string | null;
+  detailId?: string | null;
+  inputMethod?: InputMethod;
+  source?: LogSource;
+  sourceId?: string | null;
+}
+
+export interface NewFutureMemoInput {
+  type: FutureType;
+  title: string;
+  memo?: string;
+  targetDate?: string | null;
+  dateKind?: DateKind;
+  favorite?: boolean;
 }

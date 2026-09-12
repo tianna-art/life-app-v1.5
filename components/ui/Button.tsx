@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
 import { HIT_SLOP, MIN_TOUCH, colors, fonts, radii, spacing } from '@/theme';
 
-interface BrassButtonProps {
+interface ButtonProps {
   label: string;
   onPress: () => void;
   variant?: 'outline' | 'solid' | 'quiet';
@@ -11,7 +11,7 @@ interface BrassButtonProps {
   testID?: string;
 }
 
-export function BrassButton({
+export function Button({
   label,
   onPress,
   variant = 'outline',
@@ -19,7 +19,7 @@ export function BrassButton({
   accessibilityHint,
   style,
   testID,
-}: BrassButtonProps) {
+}: ButtonProps) {
   return (
     <Pressable
       testID={testID}
@@ -55,24 +55,26 @@ export function BrassButton({
 const styles = StyleSheet.create({
   base: {
     minHeight: MIN_TOUCH,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brassDim,
+    borderColor: colors.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  solid: { backgroundColor: colors.brassFaint, borderColor: colors.brass },
+  // The one filled control: brown ground, cream type. Used for the single
+  // action a screen is actually for, never for two things side by side.
+  solid: { backgroundColor: colors.brown, borderColor: colors.brown },
   quiet: { borderColor: 'transparent' },
   pressed: { opacity: 0.62 },
-  disabled: { borderColor: colors.frame, opacity: 0.5 },
+  disabled: { borderColor: colors.hairline, opacity: 0.5 },
   label: {
     fontFamily: fonts.sans,
     fontSize: 14,
-    letterSpacing: 1.1,
-    color: colors.ivory,
+    letterSpacing: 0.4,
+    color: colors.brown,
   },
-  labelSolid: { color: colors.brass },
-  labelDisabled: { color: colors.ivoryFaint },
+  labelSolid: { color: colors.onBrown },
+  labelDisabled: { color: colors.brownFaint },
 });

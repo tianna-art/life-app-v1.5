@@ -1,67 +1,66 @@
 /**
- * crincran theme — "暗めの西洋美術館 × プラネタリウム × 古い天体図".
+ * crincran theme — 生成り色の紙と、焦茶の字。
+ *
+ * The previous theme was a dark museum at night. This one is its opposite and
+ * the two must not be mixed: a single leftover ivory-on-black surface reads as
+ * a different app. The tokens below are the whole palette — nothing outside
+ * this file should name a colour.
  *
  * Rules encoded here:
- *  - deep black / midnight-navy grounds
- *  - ivory type
- *  - muted, antique brass gold used sparingly (accent, never fill)
- *  - serif for display, sans for controls
- *  - generous negative space
+ *  - cream ground, paper for anything lifted off it
+ *  - butter yellow carries 方向 (the year plate and the month plate inside it)
+ *  - brown is type and the ground of dark buttons; brown-deep is for reversed
+ *    surfaces only, because as a fill it reads black
+ *  - orange is the accent: the name of a kind, and the way into something unset
+ *  - moss is decoration only; water belongs to 感情クエスト and nowhere else
+ *  - a selected tab is a thin frame and brown type, never a filled block
  */
 import { Platform } from 'react-native';
 
 export const colors = {
-  /** Deepest ground — the gallery at night. */
-  ink: '#07080D',
-  /** Midnight navy, one step up from the ground. */
-  night: '#0C1018',
-  /** Raised surfaces: sheets, composer, cards. */
-  surface: '#12161F',
-  /** Hairlines and frames. */
-  frame: '#242B38',
-  frameSoft: 'rgba(214, 205, 184, 0.10)',
+  /** The ground. */
+  cream: '#FAF6EC',
+  /** One step up from the ground: cards, sheets, the month plate. */
+  paper: '#FFFDF6',
+  /** 方向 — the year plate, and the band that carries it. */
+  butter: '#FDF7BD',
+  butterSoft: '#FBEFB8',
 
-  /** Primary type — warm ivory, never pure white. */
-  ivory: '#EDE7DA',
-  /** Secondary type. */
-  ivoryDim: 'rgba(237, 231, 218, 0.62)',
-  /** Tertiary type / captions. */
-  ivoryFaint: 'rgba(237, 231, 218, 0.38)',
+  /** Type, and the fill of dark buttons. */
+  brown: '#534022',
+  /** Reversed surfaces only. As a fill this reads black, so never a card. */
+  brownDeep: '#392E1C',
+  brownDim: 'rgba(83, 64, 34, 0.62)',
+  brownFaint: 'rgba(83, 64, 34, 0.36)',
+  /** The only rule colour. */
+  hairline: 'rgba(83, 64, 34, 0.16)',
 
-  /** Antique brass. Accent only. */
-  brass: '#C2A15C',
-  brassDim: 'rgba(194, 161, 92, 0.55)',
-  brassFaint: 'rgba(194, 161, 92, 0.18)',
+  /** Accent: the name of a kind, and the way into something not yet set. */
+  orange: '#DA7443',
+  orangeSoft: 'rgba(218, 116, 67, 0.14)',
 
-  /** Star light. */
-  star: '#F3EEE2',
-  starDim: 'rgba(243, 238, 226, 0.45)',
+  /** Decoration only — never type, never a state. */
+  moss: '#7C8A5F',
+  /** 感情クエスト only. */
+  water: '#4F8484',
 
-  /** Semantic edge line in the map — deliberately barely there. */
-  edge: 'rgba(194, 161, 92, 0.22)',
-  edgeSemantic: 'rgba(160, 178, 214, 0.20)',
+  /** Text on brown. */
+  onBrown: '#FAF6EC',
 
+  scrim: 'rgba(57, 46, 28, 0.34)',
   danger: '#B4635A',
-  scrim: 'rgba(4, 5, 9, 0.86)',
 } as const;
 
 export const fonts = {
-  /** Display serif — museum plaque. */
   serif: Platform.select({
-    ios: 'Times New Roman',
+    ios: 'Hiragino Mincho ProN',
     android: 'serif',
-    default: 'Georgia, "Times New Roman", serif',
+    default: 'Georgia, "Times New Roman", "Hiragino Mincho ProN", serif',
   }) as string,
-  serifItalic: Platform.select({
-    ios: 'Times New Roman',
-    android: 'serif',
-    default: 'Georgia, serif',
-  }) as string,
-  /** UI sans — controls and body. */
   sans: Platform.select({
     ios: 'System',
     android: 'sans-serif',
-    default: 'system-ui, -apple-system, "Helvetica Neue", sans-serif',
+    default: 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif',
   }) as string,
 } as const;
 
@@ -72,61 +71,62 @@ export const spacing = {
   lg: 24,
   xl: 36,
   xxl: 56,
-  /** Generous gallery margin. */
-  gallery: 28,
+  /** The side margin. Every screen keeps this, and nothing indents past it. */
+  gallery: 24,
 } as const;
 
 export const radii = {
-  sm: 6,
-  md: 12,
-  lg: 20,
+  sm: 8,
+  md: 16,
+  lg: 22,
+  xl: 26,
   pill: 999,
 } as const;
 
 export const type = {
-  /** SEPTEMBER 2026 */
+  /** Small caps-ish label above a block. */
   eyebrow: {
     fontFamily: fonts.sans,
-    fontSize: 12,
-    letterSpacing: 3.4,
-    color: colors.ivoryFaint,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    color: colors.brownFaint,
   },
-  /** Monthly / yearly titles. */
+  /** Screen and section headings. */
   display: {
     fontFamily: fonts.serif,
-    fontSize: 26,
-    lineHeight: 34,
-    color: colors.ivory,
+    fontSize: 22,
+    lineHeight: 31,
+    color: colors.brown,
   },
   displaySmall: {
     fontFamily: fonts.serif,
-    fontSize: 20,
-    lineHeight: 28,
-    color: colors.ivory,
+    fontSize: 17,
+    lineHeight: 25,
+    color: colors.brown,
   },
   body: {
     fontFamily: fonts.sans,
     fontSize: 15,
-    lineHeight: 23,
-    color: colors.ivory,
+    lineHeight: 24,
+    color: colors.brown,
   },
   bodyDim: {
     fontFamily: fonts.sans,
     fontSize: 14,
     lineHeight: 22,
-    color: colors.ivoryDim,
+    color: colors.brownDim,
   },
   caption: {
     fontFamily: fonts.sans,
     fontSize: 12,
-    lineHeight: 18,
-    color: colors.ivoryFaint,
+    lineHeight: 19,
+    color: colors.brownFaint,
   },
   control: {
     fontFamily: fonts.sans,
     fontSize: 14,
-    letterSpacing: 0.6,
-    color: colors.ivory,
+    letterSpacing: 0.4,
+    color: colors.brown,
   },
 } as const;
 

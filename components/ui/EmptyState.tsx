@@ -20,10 +20,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    fontFamily: fonts.serif,
-    fontSize: 15,
-    lineHeight: 26,
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 22,
     textAlign: 'center',
-    color: colors.ivoryFaint,
+    color: colors.brownFaint,
   },
 });

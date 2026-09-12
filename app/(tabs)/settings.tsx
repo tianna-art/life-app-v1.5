@@ -3,20 +3,19 @@ import { colors, fonts, spacing } from '@/theme';
 import { Screen } from '@components/ui/Screen';
 
 /**
- * 方向性マップ — home. 現在地 / 月次 / 年次, with 現在地 first.
+ * マイページ — 通知 / 記録の書き出し / アカウント.
  *
- * Phase 3 builds the three bands: ビジョンボード, 1 方向を定める,
- * 2 今を見つめる, 3 足跡がつく. This is the empty frame they land in.
+ * ビジョンボード does not live here: it opens and closes on the map.
  */
-export default function MapScreen() {
+export default function SettingsScreen() {
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.heading} accessibilityRole="header">
-          方向性マップ
+          マイページ
         </Text>
         <View style={styles.placeholder}>
-          <Text style={styles.note}>現在地・月次・年次はこれから置きます。</Text>
+          <Text style={styles.note}>通知・記録の書き出し・アカウントはこれから置きます。</Text>
         </View>
       </ScrollView>
     </Screen>

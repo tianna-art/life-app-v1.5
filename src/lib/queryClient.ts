@@ -1,19 +1,20 @@
 import { QueryClient } from '@tanstack/react-query';
 
 export const queryKeys = {
-  monthLogs: (monthKey: string) => ['logs', 'month', monthKey] as const,
-  yearLogs: (yearKey: string) => ['logs', 'year', yearKey] as const,
-  log: (id: string) => ['log', id] as const,
+  vision: () => ['vision'] as const,
   yearDirection: (year: number) => ['year-direction', year] as const,
-  monthTheme: (year: number, month: number) => ['month-theme', year, month] as const,
-  yearReview: (year: number) => ['year-review', year] as const,
-  gains: () => ['gains'] as const,
-  progressions: () => ['progressions'] as const,
-  monthProgressions: (monthKey: string) => ['progressions', 'month', monthKey] as const,
-  progressionDetail: (id: string) => ['progressions', 'detail', id] as const,
-  monthChanges: (monthKey: string) => ['changes', 'month', monthKey] as const,
-  monthReview: (periodKey: string) => ['review', periodKey] as const,
-  monthReviews: (yearKey: string) => ['review', 'year', yearKey] as const,
+  yearDirectionHistory: (year: number) => ['year-direction', year, 'history'] as const,
+  monthDirection: (periodKey: string) => ['month-direction', periodKey] as const,
+  categories: () => ['categories'] as const,
+  monthLogs: (periodKey: string) => ['logs', 'month', periodKey] as const,
+  yearLogs: (year: number) => ['logs', 'year', year] as const,
+  logs: (ids: string[]) => ['logs', 'by-id', ...ids] as const,
+  futureMemos: () => ['future-memos'] as const,
+  lastFlowSession: () => ['flow', 'last'] as const,
+  monthSummary: (periodKey: string) => ['reading', 'summary', periodKey] as const,
+  monthInsights: (periodKey: string) => ['reading', 'insights', periodKey] as const,
+  monthHypothesis: (periodKey: string) => ['reading', 'hypothesis', periodKey] as const,
+  periodTitles: (periodType: 'month' | 'year') => ['period-titles', periodType] as const,
   outbox: () => ['outbox'] as const,
 } as const;
 

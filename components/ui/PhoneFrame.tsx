@@ -67,7 +67,7 @@ export function PhoneOverlay({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  bare: { flex: 1, backgroundColor: colors.ink },
+  bare: { flex: 1, backgroundColor: colors.cream },
   wall: {
     flex: 1,
     backgroundColor: '#000000',
@@ -82,9 +82,9 @@ const styles = StyleSheet.create({
   },
   overlayPlate: { overflow: 'hidden', backgroundColor: 'transparent' },
   plate: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.cream,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.frameSoft,
+    borderColor: colors.hairline,
     overflow: 'hidden',
   },
 });
